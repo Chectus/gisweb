@@ -5,18 +5,92 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Карта Забайкалья | Лаборатория ГИС</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    
     <style>
-        #map {
+        body, html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        /* Главный контейнер для карты и сайдбара */
+        .wrapper {
+            display: flex;
             height: calc(100vh - 56px);
+            width: 100vw;
+            position: relative;
+        }
+        /* Боковая панель */
+        #sidebar {
+            width: 350px;
+            min-width: 350px;
+            max-width: 350px;
+            background-color: #ffffff;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        /* Скрытый сайдбар сдвигается влево */
+        #sidebar.collapsed {
+            margin-left: -350px;
+        }
+        /* Контейнер карты */
+        #map {
+            flex-grow: 1;
+            height: 100%;
             width: 100%;
+            z-index: 1;
+        }
+        /* Кнопка переключения панели */
+        #sidebarCollapse {
+            position: absolute;
+            top: 20px;
+            left: 370px;
+            z-index: 1001;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        #sidebar.collapsed + #sidebarCollapse {
+            left: 20px;
         }
         .leaflet-attribution-flag {
             display: none !important;
         }
+        /* Стили для ползунка */
+        .range-value {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        /* Контейнер для всплывающего уведомления */
+        #customToast {
+            position: absolute;
+            top: -100px; /* Изначально спрятан выше экрана */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000; /* Чтобы был поверх карты и сайдбара */
+            min-width: 320px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Плавный вылет с отскоком */
+        }
+
+        /* Класс, который мы будем включать через JS для показа */
+        #customToast.show {
+            top: 20px;
+        }
+
+        /* Класс для уплывания наверх */
+        #customToast.fade-up {
+            top: -100px;
+            opacity: 0;
+            transition: all 0.5s ease-in;
+        }
     </style>
 </head>
 <body>
+
     <nav class="navbar navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand shadow-sm" href="/hub">← Назад в Хаб</a>
@@ -24,46 +98,232 @@
         </div>
     </nav>
 
-    <div id="map"></div>
+    <div class="wrapper">
+        <nav id="sidebar" class="p-3 bg-white border-end">
+            <div class="sidebar-header border-bottom pb-2 mb-3">
+                <h5 class="fw-bold mb-0"><i class="bi bi-cpu-fill text-primary me-2"></i>Анализ рельефа</h5>
+            </div>
+
+            <div class="sidebar-content flex-grow-1">
+                <div class="mb-4">
+                    <label class="form-label fw-semibold mb-2"><i class="bi bi-cloud-upload me-1"></i>Шаг 1: Загрузка исходных данных</label>
+                    <div class="input-group">
+                        <input type="file" class="form-control" id="cmrFile" accept=".tif,.tiff,.png,.jpg">
+                    </div>
+                    <div class="form-text">Поддерживаются форматы TIFF</div>
+                    
+                    <div id="fileInfoBox" class="alert alert-success d-none mt-2 py-2 px-3 small" role="alert">
+                        <i class="bi bi-check-circle-fill me-1"></i> Файл загружен локально!
+                        <div id="fileNameDisplay" class="fw-bold mt-1 text-truncate"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="resolutionRange" class="form-label fw-semibold d-flex justify-content-between mb-1">
+                        <span><i class="bi bi-sliders me-1"></i>Шаг 2: Разрешение ЦМР</span>
+                        <span class="range-value"><span id="rangeVal">120</span> м/пкс</span>
+                    </label>
+                    <input type="range" class="form-range" id="resolutionRange" min="60" max="3000" step="30" value="120">
+                    <div class="d-flex justify-content-between text-muted small px-1">
+                        <span>60м</span>
+                        <span>1500м</span>
+                        <span>3000м</span>
+                    </div>
+                    
+                    <div id="recommendationAlert" class="alert alert-info py-2 px-3 mt-2 small" role="alert">
+                        <i class="bi bi-info-circle-fill me-1"></i> <span id="recommendationText">Рекомендуется использовать Нейросеть.</span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold mb-2"><i class="bi bi-lightning-charge-fill me-1"></i>Шаг 3: Обработка</label>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-success text-start" id="btnAlgo">
+                            <i class="bi bi-calculator me-2"></i> Использовать алгоритм
+                        </button>
+                        <button type="button" class="btn btn-outline-primary text-start" id="btnNeural">
+                            <i class="bi bi-diagram-3 me-2"></i> Использовать нейросеть
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-4 border-top pt-3">
+                    <label class="form-label fw-semibold mb-2"><i class="bi bi-layers-half me-1"></i>Шаг 4: Визуализация</label>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-secondary disabled btn-sm" id="btnLineaments">
+                            Показать линеаменты
+                        </button>
+                        <button type="button" class="btn btn-dark disabled btn-sm" id="btnForecast">
+                            Сделать прогноз месторождений
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <button type="button" id="sidebarCollapse" class="btn btn-light border">
+            <i class="bi bi-chevron-left" id="toggleIcon"></i>
+        </button>
+<div id="customToast" class="card border-0 rounded-3 bg-dark text-white p-3">
+    <div class="d-flex align-items-center">
+        <div id="toastIcon" class="spinner-border spinner-border-sm text-primary me-3" role="status"></div>
+        <div id="toastText" class="fw-medium">Обработка данных...</div>
+    </div>
+</div>
+        <div id="map"></div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    const map = L.map('map').setView([52.03, 113.50], 6);
+    <script>
+        // 1. Инициализация карты
+        const map = L.map('map', { zoomControl: false }).setView([52.03, 113.50], 6);
+        // Добавляем зум, но уже в нижний левый угол (bottomleft). Что бы он не мешался для показать/скрыть кнопки
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-    const openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    });
+        const openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        });
+        openStreetMap.addTo(map);
 
-    openStreetMap.addTo(map);
+        // Слои NextGIS
+        const geologyRaster = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=88,90,86,92,84,82,80,78&nd=204&z={z}&x={x}&y={y}', {
+            attribution: '&copy; NextGIS Растры',
+            opacity: 0.8
+        });
+        const mapBorders = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=72,70,74,76,101,94&nd=204&z={z}&x={x}&y={y}', {
+            attribution: '&copy; NextGIS Границы'
+        });
+        const gridLines = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=98,96&nd=204&z={z}&x={x}&y={y}', {
+            attribution: '&copy; NextGIS Сетка'
+        });
 
-    const geologyRaster = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=88,90,86,92,84,82,80,78&nd=204&z={z}&x={x}&y={y}', {
-        attribution: '&copy; NextGIS Растры',
-        opacity: 0.8
-    });
+        geologyRaster.addTo(map);
+        mapBorders.addTo(map);
+        gridLines.addTo(map);
 
-    const mapBorders = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=72,70,74,76,101,94&nd=204&z={z}&x={x}&y={y}', {
-        attribution: '&copy; NextGIS Границы'
-    });
+        const baseMaps = { "OpenStreetMap": openStreetMap };
+        const overlayMaps = {
+            "Геологические растры": geologyRaster,
+            "Контуры и границы": mapBorders,
+            "Координатная сетка": gridLines
+        };
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-    const gridLines = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=98,96&nd=204&z={z}&x={x}&y={y}', {
-        attribution: '&copy; NextGIS Сетка'
-    });
+        // 2. Логика Сайдбара (Свернуть/Развернуть)
+        const sidebar = document.getElementById('sidebar');
+        const sidebarCollapse = document.getElementById('sidebarCollapse');
+        const toggleIcon = document.getElementById('toggleIcon');
 
-    geologyRaster.addTo(map);
-    mapBorders.addTo(map);
-    gridLines.addTo(map);
+        sidebarCollapse.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            if (sidebar.classList.contains('collapsed')) {
+                toggleIcon.className = 'bi bi-chevron-right';
+            } else {
+                toggleIcon.className = 'bi bi-chevron-left';
+            }
+            // Обновляем размер карты Leaflet после анимации сдвига
+            setTimeout(() => { map.invalidateSize(); }, 300);
+        });
 
-    const baseMaps = {
-        "OpenStreetMap": openStreetMap
-    };
+        // 3. Управление ползунком разрешения и подсказками
+        const range = document.getElementById('resolutionRange');
+        const rangeVal = document.getElementById('rangeVal');
+        const recText = document.getElementById('recommendationText');
+        const recAlert = document.getElementById('recommendationAlert');
 
-    const overlayMaps = {
-        "Геологические растры": geologyRaster,
-        "Контуры и границы": mapBorders,
-        "Координатная сетка": gridLines
-    };
+        range.addEventListener('input', (e) => {
+            const val = e.target.value;
+            rangeVal.innerText = val;
+            
+            if (val <= 300) {
+                recText.innerText = "Маленькое разрешение. Лучше использовать Нейросеть.";
+                recAlert.className = "alert alert-info py-2 px-3 mt-2 small";
+            } else {
+                recText.innerText = "Большое разрешение. Рекомендуется использовать Алгоритм.";
+                recAlert.className = "alert alert-warning py-2 px-3 mt-2 small";
+            }
+        });
 
-    L.control.layers(baseMaps, overlayMaps).addTo(map);
-</script>
+        // 4. Логика симуляции загрузки локальной ЦМР
+        const fileInput = document.getElementById('cmrFile');
+        const fileInfoBox = document.getElementById('fileInfoBox');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const btnLineaments = document.getElementById('btnLineaments');
+        const btnForecast = document.getElementById('btnForecast');
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                fileNameDisplay.innerText = file.name;
+                fileInfoBox.classList.remove('d-none');
+                
+                // Если имя содержит чукотка/chukotka — улетим на координаты Чукотки для вау-эффекта
+                if (file.name.toLowerCase().includes('чукот') || file.name.toLowerCase().includes('chukot')) {
+                    
+                    map.setView([66.0, 172.0], 5); // Координаты Чукотки
+                } else {
+                    // Иначе просто центрируем на Забайкалье
+                    map.setView([52.03, 113.50], 6);
+                }
+                
+                // Активируем кнопки финальных действий
+                btnLineaments.classList.remove('disabled');
+                btnForecast.classList.remove('disabled');
+            }
+        });
+
+        // Интерактив на клики кнопок обработки
+        // Функция для запуска нашей крутой анимации уведомления
+        function showGisNotification(startText, successText) {
+            const toast = document.getElementById('customToast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastText = document.getElementById('toastText');
+
+            // Сбрасываем старые классы, если они были
+            toast.classList.remove('fade-up', 'show');
+            
+            // Ставим начальное состояние: крутилка (3 точки / спиннер) и текст запуска
+            toastIcon.className = "spinner-border spinner-border-sm text-info me-3";
+            toastText.innerText = startText;
+
+            // 1. Выкатываем уведомление сверху
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 50);
+
+            // 2. Ждем 2.5 секунды (имитация работы), меняем иконку на зелёную галочку и обновляем текст
+            setTimeout(() => {
+                toastIcon.className = "bi bi-check-circle-fill text-success fs-5 me-3";
+                toastText.innerText = successText;
+            }, 2500);
+
+            // 3. Ждем еще 1.5 секунды (пока пользователь видит галочку) и уплываем наверх
+            setTimeout(() => {
+                toast.classList.add('fade-up');
+            }, 4000);
+        }
+
+        // Привязываем функцию к кнопкам шага 3 (Обработка)
+        document.getElementById('btnAlgo').addEventListener('click', () => {
+            showGisNotification('Математический алгоритм анализирует рельеф...', 'Линеаменты успешно выделены алгоритмом!');
+        });
+
+        document.getElementById('btnNeural').addEventListener('click', () => {
+            showGisNotification('Нейросеть фильтрует шум и ищет микроразломы...', 'Нейросетевой анализ завершен!');
+        });
+
+        // Привязываем к кнопкам шага 4 (Визуализация)
+        btnLineaments.addEventListener('click', () => {
+            if (!btnLineaments.classList.contains('disabled')) {
+                showGisNotification('Отрисовка векторной сети...', 'Сеть линеаментов добавлена на карту!');
+            }
+        });
+
+        btnForecast.addEventListener('click', () => {
+            if (!btnForecast.classList.contains('disabled')) {
+                showGisNotification('Расчёт вероятностных зон месторождений...', 'Прогноз рассчитан! Тепловая карта готова.');
+            }
+        });
+    </script>
 </body>
 </html>
