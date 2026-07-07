@@ -4,8 +4,8 @@ app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_laboratory_gis'
 
 USERS = {
-    'admin': 'secret',
-    'sanya': 'kectus',
+    'admin': 'admin',
+    'kectus': 'aboba',
     'luchik': 'aboba'
 }
 
