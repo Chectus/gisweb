@@ -5,7 +5,8 @@ app.secret_key = 'super_secret_key_for_laboratory_gis'
 
 USERS = {
     'admin': 'secret',
-    'sanya': 'kectus'
+    'sanya': 'kectus',
+    'luchik': 'aboba'
 }
 
 @app.route('/')
