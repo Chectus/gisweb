@@ -41,6 +41,12 @@ def map_page():
         return redirect(url_for('login'))
     return render_template('map.html')
 
+@app.route('/docs')
+def docs():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('docs.html')
+
 @app.route('/logout')
 def logout():
     session.pop('user', None)
