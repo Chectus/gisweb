@@ -119,7 +119,7 @@
                 </div>
 
                 <div class="mb-4">
-                    <label for="resolutionRange" class="form-label fw-semibold d-flex justify-content-between mb-1">
+                    <label class="form-label fw-semibold d-flex justify-content-between mb-1" for="resolutionRange">
                         <span><i class="bi bi-sliders me-1"></i>Шаг 2: Разрешение ЦМР</span>
                         <span class="range-value"><span id="rangeVal">120</span> м/пкс</span>
                     </label>
@@ -164,12 +164,12 @@
         <button type="button" id="sidebarCollapse" class="btn btn-light border">
             <i class="bi bi-chevron-left" id="toggleIcon"></i>
         </button>
-<div id="customToast" class="card border-0 rounded-3 bg-dark text-white p-3">
-    <div class="d-flex align-items-center">
-        <div id="toastIcon" class="spinner-border spinner-border-sm text-primary me-3" role="status"></div>
-        <div id="toastText" class="fw-medium">Обработка данных...</div>
-    </div>
-</div>
+        <div id="customToast" class="card border-0 rounded-3 bg-dark text-white p-3">
+            <div class="d-flex align-items-center">
+                <div id="toastIcon" class="spinner-border spinner-border-sm text-primary me-3" role="status"></div>
+                <div id="toastText" class="fw-medium">Обработка данных...</div>
+            </div>
+        </div>
         <div id="map"></div>
     </div>
 
@@ -177,7 +177,8 @@
     <script>
         // 1. Инициализация карты
         const map = L.map('map', { zoomControl: false }).setView([52.03, 113.50], 6);
-        // Добавляем зум, но уже в нижний левый угол (bottomleft). Что бы он не мешался для показать/скрыть кнопки
+        
+        // Переносим зум в нижний левый угол
         L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
         const openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -185,24 +186,37 @@
         });
         openStreetMap.addTo(map);
 
-        // Слои NextGIS
-        const geologyRaster = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=88,90,86,92,84,82,80,78&nd=204&z={z}&x={x}&y={y}', {
+        // --- Слои NextGIS ---
+        // (Если у тебя NextGIS крутится не на localhost, замени "localhost:8080" на IP своего сервера, например "213.171.24.19:8081")
+        const nextgisBaseUrl = 'http://localhost:8080'; 
+
+        // Твой новый слой векторных границ Забайкальского края (ID: 3)
+        const zabaykalskyBorder = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=3&nd=204&z={z}&x={x}&y={y}`, {
+            attribution: '&copy; NextGIS Забайкальский край',
+            opacity: 0.9
+        });
+
+        const geologyRaster = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=88,90,86,92,84,82,80,78&nd=204&z={z}&x={x}&y={y}`, {
             attribution: '&copy; NextGIS Растры',
             opacity: 0.8
         });
-        const mapBorders = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=72,70,74,76,101,94&nd=204&z={z}&x={x}&y={y}', {
+        const mapBorders = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=72,70,74,76,101,94&nd=204&z={z}&x={x}&y={y}`, {
             attribution: '&copy; NextGIS Границы'
         });
-        const gridLines = L.tileLayer('http://localhost:8080/api/component/render/tile?resource=98,96&nd=204&z={z}&x={x}&y={y}', {
+        const gridLines = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=98,96&nd=204&z={z}&x={x}&y={y}`, {
             attribution: '&copy; NextGIS Сетка'
         });
 
+        // Добавляем слои на карту по умолчанию
+        zabaykalskyBorder.addTo(map);
         geologyRaster.addTo(map);
         mapBorders.addTo(map);
         gridLines.addTo(map);
 
+        // Настройка панели управления слоями (в правом верхнем углу)
         const baseMaps = { "OpenStreetMap": openStreetMap };
         const overlayMaps = {
+            "Граница Забайкальского края": zabaykalskyBorder,  // Наш новый слой в списке!
             "Геологические растры": geologyRaster,
             "Контуры и границы": mapBorders,
             "Координатная сетка": gridLines
@@ -221,7 +235,6 @@
             } else {
                 toggleIcon.className = 'bi bi-chevron-left';
             }
-            // Обновляем размер карты Leaflet после анимации сдвига
             setTimeout(() => { map.invalidateSize(); }, 300);
         });
 
@@ -257,53 +270,43 @@
                 fileNameDisplay.innerText = file.name;
                 fileInfoBox.classList.remove('d-none');
                 
-                // Если имя содержит чукотка/chukotka — улетим на координаты Чукотки для вау-эффекта
                 if (file.name.toLowerCase().includes('чукот') || file.name.toLowerCase().includes('chukot')) {
-                    
-                    map.setView([66.0, 172.0], 5); // Координаты Чукотки
+                    map.setView([66.0, 172.0], 5); 
                 } else {
-                    // Иначе просто центрируем на Забайкалье
                     map.setView([52.03, 113.50], 6);
                 }
                 
-                // Активируем кнопки финальных действий
                 btnLineaments.classList.remove('disabled');
                 btnForecast.classList.remove('disabled');
             }
         });
 
-        // Интерактив на клики кнопок обработки
-        // Функция для запуска нашей крутой анимации уведомления
+        // 5. Функция для запуска уведомлений
         function showGisNotification(startText, successText) {
             const toast = document.getElementById('customToast');
             const toastIcon = document.getElementById('toastIcon');
             const toastText = document.getElementById('toastText');
 
-            // Сбрасываем старые классы, если они были
             toast.classList.remove('fade-up', 'show');
             
-            // Ставим начальное состояние: крутилка (3 точки / спиннер) и текст запуска
             toastIcon.className = "spinner-border spinner-border-sm text-info me-3";
             toastText.innerText = startText;
 
-            // 1. Выкатываем уведомление сверху
             setTimeout(() => {
                 toast.classList.add('show');
             }, 50);
 
-            // 2. Ждем 2.5 секунды (имитация работы), меняем иконку на зелёную галочку и обновляем текст
             setTimeout(() => {
                 toastIcon.className = "bi bi-check-circle-fill text-success fs-5 me-3";
                 toastText.innerText = successText;
             }, 2500);
 
-            // 3. Ждем еще 1.5 секунды (пока пользователь видит галочку) и уплываем наверх
             setTimeout(() => {
                 toast.classList.add('fade-up');
             }, 4000);
         }
 
-        // Привязываем функцию к кнопкам шага 3 (Обработка)
+        // Привязываем функции к кнопкам обработки
         document.getElementById('btnAlgo').addEventListener('click', () => {
             showGisNotification('Математический алгоритм анализирует рельеф...', 'Линеаменты успешно выделены алгоритмом!');
         });
@@ -312,7 +315,6 @@
             showGisNotification('Нейросеть фильтрует шум и ищет микроразломы...', 'Нейросетевой анализ завершен!');
         });
 
-        // Привязываем к кнопкам шага 4 (Визуализация)
         btnLineaments.addEventListener('click', () => {
             if (!btnLineaments.classList.contains('disabled')) {
                 showGisNotification('Отрисовка векторной сети...', 'Сеть линеаментов добавлена на карту!');
