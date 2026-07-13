@@ -268,9 +268,7 @@
       const zabaykalskyBorder = L.vectorGrid
         .protobuf(mvtUrl, {
           vectorTileLayerStyles: {
-            // 'zabaykalsky_kray' или 'poa_subj' — имя слоя.
-            // Символзначащий прочерк означает применить стиль ко всем полигонам внутри MVT тайла.
-            _: {
+            'ngw:3': {
               color: "#0d6efd", // Синяя граница
               weight: 3, // Толщина линии
               fillColor: "#0d6efd",
@@ -288,7 +286,7 @@
         .protobuf(egorovMvtUrl, {
           vectorTileLayerStyles: {
             // Рендерим участок красивым оранжевым цветом
-            _: {
+            'ngw:5': {
               color: "#fd7e14", // Цвет линии
               weight: 3, // Толщина контура
               fillColor: "#fd7e14",
@@ -306,7 +304,7 @@
         .protobuf(katasonovMvtUrl, {
           vectorTileLayerStyles: {
             // Рендерим участок красивым оранжевым цветом
-            _: {
+            'ngw:7': {
               color: "#fd7e14", // Цвет линии
               weight: 3, // Толщина контура
               fillColor: "#fd7e14",
