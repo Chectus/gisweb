@@ -1,331 +1,388 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Карта Забайкалья | Лаборатория ГИС</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
     <style>
-        body, html {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-        }
-        /* Главный контейнер для карты и сайдбара */
-        .wrapper {
-            display: flex;
-            height: calc(100vh - 56px);
-            width: 100vw;
-            position: relative;
-        }
-        /* Боковая панель */
-        #sidebar {
-            width: 350px;
-            min-width: 350px;
-            max-width: 350px;
-            background-color: #ffffff;
-            z-index: 1000;
-            transition: all 0.3s ease;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        /* Скрытый сайдбар сдвигается влево */
-        #sidebar.collapsed {
-            margin-left: -350px;
-        }
-        /* Контейнер карты */
-        #map {
-            flex-grow: 1;
-            height: 100%;
-            width: 100%;
-            z-index: 1;
-        }
-        /* Кнопка переключения панели */
-        #sidebarCollapse {
-            position: absolute;
-            top: 20px;
-            left: 370px;
-            z-index: 1001;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        #sidebar.collapsed + #sidebarCollapse {
-            left: 20px;
-        }
-        .leaflet-attribution-flag {
-            display: none !important;
-        }
-        /* Стили для ползунка */
-        .range-value {
-            font-weight: bold;
-            color: #0d6efd;
-        }
-        /* Контейнер для всплывающего уведомления */
-        #customToast {
-            position: absolute;
-            top: -100px; /* Изначально спрятан выше экрана */
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 2000; /* Чтобы был поверх карты и сайдбара */
-            min-width: 320px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Плавный вылет с отскоком */
-        }
+      body,
+      html {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
 
-        /* Класс, который мы будем включать через JS для показа */
-        #customToast.show {
-            top: 20px;
-        }
+      .wrapper {
+        display: flex;
+        height: calc(100vh - 56px);
+        width: 100vw;
+        position: relative;
+      }
 
-        /* Класс для уплывания наверх */
-        #customToast.fade-up {
-            top: -100px;
-            opacity: 0;
-            transition: all 0.5s ease-in;
-        }
+      /* Широкий сайдбар слоев */
+      #layersSidebar {
+        width: 390px;
+        min-width: 390px;
+        max-width: 390px;
+        background-color: #ffffff;
+        z-index: 1000;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+      }
+
+      #layersSidebar.collapsed {
+        margin-left: -390px;
+      }
+
+      #map {
+        flex-grow: 1;
+        height: 100%;
+        width: 100%;
+        z-index: 1;
+      }
+
+      /* Кнопка открытия/закрытия */
+      #layersSidebarCollapse {
+        position: absolute;
+        top: 20px;
+        left: 410px;
+        z-index: 1001;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      #layersSidebar.collapsed + #layersSidebarCollapse {
+        left: 20px;
+      }
+
+      /* Фикс чекбоксов: добавляем отступ слева, чтобы иконки не резались */
+      .layer-item {
+        padding: 12px 14px 12px 42px !important;
+        border-radius: 8px;
+        transition:
+          background-color 0.2s,
+          border-color 0.2s;
+        border: 1px solid #e9ecef;
+        cursor: pointer;
+        position: relative;
+      }
+      .layer-item:hover {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+      }
+      .layer-item .form-check-input {
+        cursor: pointer;
+        margin-left: -28px;
+        float: left;
+        margin-top: 4px;
+      }
+
+      .leaflet-attribution-flag {
+        display: none !important;
+      }
+
+      /* Анимация переворота стрелки в аккордеоне */
+      button[aria-expanded="false"] .bi-chevron-down {
+        transform: rotate(-90deg);
+        transition: transform 0.2s ease;
+      }
+      button[aria-expanded="true"] .bi-chevron-down {
+        transform: rotate(0deg);
+        transition: transform 0.2s ease;
+      }
     </style>
-</head>
-<body>
-
+  </head>
+  <body>
     <nav class="navbar navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand shadow-sm" href="/hub">← Назад в Хаб</a>
-            <span class="navbar-text text-white">Рабочее пространство ГИС</span>
-        </div>
+      <div class="container-fluid">
+        <a class="navbar-brand shadow-sm" href="/hub">← Назад в Хаб</a>
+        <span class="navbar-text text-white">Рабочее пространство ГИС</span>
+      </div>
     </nav>
 
     <div class="wrapper">
-        <nav id="sidebar" class="p-3 bg-white border-end">
-            <div class="sidebar-header border-bottom pb-2 mb-3">
-                <h5 class="fw-bold mb-0"><i class="bi bi-cpu-fill text-primary me-2"></i>Анализ рельефа</h5>
-            </div>
-
-            <div class="sidebar-content flex-grow-1">
-                <div class="mb-4">
-                    <label class="form-label fw-semibold mb-2"><i class="bi bi-cloud-upload me-1"></i>Шаг 1: Загрузка исходных данных</label>
-                    <div class="input-group">
-                        <input type="file" class="form-control" id="cmrFile" accept=".tif,.tiff,.png,.jpg">
-                    </div>
-                    <div class="form-text">Поддерживаются форматы TIFF</div>
-                    
-                    <div id="fileInfoBox" class="alert alert-success d-none mt-2 py-2 px-3 small" role="alert">
-                        <i class="bi bi-check-circle-fill me-1"></i> Файл загружен локально!
-                        <div id="fileNameDisplay" class="fw-bold mt-1 text-truncate"></div>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label fw-semibold d-flex justify-content-between mb-1" for="resolutionRange">
-                        <span><i class="bi bi-sliders me-1"></i>Шаг 2: Разрешение ЦМР</span>
-                        <span class="range-value"><span id="rangeVal">120</span> м/пкс</span>
-                    </label>
-                    <input type="range" class="form-range" id="resolutionRange" min="60" max="3000" step="30" value="120">
-                    <div class="d-flex justify-content-between text-muted small px-1">
-                        <span>60м</span>
-                        <span>1500м</span>
-                        <span>3000м</span>
-                    </div>
-                    
-                    <div id="recommendationAlert" class="alert alert-info py-2 px-3 mt-2 small" role="alert">
-                        <i class="bi bi-info-circle-fill me-1"></i> <span id="recommendationText">Рекомендуется использовать Нейросеть.</span>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label fw-semibold mb-2"><i class="bi bi-lightning-charge-fill me-1"></i>Шаг 3: Обработка</label>
-                    <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-outline-success text-start" id="btnAlgo">
-                            <i class="bi bi-calculator me-2"></i> Использовать алгоритм
-                        </button>
-                        <button type="button" class="btn btn-outline-primary text-start" id="btnNeural">
-                            <i class="bi bi-diagram-3 me-2"></i> Использовать нейросеть
-                        </button>
-                    </div>
-                </div>
-
-                <div class="mb-4 border-top pt-3">
-                    <label class="form-label fw-semibold mb-2"><i class="bi bi-layers-half me-1"></i>Шаг 4: Визуализация</label>
-                    <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-secondary disabled btn-sm" id="btnLineaments">
-                            Показать линеаменты
-                        </button>
-                        <button type="button" class="btn btn-dark disabled btn-sm" id="btnForecast">
-                            Сделать прогноз месторождений
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
-        <button type="button" id="sidebarCollapse" class="btn btn-light border">
-            <i class="bi bi-chevron-left" id="toggleIcon"></i>
-        </button>
-        <div id="customToast" class="card border-0 rounded-3 bg-dark text-white p-3">
-            <div class="d-flex align-items-center">
-                <div id="toastIcon" class="spinner-border spinner-border-sm text-primary me-3" role="status"></div>
-                <div id="toastText" class="fw-medium">Обработка данных...</div>
-            </div>
+      <nav id="layersSidebar" class="p-3 bg-white border-end">
+        <div class="sidebar-header border-bottom pb-2 mb-3">
+          <h5 class="fw-bold mb-0">
+            <i class="bi bi-layers-half text-primary me-2"></i>Слои карты
+          </h5>
         </div>
-        <div id="map"></div>
+
+        <div class="sidebar-content flex-grow-1 overflow-auto">
+          <div class="mb-4">
+            <label
+              class="form-label fw-bold text-secondary small text-uppercase tracking-wider mb-2"
+              >Базовая карта (Подложка)</label
+            >
+            <div class="d-flex flex-column gap-2">
+              <div class="form-check layer-item d-flex align-items-center">
+                <input
+                  class="form-check-input me-3"
+                  type="radio"
+                  name="baseMapRadio"
+                  id="radOsm"
+                  checked
+                />
+                <label class="form-check-label flex-grow-1" for="radOsm">
+                  <strong class="d-block mb-1">OpenStreetMap</strong>
+                  <span class="text-muted small"
+                    >Стандартная карта дорог и населенных пунктов</span
+                  >
+                </label>
+              </div>
+              <div class="form-check layer-item d-flex align-items-center">
+                <input
+                  class="form-check-input me-3"
+                  type="radio"
+                  name="baseMapRadio"
+                  id="radSatellite"
+                />
+                <label class="form-check-label flex-grow-1" for="radSatellite">
+                  <strong class="d-block mb-1">Спутниковые снимки</strong>
+                  <span class="text-muted small"
+                    >Высокодетальная съемка местности из космоса</span
+                  >
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-secondary small text-uppercase tracking-wider mb-2">Слои данных NextGIS</label>
+            <div class="d-flex flex-column gap-2">
+              
+              <div class="form-check layer-item d-flex align-items-center">
+                <input class="form-check-input me-3" type="checkbox" id="chkBorder" checked />
+                <label class="form-check-label flex-grow-1" for="chkBorder">
+                  <strong class="d-block mb-1">Граница региона</strong>
+                  <span class="text-muted small">Векторный полигон Забайкальского края</span>
+                </label>
+              </div>
+
+              <div class="form-check layer-item d-flex align-items-center">
+                <input class="form-check-input me-3" type="checkbox" id="chkGeology" checked />
+                <label class="form-check-label flex-grow-1" for="chkGeology">
+                  <strong class="d-block mb-1">Геологические растры</strong>
+                  <span class="text-muted small">Данные растровой съемки</span>
+                </label>
+              </div>
+
+              <div class="border rounded-3 bg-light p-2 mt-2">
+                <button
+                  class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#geologistsCollapse"
+                  aria-expanded="true"
+                >
+                  <span><i class="bi bi-people-fill text-primary me-2"></i>Участки геологов</span>
+                  <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
+                </button>
+
+                <div class="collapse show" id="geologistsCollapse">
+                  <div class="d-flex flex-column gap-2 pt-2 px-1">
+                    
+                    <div class="form-check layer-item d-flex align-items-center bg-white shadow-sm py-2">
+                      <input class="form-check-input me-3" type="checkbox" id="chkEgorov" checked />
+                      <label class="form-check-label flex-grow-1" for="chkEgorov">
+                        <strong class="small d-block fw-semibold">А. Егоров</strong>
+                        <span class="text-muted x-small" style="font-size: 0.75rem">Личный рабочий участок</span>
+                      </label>
+                    </div>
+
+                    <div class="form-check layer-item d-flex align-items-center bg-white shadow-sm py-2">
+                      <input class="form-check-input me-3" type="checkbox" id="chkKatasonov" checked />
+                      <label class="form-check-label flex-grow-1" for="chkKatasonov">
+                        <strong class="small d-block fw-semibold">Н. Катасонов</strong>
+                        <span class="text-muted x-small" style="font-size: 0.75rem">Личный рабочий участок</span>
+                      </label>
+                    </div>
+
+                  </div>
+                </div>
+              </div> </div> </div> </div> <div class="sidebar-footer border-top pt-2 text-center text-muted small">
+          Сервер NextGIS: 213.171.24.19:8081
+        </div>
+      </nav> <button type="button" id="layersSidebarCollapse" class="btn btn-light border">
+        <i class="bi bi-chevron-left" id="layerToggleIcon"></i>
+      </button>
+
+      <div id="map"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-        // 1. Инициализация карты
-        const map = L.map('map', { zoomControl: false }).setView([52.03, 113.50], 6);
-        
-        // Переносим зум в нижний левый угол
-        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+      const nextgisBaseUrl = "http://213.171.24.19:8081";
 
-        const openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        });
-        openStreetMap.addTo(map);
+      // 1. Инициализация карты (Координаты Забайкалья зашиты намертво, noWrap спасет от дублирования мира)
+      const map = L.map("map", {
+        zoomControl: false,
+        minZoom: 3,
+        maxZoom: 18,
+      }).setView([52.03, 117.5], 6);
 
-        // --- Слои NextGIS ---
-        // (Если у тебя NextGIS крутится не на localhost, замени "localhost:8080" на IP своего сервера, например "213.171.24.19:8081")
-        const nextgisBaseUrl = 'http://localhost:8080'; 
+      L.control.zoom({ position: "bottomleft" }).addTo(map);
 
-        // Твой новый слой векторных границ Забайкальского края (ID: 3)
-        const zabaykalskyBorder = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=3&nd=204&z={z}&x={x}&y={y}`, {
-            attribution: '&copy; NextGIS Забайкальский край',
-            opacity: 0.9
-        });
+      // Подложки
+      const openStreetMap = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          attribution: "&copy; OpenStreetMap",
+          noWrap: true,
+        },
+      ).addTo(map);
 
-        const geologyRaster = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=88,90,86,92,84,82,80,78&nd=204&z={z}&x={x}&y={y}`, {
-            attribution: '&copy; NextGIS Растры',
-            opacity: 0.8
-        });
-        const mapBorders = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=72,70,74,76,101,94&nd=204&z={z}&x={x}&y={y}`, {
-            attribution: '&copy; NextGIS Границы'
-        });
-        const gridLines = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=98,96&nd=204&z={z}&x={x}&y={y}`, {
-            attribution: '&copy; NextGIS Сетка'
-        });
+      const satelliteMap = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          attribution: "Tiles &copy; Esri",
+          noWrap: true,
+        },
+      );
 
-        // Добавляем слои на карту по умолчанию
-        zabaykalskyBorder.addTo(map);
-        geologyRaster.addTo(map);
-        mapBorders.addTo(map);
-        gridLines.addTo(map);
+      // 2. ИНТЕГРАЦИЯ ГРАНИЦЫ ЧЕРЕЗ ССЫЛКУ MVT
+      const mvtUrl = `${nextgisBaseUrl}/api/component/feature_layer/mvt?resource=3&z={z}&x={x}&y={y}`;
 
-        // Настройка панели управления слоями (в правом верхнем углу)
-        const baseMaps = { "OpenStreetMap": openStreetMap };
-        const overlayMaps = {
-            "Граница Забайкальского края": zabaykalskyBorder,  // Наш новый слой в списке!
-            "Геологические растры": geologyRaster,
-            "Контуры и границы": mapBorders,
-            "Координатная сетка": gridLines
-        };
-        L.control.layers(baseMaps, overlayMaps).addTo(map);
+      const zabaykalskyBorder = L.vectorGrid
+        .protobuf(mvtUrl, {
+          vectorTileLayerStyles: {
+            // 'zabaykalsky_kray' или 'poa_subj' — имя слоя.
+            // Символзначащий прочерк означает применить стиль ко всем полигонам внутри MVT тайла.
+            _: {
+              color: "#0d6efd", // Синяя граница
+              weight: 3, // Толщина линии
+              fillColor: "#0d6efd",
+              fillOpacity: 0.08, // Легкая заливка
+              fill: true,
+            },
+          },
+        })
+        .addTo(map);
 
-        // 2. Логика Сайдбара (Свернуть/Развернуть)
-        const sidebar = document.getElementById('sidebar');
-        const sidebarCollapse = document.getElementById('sidebarCollapse');
-        const toggleIcon = document.getElementById('toggleIcon');
+      // Ссылка на слой Егорова (ресурс 5)
+      const egorovMvtUrl = `${nextgisBaseUrl}/api/component/feature_layer/mvt?resource=5&z={z}&x={x}&y={y}`;
 
-        sidebarCollapse.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-            if (sidebar.classList.contains('collapsed')) {
-                toggleIcon.className = 'bi bi-chevron-right';
-            } else {
-                toggleIcon.className = 'bi bi-chevron-left';
-            }
-            setTimeout(() => { map.invalidateSize(); }, 300);
-        });
+      const layerEgorov = L.vectorGrid
+        .protobuf(egorovMvtUrl, {
+          vectorTileLayerStyles: {
+            // Рендерим участок красивым оранжевым цветом
+            _: {
+              color: "#fd7e14", // Цвет линии
+              weight: 3, // Толщина контура
+              fillColor: "#fd7e14",
+              fillOpacity: 0.12, // Легкая прозрачная заливка
+              fill: true,
+            },
+          },
+        })
+        .addTo(map);
 
-        // 3. Управление ползунком разрешения и подсказками
-        const range = document.getElementById('resolutionRange');
-        const rangeVal = document.getElementById('rangeVal');
-        const recText = document.getElementById('recommendationText');
-        const recAlert = document.getElementById('recommendationAlert');
+      // Ссылка на слой Катасонова (ресурс 7)
+      const katasonovMvtUrl = `${nextgisBaseUrl}/api/component/feature_layer/mvt?resource=7&z={z}&x={x}&y={y}`;
 
-        range.addEventListener('input', (e) => {
-            const val = e.target.value;
-            rangeVal.innerText = val;
-            
-            if (val <= 300) {
-                recText.innerText = "Маленькое разрешение. Лучше использовать Нейросеть.";
-                recAlert.className = "alert alert-info py-2 px-3 mt-2 small";
-            } else {
-                recText.innerText = "Большое разрешение. Рекомендуется использовать Алгоритм.";
-                recAlert.className = "alert alert-warning py-2 px-3 mt-2 small";
-            }
-        });
+      const layerKatasonov = L.vectorGrid
+        .protobuf(katasonovMvtUrl, {
+          vectorTileLayerStyles: {
+            // Рендерим участок красивым оранжевым цветом
+            _: {
+              color: "#fd7e14", // Цвет линии
+              weight: 3, // Толщина контура
+              fillColor: "#fd7e14",
+              fillOpacity: 0.12, // Легкая прозрачная заливка
+              fill: true,
+            },
+          },
+        })
+        .addTo(map);
 
-        // 4. Логика симуляции загрузки локальной ЦМР
-        const fileInput = document.getElementById('cmrFile');
-        const fileInfoBox = document.getElementById('fileInfoBox');
-        const fileNameDisplay = document.getElementById('fileNameDisplay');
-        const btnLineaments = document.getElementById('btnLineaments');
-        const btnForecast = document.getElementById('btnForecast');
+      // ЦМР как растровый слой (90м)
+      const geologyRaster = L.tileLayer(
+        `${nextgisBaseUrl}/api/component/render/tile?resource=10&nd=204&z={z}&x={x}&y={y}`,
+        { noWrap: true },
+      ).addTo(map);
 
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                fileNameDisplay.innerText = file.name;
-                fileInfoBox.classList.remove('d-none');
-                
-                if (file.name.toLowerCase().includes('чукот') || file.name.toLowerCase().includes('chukot')) {
-                    map.setView([66.0, 172.0], 5); 
-                } else {
-                    map.setView([52.03, 113.50], 6);
-                }
-                
-                btnLineaments.classList.remove('disabled');
-                btnForecast.classList.remove('disabled');
-            }
-        });
+      // Остальные растровые слои NextGIS
+      const mapBorders = L.tileLayer(
+        `${nextgisBaseUrl}/api/component/render/tile?resource=72,70,74,76,101,94&nd=204&z={z}&x={x}&y={y}`,
+        { noWrap: true },
+      ).addTo(map);
+      const gridLines = L.tileLayer(
+        `${nextgisBaseUrl}/api/component/render/tile?resource=98,96&nd=204&z={z}&x={x}&y={y}`,
+        { noWrap: true },
+      ).addTo(map);
 
-        // 5. Функция для запуска уведомлений
-        function showGisNotification(startText, successText) {
-            const toast = document.getElementById('customToast');
-            const toastIcon = document.getElementById('toastIcon');
-            const toastText = document.getElementById('toastText');
+      // 3. Логика Сайдбара
+      const layersSidebar = document.getElementById("layersSidebar");
+      const layersSidebarCollapse = document.getElementById(
+        "layersSidebarCollapse",
+      );
+      const layerToggleIcon = document.getElementById("layerToggleIcon");
 
-            toast.classList.remove('fade-up', 'show');
-            
-            toastIcon.className = "spinner-border spinner-border-sm text-info me-3";
-            toastText.innerText = startText;
+      layersSidebarCollapse.addEventListener("click", () => {
+        layersSidebar.classList.toggle("collapsed");
+        layerToggleIcon.className = layersSidebar.classList.contains(
+          "collapsed",
+        )
+          ? "bi bi-chevron-right"
+          : "bi bi-chevron-left";
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 300);
+      });
 
-            setTimeout(() => {
-                toast.classList.add('show');
-            }, 50);
-
-            setTimeout(() => {
-                toastIcon.className = "bi bi-check-circle-fill text-success fs-5 me-3";
-                toastText.innerText = successText;
-            }, 2500);
-
-            setTimeout(() => {
-                toast.classList.add('fade-up');
-            }, 4000);
+      // 4. Переключение подложек
+      document.getElementById("radOsm").addEventListener("change", (e) => {
+        if (e.target.checked) {
+          map.addLayer(openStreetMap);
+          map.removeLayer(satelliteMap);
         }
-
-        // Привязываем функции к кнопкам обработки
-        document.getElementById('btnAlgo').addEventListener('click', () => {
-            showGisNotification('Математический алгоритм анализирует рельеф...', 'Линеаменты успешно выделены алгоритмом!');
+      });
+      document
+        .getElementById("radSatellite")
+        .addEventListener("change", (e) => {
+          if (e.target.checked) {
+            map.addLayer(satelliteMap);
+            map.removeLayer(openStreetMap);
+          }
         });
 
-        document.getElementById('btnNeural').addEventListener('click', () => {
-            showGisNotification('Нейросеть фильтрует шум и ищет микроразломы...', 'Нейросетевой анализ завершен!');
-        });
+      // 5. Переключение слоев
+      setupLayerToggle("chkBorder", zabaykalskyBorder);
+      setupLayerToggle("chkGeology", geologyRaster);
+      setupLayerToggle("chkEgorov", layerEgorov); // Наш геолог Егоров
+      setupLayerToggle("chkKatasonov", layerKatasonov);
 
-        btnLineaments.addEventListener('click', () => {
-            if (!btnLineaments.classList.contains('disabled')) {
-                showGisNotification('Отрисовка векторной сети...', 'Сеть линеаментов добавлена на карту!');
-            }
+      function setupLayerToggle(checkboxId, leafletLayer) {
+        document.getElementById(checkboxId).addEventListener("change", (e) => {
+          if (e.target.checked) {
+            map.addLayer(leafletLayer);
+          } else {
+            map.removeLayer(leafletLayer);
+          }
         });
-
-        btnForecast.addEventListener('click', () => {
-            if (!btnForecast.classList.contains('disabled')) {
-                showGisNotification('Расчёт вероятностных зон месторождений...', 'Прогноз рассчитан! Тепловая карта готова.');
-            }
-        });
+      }
     </script>
-</body>
+  </body>
 </html>
