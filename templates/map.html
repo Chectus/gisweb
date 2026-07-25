@@ -4,383 +4,382 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Карта Забайкалья | Лаборатория ГИС</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-    />
 
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
+    <!-- Стили Bootstrap и Иконки -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+    <!-- Стили Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
-      body,
-      html {
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-          Arial, sans-serif;
-      }
-
-      .wrapper {
-        display: flex;
-        height: calc(100vh - 56px);
-        width: 100vw;
-        position: relative;
-      }
-
-      /* Широкий сайдбар слоев */
+      body, html { height: 100%; margin: 0; overflow: hidden; }
+      .wrapper { display: flex; height: calc(100vh - 56px); width: 100vw; position: relative; }
+      
       #layersSidebar {
-        width: 390px;
-        min-width: 390px;
-        max-width: 390px;
-        background-color: #ffffff;
-        z-index: 1000;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 350px; min-width: 350px; max-width: 350px;
+        background-color: #ffffff; z-index: 1000;
+        transition: margin-left 0.3s ease;
         box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
-        display: flex;
-        flex-direction: column;
+        display: flex; flex-direction: column;
       }
+      #layersSidebar.collapsed { margin-left: -350px; }
 
-      #layersSidebar.collapsed {
-        margin-left: -390px;
-      }
-
-      #map {
-        flex-grow: 1;
-        height: 100%;
-        width: 100%;
-        z-index: 1;
-      }
-
-      /* Кнопка открытия/закрытия */
       #layersSidebarCollapse {
-        position: absolute;
-        top: 20px;
-        left: 410px;
-        z-index: 1001;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        position: absolute; top: 20px; left: 370px; z-index: 1001;
+        transition: left 0.3s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
       }
+      #layersSidebar.collapsed + #layersSidebarCollapse { left: 20px; }
 
-      #layersSidebar.collapsed + #layersSidebarCollapse {
-        left: 20px;
-      }
+      #map { flex-grow: 1; height: 100%; width: 100%; z-index: 1; }
 
-      /* Фикс чекбоксов: добавляем отступ слева, чтобы иконки не резались */
       .layer-item {
-        padding: 12px 14px 12px 42px !important;
-        border-radius: 8px;
-        transition:
-          background-color 0.2s,
-          border-color 0.2s;
-        border: 1px solid #e9ecef;
-        cursor: pointer;
-        position: relative;
+        padding: 8px 14px 8px 40px !important; border-radius: 8px;
+        border: 1px solid #e9ecef; cursor: pointer; transition: background-color 0.2s;
       }
-      .layer-item:hover {
-        background-color: #f8f9fa;
-        border-color: #dee2e6;
-      }
-      .layer-item .form-check-input {
-        cursor: pointer;
-        margin-left: -28px;
-        float: left;
-        margin-top: 4px;
-      }
-
-      .leaflet-attribution-flag {
-        display: none !important;
-      }
-
-      /* Анимация переворота стрелки в аккордеоне */
-      button[aria-expanded="false"] .bi-chevron-down {
-        transform: rotate(-90deg);
-        transition: transform 0.2s ease;
-      }
-      button[aria-expanded="true"] .bi-chevron-down {
-        transform: rotate(0deg);
-        transition: transform 0.2s ease;
-      }
+      .layer-item:hover { background-color: #f8f9fa; }
+      .layer-item .form-check-input { cursor: pointer; margin-left: -26px; margin-top: 4px; }
+      .leaflet-attribution-flag { display: none !important; }
     </style>
   </head>
   <body>
+    <!-- Навигационная панель -->
     <nav class="navbar navbar-dark bg-dark">
       <div class="container-fluid">
-        <a class="navbar-brand shadow-sm" href="/hub">← Назад в Хаб</a>
-        <span class="navbar-text text-white">Рабочее пространство ГИС</span>
+        <a class="navbar-brand" href="/hub">← Назад</a>
+        <span class="navbar-text text-white">ГИС Забайкальского края</span>
       </div>
     </nav>
 
+    <!-- Основной контейнер -->
     <div class="wrapper">
-      <nav id="layersSidebar" class="p-3 bg-white border-end">
-        <div class="sidebar-header border-bottom pb-2 mb-3">
-          <h5 class="fw-bold mb-0">
-            <i class="bi bi-layers-half text-primary me-2"></i>Слои карты
-          </h5>
-        </div>
+      <!-- Боковая панель -->
+      <nav id="layersSidebar" class="p-3 bg-white">
+        <h5 class="fw-bold mb-4 border-bottom pb-2">
+          <i class="bi bi-layers text-primary me-2"></i>Слои карты
+        </h5>
 
-        <div class="sidebar-content flex-grow-1 overflow-auto">
+        <div class="sidebar-content overflow-auto">
+          
+          <!-- БЛОК 1: Базовые карты -->
           <div class="mb-4">
-            <label
-              class="form-label fw-bold text-secondary small text-uppercase tracking-wider mb-2"
-              >Базовая карта (Подложка)</label
-            >
+            <label class="form-label text-muted small text-uppercase fw-bold mb-2">Подложка</label>
             <div class="d-flex flex-column gap-2">
-              <div class="form-check layer-item d-flex align-items-center">
-                <input
-                  class="form-check-input me-3"
-                  type="radio"
-                  name="baseMapRadio"
-                  id="radOsm"
-                  checked
-                />
-                <label class="form-check-label flex-grow-1" for="radOsm">
-                  <strong class="d-block mb-1">OpenStreetMap</strong>
-                  <span class="text-muted small"
-                    >Стандартная карта дорог и населенных пунктов</span
-                  >
-                </label>
+              <div class="form-check layer-item">
+                <input class="form-check-input" type="radio" name="basemap" id="bm2Gis" value="gis2" checked />
+                <label class="form-check-label w-100" for="bm2Gis"><strong>Схема 2GIS</strong></label>
               </div>
-              <div class="form-check layer-item d-flex align-items-center">
-                <input
-                  class="form-check-input me-3"
-                  type="radio"
-                  name="baseMapRadio"
-                  id="radSatellite"
-                />
-                <label class="form-check-label flex-grow-1" for="radSatellite">
-                  <strong class="d-block mb-1">Спутниковые снимки</strong>
-                  <span class="text-muted small"
-                    >Высокодетальная съемка местности из космоса</span
-                  >
-                </label>
+              <div class="form-check layer-item">
+                <input class="form-check-input" type="radio" name="basemap" id="bmEsri" value="esri" />
+                <label class="form-check-label w-100" for="bmEsri"><strong>Спутник Esri</strong></label>
               </div>
             </div>
           </div>
 
+          <!-- БЛОК 2: Рабочие слои (NextGIS) -->
           <div class="mb-3">
-            <label class="form-label fw-bold text-secondary small text-uppercase tracking-wider mb-2">Слои данных NextGIS</label>
-            <div class="d-flex flex-column gap-2">
+            <label class="form-label text-muted small text-uppercase fw-bold mb-2">Данные</label>
+            <div class="d-flex flex-column gap-2" id="layersAccordion">
               
-              <div class="form-check layer-item d-flex align-items-center">
-                <input class="form-check-input me-3" type="checkbox" id="chkBorder" checked />
-                <label class="form-check-label flex-grow-1" for="chkBorder">
-                  <strong class="d-block mb-1">Граница региона</strong>
-                  <span class="text-muted small">Векторный полигон Забайкальского края</span>
-                </label>
-              </div>
-
-              <div class="form-check layer-item d-flex align-items-center">
-                <input class="form-check-input me-3" type="checkbox" id="chkGeology" checked />
-                <label class="form-check-label flex-grow-1" for="chkGeology">
-                  <strong class="d-block mb-1">Геологические растры</strong>
-                  <span class="text-muted small">Данные растровой съемки</span>
-                </label>
-              </div>
-
-              <div class="border rounded-3 bg-light p-2 mt-2">
-                <button
-                  class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2"
-                  type="button"
-                  data-bs-toggle="collapse"
-                  data-bs-target="#geologistsCollapse"
-                  aria-expanded="true"
-                >
-                  <span><i class="bi bi-people-fill text-primary me-2"></i>Участки геологов</span>
+              <!-- Папка 1: Географическая информация -->
+              <div class="border rounded-3 bg-light p-2">
+                <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder285" aria-expanded="false">
+                  <span><i class="bi bi-folder2-open text-primary me-2"></i>Географическая информация</span>
                   <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
                 </button>
+                <div id="folder285" class="accordion-collapse collapse">
+                  <div class="accordion-body p-2 d-flex flex-column gap-1">
+                    <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">Сетка листов ГГК</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkGrid200k" /><label class="form-check-label w-100" for="chkGrid200k">Масштаб 1:200 000</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkGrid1M" /><label class="form-check-label w-100" for="chkGrid1M">Масштаб 1:1 000 000</label></div>
 
-                <div class="collapse show" id="geologistsCollapse">
-                  <div class="d-flex flex-column gap-2 pt-2 px-1">
-                    
-                    <div class="form-check layer-item d-flex align-items-center bg-white shadow-sm py-2">
-                      <input class="form-check-input me-3" type="checkbox" id="chkEgorov" checked />
-                      <label class="form-check-label flex-grow-1" for="chkEgorov">
-                        <strong class="small d-block fw-semibold">А. Егоров</strong>
-                        <span class="text-muted x-small" style="font-size: 0.75rem">Личный рабочий участок</span>
-                      </label>
-                    </div>
+                    <div class="fw-bold mt-3 mb-1 ms-2 small text-secondary">Инфраструктура</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkCities" checked /><label class="form-check-label w-100" for="chkCities">Населённые пункты</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkRailRoads" checked /><label class="form-check-label w-100" for="chkRailRoads">Железные дороги</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkAutoRoads" checked /><label class="form-check-label w-100" for="chkAutoRoads">Автомобильные дороги <span class="d-block text-warning" style="font-size: 0.7rem;">Слой дорабатывается</span></label></div>
 
-                    <div class="form-check layer-item d-flex align-items-center bg-white shadow-sm py-2">
-                      <input class="form-check-input me-3" type="checkbox" id="chkKatasonov" checked />
-                      <label class="form-check-label flex-grow-1" for="chkKatasonov">
-                        <strong class="small d-block fw-semibold">Н. Катасонов</strong>
-                        <span class="text-muted x-small" style="font-size: 0.75rem">Личный рабочий участок</span>
-                      </label>
-                    </div>
+                    <div class="fw-bold mt-3 mb-1 ms-2 small text-secondary">Гидрография</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkRivers" checked /><label class="form-check-label w-100" for="chkRivers">Реки</label></div>
+                    <div class="form-check layer-item opacity-50" style="cursor: not-allowed;"><input class="form-check-input" type="checkbox" disabled /><label class="form-check-label w-100">Озёра <span class="d-block text-muted" style="font-size: 0.7rem;">В стадии разработки</span></label></div>
 
+                    <div class="fw-bold mt-3 mb-1 ms-2 small text-secondary">Политико-административные границы</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkLabels" checked /><label class="form-check-label w-100" for="chkLabels">Подписи территорий</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkSubjBorder" checked /><label class="form-check-label w-100" for="chkSubjBorder">Границы субъектов РФ</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkGovBorder" checked /><label class="form-check-label w-100" for="chkGovBorder">Государственная граница РФ</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkBorderKant" checked /><label class="form-check-label w-100" for="chkBorderKant">Кант границы РФ</label></div>
                   </div>
                 </div>
-              </div> </div> </div> </div> <div class="sidebar-footer border-top pt-2 text-center text-muted small">
-          Сервер NextGIS: 213.171.24.19:8081
+              </div>
+
+              <!-- Папка 2: Полезные ископаемые -->
+              <div class="border rounded-3 bg-light p-2">
+                <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder290" aria-expanded="false">
+                  <span><i class="bi bi-folder2-open text-primary me-2"></i>Полезные ископаемые</span>
+                  <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
+                </button>
+                <div class="collapse mt-2" id="folder290">
+                  <div class="accordion-body p-2 d-flex flex-column gap-1">
+                    <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">Металлогенические таксоны</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkOreNodes" /><label class="form-check-label w-100" for="chkOreNodes">Рудные узлы 1:1 000 000</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkOreRegions" /><label class="form-check-label w-100" for="chkOreRegions">Рудные районы 1:1 000 000</label></div>
+
+                    <div class="fw-bold mt-3 mb-1 ms-2 small text-secondary">Металлические ископаемые</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkMetalsDeposits" /><label class="form-check-label w-100" for="chkMetalsDeposits">Месторождения</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkMetalsOccurrences" /><label class="form-check-label w-100" for="chkMetalsOccurrences">Рудопроявления</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkMetalsPoints" /><label class="form-check-label w-100" for="chkMetalsPoints">Пункты минерализации</label></div>
+
+                    <div class="fw-bold mt-3 mb-1 ms-2 small text-secondary">Неметаллические ископаемые</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkNonMetalsDeposits" /><label class="form-check-label w-100" for="chkNonMetalsDeposits">Месторождения</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkNonMetalsOccurrences" /><label class="form-check-label w-100" for="chkNonMetalsOccurrences">Рудопроявления</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkNonMetalsPoints" /><label class="form-check-label w-100" for="chkNonMetalsPoints">Пункты минерализации</label></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Папка 3: Экстенсивность и интенсивность (Металлы) -->
+              <div class="border rounded-3 bg-light p-2">
+                <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder294" aria-expanded="false">
+                  <span><i class="bi bi-folder2-open text-primary me-2"></i>Экстенсивность оруденения</span>
+                  <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
+                </button>
+                <div class="collapse mt-2" id="folder294">
+                  <div class="accordion-body p-2 d-flex flex-column gap-2">
+                    
+                    <div class="alert alert-secondary py-1 px-2 mb-1 text-center" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i> Группа будет дополняться</div>
+
+                    <!-- Макро-шаблон для 14 металлов -->
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Бериллий</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBeDep"><label class="form-check-label w-100 small" for="chkBeDep">Месторождения и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBeExt"><label class="form-check-label w-100 small" for="chkBeExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBeInt"><label class="form-check-label w-100 small" for="chkBeInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Висмут</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBiDep"><label class="form-check-label w-100 small" for="chkBiDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBiExt"><label class="form-check-label w-100 small" for="chkBiExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBiInt"><label class="form-check-label w-100 small" for="chkBiInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Вольфрам</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkWDep"><label class="form-check-label w-100 small" for="chkWDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkWExt"><label class="form-check-label w-100 small" for="chkWExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkWInt"><label class="form-check-label w-100 small" for="chkWInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Германий</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkGeDep"><label class="form-check-label w-100 small" for="chkGeDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkGeExt"><label class="form-check-label w-100 small" for="chkGeExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkGeInt"><label class="form-check-label w-100 small" for="chkGeInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Золото</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkAuDep"><label class="form-check-label w-100 small" for="chkAuDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkAuExt"><label class="form-check-label w-100 small" for="chkAuExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkAuInt"><label class="form-check-label w-100 small" for="chkAuInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm border-warning"><div class="fw-bold mb-1 small text-warning border-bottom pb-1 d-flex justify-content-between">Литий <span class="badge bg-warning text-dark" style="font-size: 0.6rem;">Проверить</span></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkLiDep"><label class="form-check-label w-100 small" for="chkLiDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkLiExt"><label class="form-check-label w-100 small" for="chkLiExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkLiInt"><label class="form-check-label w-100 small" for="chkLiInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Медь</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkCuDep"><label class="form-check-label w-100 small" for="chkCuDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkCuExt"><label class="form-check-label w-100 small" for="chkCuExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkCuInt"><label class="form-check-label w-100 small" for="chkCuInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Молибден</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkMoDep"><label class="form-check-label w-100 small" for="chkMoDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkMoExt"><label class="form-check-label w-100 small" for="chkMoExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkMoInt"><label class="form-check-label w-100 small" for="chkMoInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Мышьяк</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkAsDep"><label class="form-check-label w-100 small" for="chkAsDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkAsExt"><label class="form-check-label w-100 small" for="chkAsExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkAsInt"><label class="form-check-label w-100 small" for="chkAsInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Олово</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkSnDep"><label class="form-check-label w-100 small" for="chkSnDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkSnExt"><label class="form-check-label w-100 small" for="chkSnExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkSnInt"><label class="form-check-label w-100 small" for="chkSnInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Свинец, цинк</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkPbZnDep"><label class="form-check-label w-100 small" for="chkPbZnDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkPbZnExt"><label class="form-check-label w-100 small" for="chkPbZnExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkPbZnInt"><label class="form-check-label w-100 small" for="chkPbZnInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Сурьма</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkSbDep"><label class="form-check-label w-100 small" for="chkSbDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkSbExt"><label class="form-check-label w-100 small" for="chkSbExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkSbInt"><label class="form-check-label w-100 small" for="chkSbInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Тантал, ниобий</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkTaNbDep"><label class="form-check-label w-100 small" for="chkTaNbDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkTaNbExt"><label class="form-check-label w-100 small" for="chkTaNbExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkTaNbInt"><label class="form-check-label w-100 small" for="chkTaNbInt">Интенсивность</label></div></div>
+                    <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small text-primary border-bottom pb-1">Уран</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkUDep"><label class="form-check-label w-100 small" for="chkUDep">М-я и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkUExt"><label class="form-check-label w-100 small" for="chkUExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkUInt"><label class="form-check-label w-100 small" for="chkUInt">Интенсивность</label></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Папка 4: Геология -->
+              <div class="border rounded-3 bg-light p-2">
+                <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder309" aria-expanded="false">
+                  <span><i class="bi bi-folder2-open text-primary me-2"></i>Геология</span><i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
+                </button>
+                <div class="collapse mt-2" id="folder309">
+                  <div class="accordion-body p-2 d-flex flex-column gap-1">
+                    <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">Тектоника</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkFaults1M" /><label class="form-check-label w-100" for="chkFaults1M">Разрывные нарушения 1:1 000 000</label></div>
+                    <div class="form-check layer-item opacity-50" style="cursor: not-allowed;"><input class="form-check-input" type="checkbox" disabled /><label class="form-check-label w-100">Разрывные нарушения 1:200 000 <span class="d-block text-muted" style="font-size: 0.7rem;">В разработке...</span></label></div>
+                    
+                    <div class="fw-bold mt-3 mb-1 ms-2 small text-secondary">Геологические карты</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkGeoMap1M" /><label class="form-check-label w-100" for="chkGeoMap1M">Геологическая карта 1:1 000 000 <span class="d-block text-warning" style="font-size: 0.7rem;">Слой дорабатывается</span></label></div>
+                    <div class="form-check layer-item opacity-50" style="cursor: not-allowed;"><input class="form-check-input" type="checkbox" disabled /><label class="form-check-label w-100">Геологическая карта 1:200 000 <span class="d-block text-muted" style="font-size: 0.7rem;">В разработке...</span></label></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Папка 5: Геофизика -->
+              <div class="border rounded-3 bg-light p-2">
+                <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder312" aria-expanded="false">
+                  <span><i class="bi bi-folder2-open text-primary me-2"></i>Геофизика</span><i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
+                </button>
+                <div class="collapse mt-2" id="folder312">
+                  <div class="accordion-body p-2 d-flex flex-column gap-1">
+                    <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">Геофизические поля (ДЗЗ)</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkEmag" /><label class="form-check-label w-100" for="chkEmag">Магнитные аномалии (EMAG2v3)</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkWgm" /><label class="form-check-label w-100" for="chkWgm">Гравитационные аномалии (WGM2012)</label></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Папки 6 и 7: В разработке (Серые, некликабельные) -->
+              <div class="border rounded-3 bg-light p-2 opacity-50">
+                <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-secondary ps-2" type="button">
+                  <span><i class="bi bi-tools text-secondary me-2"></i>Структурный анализ</span><span class="badge bg-secondary" style="font-size:0.6rem">В разработке</span>
+                </button>
+              </div>
+              <div class="border rounded-3 bg-light p-2 opacity-50">
+                <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-secondary ps-2" type="button">
+                  <span><i class="bi bi-tools text-secondary me-2"></i>Прогнозные модели</span><span class="badge bg-secondary" style="font-size:0.6rem">В разработке</span>
+                </button>
+              </div>
+
+              <!-- Папка 8: ЦМР -->
+              <div class="border rounded-3 bg-light p-2">
+                <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder318" aria-expanded="false">
+                  <span><i class="bi bi-folder2-open text-primary me-2"></i>Модели рельефа (ЦМР)</span><i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
+                </button>
+                <div class="collapse mt-2" id="folder318">
+                  <div class="accordion-body p-2 d-flex flex-column gap-1">
+                    <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">ЦМР FABDEM</div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkDemColor" /><label class="form-check-label w-100" for="chkDemColor">Визуализация в цвете</label></div>
+                    <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkDem300m" /><label class="form-check-label w-100" for="chkDem300m">300 метров на пиксель</label></div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
-      </nav> <button type="button" id="layersSidebarCollapse" class="btn btn-light border">
+      </nav>
+
+      <button type="button" id="layersSidebarCollapse" class="btn btn-light border">
         <i class="bi bi-chevron-left" id="layerToggleIcon"></i>
       </button>
 
       <div id="map"></div>
     </div>
 
+    <!-- Скрипты -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-      const nextgisBaseUrl = "https://nextgis.tsugeoprognoz.ru";
-
-      // 1. Инициализация карты (Координаты Забайкалья зашиты намертво, noWrap спасет от дублирования мира)
-      const map = L.map("map", {
-        zoomControl: false,
-        minZoom: 3,
-        maxZoom: 18,
-      }).setView([52.03, 117.5], 6);
-
+      const map = L.map("map", { zoomControl: false, minZoom: 3, maxZoom: 18 }).setView([52.03, 117.5], 6);
       L.control.zoom({ position: "bottomleft" }).addTo(map);
 
-      // Подложки
-      const openStreetMap = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          attribution: "&copy; OpenStreetMap",
-          noWrap: true,
-        },
-      ).addTo(map);
+      // Базовые карты с zIndex: 1
+      const basemaps = {
+        gis2: L.tileLayer("https://tile{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1", { subdomains: ["0", "1", "2", "3"], attribution: "&copy; 2GIS", noWrap: true, maxZoom: 19, zIndex: 1 }).addTo(map),
+        esri: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: "&copy; Esri", maxZoom: 19, noWrap: true, zIndex: 1 }),
+      };
 
-      const satelliteMap = L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        {
-          attribution: "Tiles &copy; Esri",
-          noWrap: true,
-        },
-      );
-
-      // 2. ИНТЕГРАЦИЯ ГРАНИЦЫ ЧЕРЕЗ ССЫЛКУ MVT
-      const mvtUrl = `${nextgisBaseUrl}/api/component/feature_layer/mvt?resource=3&z={z}&x={x}&y={y}`;
-
-      const zabaykalskyBorder = L.vectorGrid
-        .protobuf(mvtUrl, {
-          vectorTileLayerStyles: {
-            'ngw:3': {
-              color: "#0d6efd", // Синяя граница
-              weight: 3, // Толщина линии
-              fillColor: "#0d6efd",
-              fillOpacity: 0.08, // Легкая заливка
-              fill: true,
-            },
-          },
-        })
-        .addTo(map);
-
-      // Ссылка на слой Егорова (ресурс 5)
-      const egorovMvtUrl = `${nextgisBaseUrl}/api/component/feature_layer/mvt?resource=5&z={z}&x={x}&y={y}`;
-
-      const layerEgorov = L.vectorGrid
-        .protobuf(egorovMvtUrl, {
-          vectorTileLayerStyles: {
-            // Рендерим участок красивым оранжевым цветом
-            'ngw:5': {
-              color: "#fd7e14", // Цвет линии
-              weight: 3, // Толщина контура
-              fillColor: "#fd7e14",
-              fillOpacity: 0.12, // Легкая прозрачная заливка
-              fill: true,
-            },
-          },
-        })
-        .addTo(map);
-
-      // Ссылка на слой Катасонова (ресурс 7)
-      const katasonovMvtUrl = `${nextgisBaseUrl}/api/component/feature_layer/mvt?resource=7&z={z}&x={x}&y={y}`;
-
-      const layerKatasonov = L.vectorGrid
-        .protobuf(katasonovMvtUrl, {
-          vectorTileLayerStyles: {
-            // Рендерим участок красивым оранжевым цветом
-            'ngw:7': {
-              color: "#fd7e14", // Цвет линии
-              weight: 3, // Толщина контура
-              fillColor: "#fd7e14",
-              fillOpacity: 0.12, // Легкая прозрачная заливка
-              fill: true,
-            },
-          },
-        })
-        .addTo(map);
-
-      // ЦМР как растровый слой (90м)
-      const geologyRaster = L.tileLayer(
-        `${nextgisBaseUrl}/api/component/render/tile?resource=10&nd=204&z={z}&x={x}&y={y}`,
-        { noWrap: true },
-      ).addTo(map);
-
-      // Остальные растровые слои NextGIS
-      const mapBorders = L.tileLayer(
-        `${nextgisBaseUrl}/api/component/render/tile?resource=72,70,74,76,101,94&nd=204&z={z}&x={x}&y={y}`,
-        { noWrap: true },
-      ).addTo(map);
-      const gridLines = L.tileLayer(
-        `${nextgisBaseUrl}/api/component/render/tile?resource=98,96&nd=204&z={z}&x={x}&y={y}`,
-        { noWrap: true },
-      ).addTo(map);
-
-      // 3. Логика Сайдбара
-      const layersSidebar = document.getElementById("layersSidebar");
-      const layersSidebarCollapse = document.getElementById(
-        "layersSidebarCollapse",
-      );
-      const layerToggleIcon = document.getElementById("layerToggleIcon");
-
-      layersSidebarCollapse.addEventListener("click", () => {
-        layersSidebar.classList.toggle("collapsed");
-        layerToggleIcon.className = layersSidebar.classList.contains(
-          "collapsed",
-        )
-          ? "bi bi-chevron-right"
-          : "bi bi-chevron-left";
-        setTimeout(() => {
-          map.invalidateSize();
-        }, 300);
-      });
-
-      // 4. Переключение подложек
-      document.getElementById("radOsm").addEventListener("change", (e) => {
-        if (e.target.checked) {
-          map.addLayer(openStreetMap);
-          map.removeLayer(satelliteMap);
-        }
-      });
-      document
-        .getElementById("radSatellite")
-        .addEventListener("change", (e) => {
-          if (e.target.checked) {
-            map.addLayer(satelliteMap);
-            map.removeLayer(openStreetMap);
-          }
+      document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
+        radio.addEventListener("change", (e) => {
+          Object.values(basemaps).forEach((layer) => map.removeLayer(layer));
+          map.addLayer(basemaps[e.target.value]);
         });
+      });
 
-      // 5. Переключение слоев
-      setupLayerToggle("chkBorder", zabaykalskyBorder);
-      setupLayerToggle("chkGeology", geologyRaster);
-      setupLayerToggle("chkEgorov", layerEgorov); // Наш геолог Егоров
-      setupLayerToggle("chkKatasonov", layerKatasonov);
-
-      function setupLayerToggle(checkboxId, leafletLayer) {
-        document.getElementById(checkboxId).addEventListener("change", (e) => {
-          if (e.target.checked) {
-            map.addLayer(leafletLayer);
-          } else {
-            map.removeLayer(leafletLayer);
-          }
+      // Рабочие слои с zIndex: 10
+      const nextgisBaseUrl = "https://nextgis.tsugeoprognoz.ru";
+      function createNextGisLayer(resourceId) {
+        return L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${resourceId}&nd=204&z={z}&x={x}&y={y}`, {
+          transparent: true, format: 'image/png', noWrap: true, zIndex: 10
         });
       }
+
+      // --- ОБЪЯВЛЕНИЕ СЛОЕВ ---
+      // 1. География
+      const layerGrid200k = createNextGisLayer(321);
+      const layerGrid1M = createNextGisLayer(323);
+      const layerCities = createNextGisLayer(325);
+      const layerRailRoads = createNextGisLayer(327);
+      const layerAutoRoads = createNextGisLayer(329);
+      const layerRivers = createNextGisLayer(331);
+      const layerLabels = createNextGisLayer(339);
+      const layerSubjBorder = createNextGisLayer(333);
+      const layerGovBorder = createNextGisLayer(335);
+      const layerBorderKant = createNextGisLayer(337);
+
+      // 2. Ископаемые
+      const layerOreNodes = createNextGisLayer(341);
+      const layerOreRegions = createNextGisLayer(343);
+      const layerMetalsDeposits = createNextGisLayer(345);
+      const layerMetalsOccurrences = createNextGisLayer(347);
+      const layerMetalsPoints = createNextGisLayer(349);
+      const layerNonMetalsDeposits = createNextGisLayer(351);
+      const layerNonMetalsOccurrences = createNextGisLayer(353);
+      const layerNonMetalsPoints = createNextGisLayer(355);
+
+      // 3. Металлы 
+      const layerBeDep = createNextGisLayer(357), layerBeExt = createNextGisLayer(359), layerBeInt = createNextGisLayer(361);
+      const layerBiDep = createNextGisLayer(363), layerBiExt = createNextGisLayer(365), layerBiInt = createNextGisLayer(367);
+      const layerWDep = createNextGisLayer(369), layerWExt = createNextGisLayer(371), layerWInt = createNextGisLayer(373);
+      const layerGeDep = createNextGisLayer(375), layerGeExt = createNextGisLayer(377), layerGeInt = createNextGisLayer(379);
+      const layerAuDep = createNextGisLayer(381), layerAuExt = createNextGisLayer(382), layerAuInt = createNextGisLayer(384);
+      const layerLiDep = createNextGisLayer(387), layerLiExt = createNextGisLayer(389), layerLiInt = createNextGisLayer(391);
+      const layerCuDep = createNextGisLayer(393), layerCuExt = createNextGisLayer(395), layerCuInt = createNextGisLayer(397);
+      const layerMoDep = createNextGisLayer(399), layerMoExt = createNextGisLayer(401), layerMoInt = createNextGisLayer(403);
+      const layerAsDep = createNextGisLayer(405), layerAsExt = createNextGisLayer(407), layerAsInt = createNextGisLayer(409);
+      const layerSnDep = createNextGisLayer(411), layerSnExt = createNextGisLayer(413), layerSnInt = createNextGisLayer(415);
+      const layerPbZnDep = createNextGisLayer(417), layerPbZnExt = createNextGisLayer(419), layerPbZnInt = createNextGisLayer(421);
+      const layerSbDep = createNextGisLayer(423), layerSbExt = createNextGisLayer(425), layerSbInt = createNextGisLayer(427);
+      const layerTaNbDep = createNextGisLayer(429), layerTaNbExt = createNextGisLayer(431), layerTaNbInt = createNextGisLayer(433);
+      const layerUDep = createNextGisLayer(435), layerUExt = createNextGisLayer(437), layerUInt = createNextGisLayer(439);
+
+      // 4. Геология
+      const layerFaults1M = createNextGisLayer(441);
+      const layerGeoMap1M = createNextGisLayer(443);
+
+      // 5. Геофизика
+      const layerEmag = createNextGisLayer(445);
+      const layerWgm = createNextGisLayer(447);
+
+      // 8. ЦМР
+      const layerDemColor = createNextGisLayer(449);
+      const layerDem300m = createNextGisLayer(451);
+
+      // --- ПРИВЯЗКА К ЧЕКБОКСАМ ---
+      function setupLayerToggle(checkboxId, leafletLayer) {
+        const checkbox = document.getElementById(checkboxId);
+        if (!checkbox) return; 
+        if (checkbox.checked) map.addLayer(leafletLayer);
+        checkbox.addEventListener("change", (e) => {
+          if (e.target.checked) map.addLayer(leafletLayer);
+          else map.removeLayer(leafletLayer);
+        });
+      }
+
+      setupLayerToggle("chkGrid200k", layerGrid200k);
+      setupLayerToggle("chkGrid1M", layerGrid1M);
+      setupLayerToggle("chkCities", layerCities);
+      setupLayerToggle("chkRailRoads", layerRailRoads);
+      setupLayerToggle("chkAutoRoads", layerAutoRoads);
+      setupLayerToggle("chkRivers", layerRivers);
+      setupLayerToggle("chkLabels", layerLabels);
+      setupLayerToggle("chkSubjBorder", layerSubjBorder);
+      setupLayerToggle("chkGovBorder", layerGovBorder);
+      setupLayerToggle("chkBorderKant", layerBorderKant);
+
+      setupLayerToggle("chkOreNodes", layerOreNodes);
+      setupLayerToggle("chkOreRegions", layerOreRegions);
+      setupLayerToggle("chkMetalsDeposits", layerMetalsDeposits);
+      setupLayerToggle("chkMetalsOccurrences", layerMetalsOccurrences);
+      setupLayerToggle("chkMetalsPoints", layerMetalsPoints);
+      setupLayerToggle("chkNonMetalsDeposits", layerNonMetalsDeposits);
+      setupLayerToggle("chkNonMetalsOccurrences", layerNonMetalsOccurrences);
+      setupLayerToggle("chkNonMetalsPoints", layerNonMetalsPoints);
+
+      setupLayerToggle("chkBeDep", layerBeDep); setupLayerToggle("chkBeExt", layerBeExt); setupLayerToggle("chkBeInt", layerBeInt);
+      setupLayerToggle("chkBiDep", layerBiDep); setupLayerToggle("chkBiExt", layerBiExt); setupLayerToggle("chkBiInt", layerBiInt);
+      setupLayerToggle("chkWDep", layerWDep); setupLayerToggle("chkWExt", layerWExt); setupLayerToggle("chkWInt", layerWInt);
+      setupLayerToggle("chkGeDep", layerGeDep); setupLayerToggle("chkGeExt", layerGeExt); setupLayerToggle("chkGeInt", layerGeInt);
+      setupLayerToggle("chkAuDep", layerAuDep); setupLayerToggle("chkAuExt", layerAuExt); setupLayerToggle("chkAuInt", layerAuInt);
+      setupLayerToggle("chkLiDep", layerLiDep); setupLayerToggle("chkLiExt", layerLiExt); setupLayerToggle("chkLiInt", layerLiInt);
+      setupLayerToggle("chkCuDep", layerCuDep); setupLayerToggle("chkCuExt", layerCuExt); setupLayerToggle("chkCuInt", layerCuInt);
+      setupLayerToggle("chkMoDep", layerMoDep); setupLayerToggle("chkMoExt", layerMoExt); setupLayerToggle("chkMoInt", layerMoInt);
+      setupLayerToggle("chkAsDep", layerAsDep); setupLayerToggle("chkAsExt", layerAsExt); setupLayerToggle("chkAsInt", layerAsInt);
+      setupLayerToggle("chkSnDep", layerSnDep); setupLayerToggle("chkSnExt", layerSnExt); setupLayerToggle("chkSnInt", layerSnInt);
+      setupLayerToggle("chkPbZnDep", layerPbZnDep); setupLayerToggle("chkPbZnExt", layerPbZnExt); setupLayerToggle("chkPbZnInt", layerPbZnInt);
+      setupLayerToggle("chkSbDep", layerSbDep); setupLayerToggle("chkSbExt", layerSbExt); setupLayerToggle("chkSbInt", layerSbInt);
+      setupLayerToggle("chkTaNbDep", layerTaNbDep); setupLayerToggle("chkTaNbExt", layerTaNbExt); setupLayerToggle("chkTaNbInt", layerTaNbInt);
+      setupLayerToggle("chkUDep", layerUDep); setupLayerToggle("chkUExt", layerUExt); setupLayerToggle("chkUInt", layerUInt);
+
+      setupLayerToggle("chkFaults1M", layerFaults1M);
+      setupLayerToggle("chkGeoMap1M", layerGeoMap1M);
+      setupLayerToggle("chkEmag", layerEmag);
+      setupLayerToggle("chkWgm", layerWgm);
+      setupLayerToggle("chkDemColor", layerDemColor);
+      setupLayerToggle("chkDem300m", layerDem300m);
+
+      // Анимация сайдбара
+      const sidebar = document.getElementById("layersSidebar");
+      const btnCollapse = document.getElementById("layersSidebarCollapse");
+      const iconToggle = document.getElementById("layerToggleIcon");
+
+      btnCollapse.addEventListener("click", () => {
+        sidebar.classList.toggle("collapsed");
+        iconToggle.className = sidebar.classList.contains("collapsed") ? "bi bi-chevron-right" : "bi bi-chevron-left";
+        setTimeout(() => map.invalidateSize(), 300);
+      });
     </script>
   </body>
 </html>
