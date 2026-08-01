@@ -40,6 +40,24 @@
       .layer-item:hover { background-color: #f8f9fa; }
       .layer-item .form-check-input { cursor: pointer; margin-left: -26px; margin-top: 4px; }
       .leaflet-attribution-flag { display: none !important; }
+      /* --- Стили для правой панели атрибутов --- */
+      #attributeSidebar {
+        width: 450px;
+        min-width: 450px;
+        background-color: #ffffff;
+        z-index: 1000;
+        transition: right 0.3s ease;
+        box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: -450px; /* Спрятан за правым краем экрана */
+      }
+      #attributeSidebar.open {
+        right: 0; /* Выезжает на экран */
+      }
     </style>
   </head>
   <body>
@@ -233,6 +251,18 @@
         <i class="bi bi-chevron-left" id="layerToggleIcon"></i>
       </button>
 
+      <!-- Правая панель таблицы атрибутов -->
+      <nav id="attributeSidebar" class="p-3 bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+          <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-table me-2"></i>Таблица слоя</h5>
+          <button type="button" class="btn-close" id="closeAttributeSidebar" aria-label="Close"></button>
+        </div>
+        <!-- Контейнер, куда скрипт закинет таблицу -->
+        <div id="attributeTableContainer" class="overflow-auto flex-grow-1" style="height: 100%;">
+          <div class="text-center text-muted mt-5">Кликните по иконке таблицы у любого слоя</div>
+        </div>
+      </nav>
+
       <div id="map"></div>
     </div>
 
@@ -258,11 +288,15 @@
         });
       });
 
-      // Рабочие слои с zIndex: 10
       const nextgisBaseUrl = "https://nextgis.tsugeoprognoz.ru";
-      function createNextGisLayer(resourceId) {
+
+      // Добавили zIndex (по умолчанию 10, если ничего не указывать)
+      function createNextGisLayer(resourceId, layerZIndex = 10) {
         return L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${resourceId}&nd=204&z={z}&x={x}&y={y}`, {
-          transparent: true, format: 'image/png', noWrap: true, zIndex: 10
+          transparent: true, 
+          format: 'image/png', 
+          noWrap: true, 
+          zIndex: layerZIndex // <--- Применяем высоту
         });
       }
 
@@ -270,14 +304,14 @@
       // 1. География
       const layerGrid200k = createNextGisLayer(321);
       const layerGrid1M = createNextGisLayer(323);
-      const layerCities = createNextGisLayer(325);
-      const layerRailRoads = createNextGisLayer(327);
-      const layerAutoRoads = createNextGisLayer(329);
-      const layerRivers = createNextGisLayer(331);
-      const layerLabels = createNextGisLayer(339);
-      const layerSubjBorder = createNextGisLayer(333);
-      const layerGovBorder = createNextGisLayer(335);
-      const layerBorderKant = createNextGisLayer(337);
+      const layerCities = createNextGisLayer(325, 60);
+      const layerRailRoads = createNextGisLayer(327, 50);
+      const layerAutoRoads = createNextGisLayer(329, 40);
+      const layerRivers = createNextGisLayer(331, 30);
+      const layerLabels = createNextGisLayer(339, 50);
+      const layerSubjBorder = createNextGisLayer(333, 20);
+      const layerGovBorder = createNextGisLayer(335, 20);
+      const layerBorderKant = createNextGisLayer(337, 10);
 
       // 2. Ископаемые
       const layerOreNodes = createNextGisLayer(341);
@@ -379,6 +413,214 @@
         sidebar.classList.toggle("collapsed");
         iconToggle.className = sidebar.classList.contains("collapsed") ? "bi bi-chevron-right" : "bi bi-chevron-left";
         setTimeout(() => map.invalidateSize(), 300);
+      });
+
+      // === ПОЛНЫЙ СПИСОК ВЕКТОРНЫХ СЛОЕВ ДЛЯ ТАБЛИЦ И КЛИКОВ ===
+      // Внимание: Растры (ЦМР, Геофизика, Экстенсивность/Интенсивность) исключены, так как у них нет таблиц.
+
+      const queryQueue = [
+        // --- 1. ТОЧКИ (Высший приоритет, кликаются первыми) ---
+        { chkId: "chkCities", vectorId: 324 }, 
+        { chkId: "chkLabels", vectorId: 338 }, 
+        { chkId: "chkMetalsDeposits", vectorId: 344 }, 
+        { chkId: "chkMetalsOccurrences", vectorId: 346 }, 
+        { chkId: "chkMetalsPoints", vectorId: 348 }, 
+        { chkId: "chkNonMetalsDeposits", vectorId: 350 }, 
+        { chkId: "chkNonMetalsOccurrences", vectorId: 352 }, 
+        { chkId: "chkNonMetalsPoints", vectorId: 354 }, 
+        
+        // Металлы (только Месторождения)
+        { chkId: "chkBeDep", vectorId: 356 },
+        { chkId: "chkBiDep", vectorId: 362 },
+        { chkId: "chkWDep", vectorId: 368 },
+        { chkId: "chkGeDep", vectorId: 374 },
+        { chkId: "chkAuDep", vectorId: 380 },
+        { chkId: "chkLiDep", vectorId: 386 },
+        { chkId: "chkCuDep", vectorId: 392 },
+        { chkId: "chkMoDep", vectorId: 398 },
+        { chkId: "chkAsDep", vectorId: 404 },
+        { chkId: "chkSnDep", vectorId: 410 },
+        { chkId: "chkPbZnDep", vectorId: 416 },
+        { chkId: "chkSbDep", vectorId: 422 },
+        { chkId: "chkTaNbDep", vectorId: 428 },
+        { chkId: "chkUDep", vectorId: 434 },
+
+        // --- 2. ЛИНИИ (Средний приоритет) ---
+        { chkId: "chkRivers", vectorId: 330 }, 
+        { chkId: "chkRailRoads", vectorId: 326 }, 
+        { chkId: "chkAutoRoads", vectorId: 328 }, 
+        { chkId: "chkBorderKant", vectorId: 336 }, 
+        { chkId: "chkFaults1M", vectorId: 440 }, 
+
+        // --- 3. ПОЛИГОНЫ (Низший приоритет, чтобы не перекрывали клики по точкам) ---
+        { chkId: "chkGrid200k", vectorId: 320 }, 
+        { chkId: "chkGrid1M", vectorId: 322 }, 
+        { chkId: "chkSubjBorder", vectorId: 332 }, 
+        { chkId: "chkGovBorder", vectorId: 334 }, 
+        { chkId: "chkOreNodes", vectorId: 340 }, 
+        { chkId: "chkOreRegions", vectorId: 342 }, 
+        { chkId: "chkGeoMap1M", vectorId: 442 } 
+      ];
+
+      map.on('click', async function(e) {
+        // 1. Конвертируем градусы в метры (Web Mercator EPSG:3857)
+        const point = L.CRS.EPSG3857.project(e.latlng);
+        const x = point.x;
+        const y = point.y;
+        
+        // 2. Буфер захвата в МЕТРАХ (1000 метров во все стороны от клика)
+        const delta = 1000; 
+        const bbox = `${x - delta} ${y - delta}, ${x + delta} ${y - delta}, ${x + delta} ${y + delta}, ${x - delta} ${y + delta}, ${x - delta} ${y - delta}`;
+        const wktPolygon = `POLYGON((${bbox}))`;
+
+        // Оставляем только те слои, галочки которых сейчас стоят
+        const activeLayers = queryQueue.filter(layer => {
+          const checkbox = document.getElementById(layer.chkId);
+          return checkbox && checkbox.checked;
+        });
+
+        if (activeLayers.length === 0) return;
+
+        for (const layer of activeLayers) {
+          // ВАЖНО: Меняем /geojson на /feature/ и добавляем &geom=no для супер-скорости!
+          const url = `${nextgisBaseUrl}/api/resource/${layer.vectorId}/feature/?intersects=${encodeURIComponent(wktPolygon)}&geom=no`;
+          
+          try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            // Теперь NextGIS возвращает просто массив объектов, а атрибуты лежат внутри .fields
+            if (data && data.length > 0) {
+              const feature = data[0];
+              const props = feature.fields;
+
+              let popupContent = `<div style="min-width: 200px;">
+                                    <h6 class="fw-bold mb-2 border-bottom pb-1 text-primary">
+                                      <i class="bi bi-info-circle me-1"></i> Информация об объекте
+                                    </h6>
+                                    <table class="table table-sm table-bordered table-striped mb-0" style="font-size: 0.8rem;">
+                                      <tbody>`;
+              
+              for (const key in props) {
+                if (props[key] !== null && props[key] !== '') {
+                    popupContent += `<tr><td class="text-muted fw-bold w-50">${key}</td><td>${props[key]}</td></tr>`;
+                }
+              }
+              popupContent += `</tbody></table></div>`;
+
+              L.popup({ maxWidth: 400 })
+                .setLatLng(e.latlng)
+                .setContent(popupContent)
+                .openOn(map);
+
+              // Нашли объект — обрываем цикл, дальше искать не нужно
+              break; 
+            }
+          } catch(err) {
+            console.error(`Ошибка при запросе к слою ${layer.vectorId}:`, err);
+          }
+        }
+      });
+
+      // === ПРАВАЯ ПАНЕЛЬ И ТАБЛИЦА АТРИБУТОВ ===
+
+      const attrSidebar = document.getElementById('attributeSidebar');
+      const closeAttrBtn = document.getElementById('closeAttributeSidebar');
+      const attrContainer = document.getElementById('attributeTableContainer');
+
+      // Закрытие панели на крестик
+      closeAttrBtn.addEventListener('click', () => {
+        attrSidebar.classList.remove('open');
+      });
+
+      // Функция загрузки и отрисовки таблицы
+      async function loadAttributeTable(vectorId, layerName) {
+        attrSidebar.classList.add('open');
+        attrContainer.innerHTML = `<div class="text-center mt-5">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <div class="mt-2 text-muted">Стягиваем данные с NextGIS...</div>
+                                  </div>`;
+
+        const url = `${nextgisBaseUrl}/api/resource/${vectorId}/feature/?geom=no`;
+        
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (!data || data.length === 0) {
+            attrContainer.innerHTML = `<div class="alert alert-warning mt-3">Слой пуст или данных нет.</div>`;
+            return;
+          }
+
+          // Собираем заголовки колонок (берем ключи из первого объекта)
+          const firstProps = data[0].fields;
+          let tableHTML = `<h6 class="text-secondary mb-2 fw-bold">${layerName} (Записей: ${data.length})</h6>
+                          <table class="table table-sm table-bordered table-striped" style="font-size: 0.75rem;">
+                            <thead class="table-light"><tr>`;
+          
+          for (const key in firstProps) {
+            tableHTML += `<th>${key}</th>`;
+          }
+          tableHTML += `</tr></thead><tbody>`;
+
+          // ЗАЩИТА ОТ ЗАВИСАНИЯ: Если в слое 50 000 точек, браузер умрет рисовать таблицу.
+          // Поэтому выводим максимум первые 500 записей.
+          const limit = Math.min(data.length, 500); 
+          
+          for (let i = 0; i < limit; i++) {
+            tableHTML += `<tr>`;
+            for (const key in firstProps) {
+              let val = data[i].fields[key];
+              val = (val !== null && val !== undefined) ? val : '';
+              tableHTML += `<td>${val}</td>`;
+            }
+            tableHTML += `</tr>`;
+          }
+
+          tableHTML += `</tbody></table>`;
+          
+          if (data.length > 500) {
+            tableHTML += `<div class="text-muted small mt-2">* Показаны только первые 500 записей для предотвращения зависания браузера.</div>`;
+          }
+          
+          attrContainer.innerHTML = tableHTML;
+          
+        } catch(err) {
+          attrContainer.innerHTML = `<div class="alert alert-danger mt-3">Ошибка загрузки данных.</div>`;
+          console.error(err);
+        }
+      }
+
+      // АВТОМАТИЧЕСКАЯ ГЕНЕРАЦИЯ КНОПОК
+      // Скрипт бежит по очереди queryQueue и пририсовывает кнопку таблицы
+      queryQueue.forEach(layer => {
+        const checkbox = document.getElementById(layer.chkId);
+        if (checkbox) {
+          const layerItem = checkbox.closest('.layer-item');
+          if (layerItem) {
+            // Делаем блок флексом, чтобы раскидать текст и кнопку по краям
+            layerItem.classList.add('d-flex', 'align-items-center');
+            
+            const label = layerItem.querySelector('label');
+            const layerName = label ? label.innerText.trim() : 'Слой';
+
+            // Создаем иконку
+            const btn = document.createElement('button');
+            btn.className = "btn btn-sm btn-link p-0 ms-auto text-secondary";
+            btn.title = "Открыть таблицу атрибутов";
+            // Использую иконку таблички (bi-table), она понятнее геологам, чем i
+            btn.innerHTML = `<i class="bi bi-table"></i>`; 
+            
+            // По клику на иконку — открываем правое меню
+            btn.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation(); // Чтобы клик не нажал на сам чекбокс слоя
+              loadAttributeTable(layer.vectorId, layerName);
+            });
+
+            layerItem.appendChild(btn);
+          }
+        }
       });
     </script>
   </body>
