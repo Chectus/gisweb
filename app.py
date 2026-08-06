@@ -1,10 +1,21 @@
+import os
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# Активируем чтение скрытого файла .env
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'super_secret_key_for_laboratory_gis' 
+
+# Достаем ключ из сейфа
+app.secret_key = os.environ.get('SECRET_KEY')
+
+# Если ключа нет (например, забыли создать .env), роняем сервер с ошибкой
+if not app.secret_key:
+    raise ValueError("Не задан SECRET_KEY в переменных окружения!")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -82,6 +93,69 @@ def docs():
 def logout():
     session.pop('user', None)
     return redirect(url_for('login'))
+
+@app.route('/admin')
+def admin_panel():
+    # Проверяем, авторизован ли пользователь и является ли он админом
+    if 'user' not in session or session['user'] != 'Luchectus':
+        flash('Доступ запрещен. Требуются права администратора.', 'error')
+        return redirect(url_for('index')) # Или на страницу логина
+    
+    # Достаем всех пользователей из базы
+    all_users = User.query.all()
+    
+    # Отдаем шаблон (который напишет твоя девушка) и передаем туда список пользователей
+    return render_template('admin.html', users=all_users)
+
+@app.route('/admin/add_user', methods=['POST'])
+def add_user():
+    if 'user' not in session or session['user'] != 'Luchectus':
+        return redirect(url_for('index'))
+
+    # Получаем данные из HTML-формы
+    username = request.form.get('username')
+    password = request.form.get('password')
+    expire_days = request.form.get('expire_days') # Ожидаем количество дней или пустоту
+
+    # Проверка: нет ли уже такого пользователя
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        flash(f'Пользователь {username} уже существует!', 'error')
+        return redirect(url_for('admin_panel'))
+
+    # Хэшируем пароль
+    hashed_pw = generate_password_hash(password)
+
+    # Высчитываем срок годности (если дни указаны)
+    expires_at = None
+    if expire_days and expire_days.isdigit():
+        expires_at = datetime.now() + timedelta(days=int(expire_days))
+
+    # Создаем и сохраняем
+    new_user = User(username=username, password_hash=hashed_pw, expires_at=expires_at)
+    db.session.add(new_user)
+    db.session.commit()
+
+    flash(f'Пользователь {username} успешно добавлен!', 'success')
+    return redirect(url_for('admin_panel'))
+
+@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
+def delete_user(user_id):
+    if 'user' not in session or session['user'] != 'Luchectus':
+        return redirect(url_for('index'))
+
+    user_to_delete = User.query.get(user_id)
+    
+    if user_to_delete:
+        # Не даем админу случайно удалить самого себя
+        if user_to_delete.username == session['user']:
+            flash('Вы не можете удалить сами себя!', 'error')
+        else:
+            db.session.delete(user_to_delete)
+            db.session.commit()
+            flash(f'Пользователь {user_to_delete.username} удален.', 'success')
+    
+    return redirect(url_for('admin_panel'))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
