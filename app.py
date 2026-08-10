@@ -28,6 +28,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=True) # Если None — аккаунт бессрочный
+    is_admin = db.Column(db.Boolean, default=False)    # НОВОЕ: Флаг администратора
 
     # Проверка, не истёк ли срок годности аккаунта
     def is_active(self):
@@ -61,6 +62,7 @@ def login():
             # 3. Проверяем, не истёк ли срок действия
             if user.is_active():
                 session['user'] = username
+                session['is_admin'] = user.is_admin # НОВОЕ: Сохраняем права в сессию
                 return redirect(url_for('hub'))
             else:
                 error = 'Срок действия вашего аккаунта истёк.'
@@ -75,13 +77,15 @@ def login():
 def hub():
     if 'user' not in session:
         return redirect(url_for('login'))
-    return render_template('hub.html', username=session['user'])
+    # Передаем is_admin в шаблон, чтобы скрыть/показать кнопку админки
+    return render_template('hub.html', username=session['user'], is_admin=session.get('is_admin'))
 
 @app.route('/map')
 def map_page():
     if 'user' not in session:
         return redirect(url_for('login'))
-    return render_template('map.html')
+    # НОВОЕ: Передаем имя пользователя в шаблон карты, как просили в ТЗ
+    return render_template('map.html', username=session.get('user'))
 
 @app.route('/docs')
 def docs():
@@ -92,47 +96,45 @@ def docs():
 @app.route('/logout')
 def logout():
     session.pop('user', None)
+    session.pop('is_admin', None) # Чистим админские права при выходе
     return redirect(url_for('login'))
 
 @app.route('/admin')
 def admin_panel():
-    # Проверяем, авторизован ли пользователь и является ли он админом
-    if 'user' not in session or session['user'] != 'Luchectus':
+    # НОВОЕ: Защита маршрута через флаг сессии
+    if not session.get('is_admin'):
         flash('Доступ запрещен. Требуются права администратора.', 'error')
-        return redirect(url_for('index')) # Или на страницу логина
+        return redirect(url_for('index'))
     
-    # Достаем всех пользователей из базы
     all_users = User.query.all()
-    
-    # Отдаем шаблон (который напишет твоя девушка) и передаем туда список пользователей
     return render_template('admin.html', users=all_users)
 
 @app.route('/admin/add_user', methods=['POST'])
 def add_user():
-    if 'user' not in session or session['user'] != 'Luchectus':
+    if not session.get('is_admin'):
         return redirect(url_for('index'))
 
-    # Получаем данные из HTML-формы
     username = request.form.get('username')
     password = request.form.get('password')
-    expire_days = request.form.get('expire_days') # Ожидаем количество дней или пустоту
+    expire_days = request.form.get('expire_days')
+    
+    # Можно добавить чекбокс в форму "Сделать админом"
+    # is_admin_flag = True if request.form.get('is_admin') == 'on' else False
+    is_admin_flag = request.form.get('is_admin') == 'on'
 
-    # Проверка: нет ли уже такого пользователя
     existing_user = User.query.filter_by(username=username).first()
     if existing_user:
         flash(f'Пользователь {username} уже существует!', 'error')
         return redirect(url_for('admin_panel'))
 
-    # Хэшируем пароль
     hashed_pw = generate_password_hash(password)
 
-    # Высчитываем срок годности (если дни указаны)
     expires_at = None
     if expire_days and expire_days.isdigit():
         expires_at = datetime.now() + timedelta(days=int(expire_days))
 
-    # Создаем и сохраняем
-    new_user = User(username=username, password_hash=hashed_pw, expires_at=expires_at)
+    # Создаем с учетом роли
+    new_user = User(username=username, password_hash=hashed_pw, expires_at=expires_at, is_admin=is_admin_flag)
     db.session.add(new_user)
     db.session.commit()
 
@@ -141,13 +143,12 @@ def add_user():
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
-    if 'user' not in session or session['user'] != 'Luchectus':
+    if not session.get('is_admin'):
         return redirect(url_for('index'))
 
     user_to_delete = User.query.get(user_id)
     
     if user_to_delete:
-        # Не даем админу случайно удалить самого себя
         if user_to_delete.username == session['user']:
             flash('Вы не можете удалить сами себя!', 'error')
         else:
