@@ -192,3 +192,101 @@ html.map-html, body.map-body {
 .overflow-auto::-webkit-scrollbar-track { background: #f1f1f1; }
 .overflow-auto::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
 .overflow-auto::-webkit-scrollbar-thumb:hover { background: var(--geo-main); }
+
+/* ==========================================
+   СТИЛИ СТРАНИЦЫ АВТОРИЗАЦИИ (login.html)
+   ========================================== */
+body.login-page {
+    background-color: var(--geo-dark);
+    background-image: 
+        linear-gradient(135deg, rgba(17, 38, 56, 0.95) 0%, rgba(27, 87, 140, 0.85) 100%),
+        url("https://www.transparenttextures.com/patterns/topography.png");
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+    border-bottom: 4px solid var(--geo-accent); 
+    position: relative;
+}
+
+.login-icon-wrapper {
+    width: 80px;
+    height: 80px;
+    background-color: var(--geo-dark);
+    color: var(--geo-accent);
+    border: 3px solid var(--geo-accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    margin: -40px auto 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+.input-group-text, .btn-eye {
+    background-color: #ffffff;
+    border-color: rgba(27, 87, 140, 0.2);
+    color: var(--geo-main);
+}
+
+.form-control { border-color: rgba(27, 87, 140, 0.2); }
+.form-control:focus { 
+    border-color: var(--geo-main); 
+    box-shadow: none; 
+}
+
+.form-control:focus ~ .btn-eye, 
+.input-group:focus-within .input-group-text {
+    border-color: var(--geo-main);
+}
+
+/* ==========================================
+   СТИЛИ ПАНЕЛИ АДМИНИСТРАТОРА (admin.html)
+   ========================================== */
+.admin-container { max-width: 900px; margin-top: 40px; }
+
+.admin-card {
+    border: 1px solid rgba(27, 87, 140, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
+    background: #ffffff;
+}
+
+.admin-card-header {
+    background-color: #ffffff;
+    border-bottom: 2px solid var(--geo-light);
+    border-radius: 12px 12px 0 0;
+    padding: 1.25rem 1.5rem;
+}
+
+.table-geo thead {
+    background-color: var(--geo-light);
+    color: var(--geo-dark);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.table-geo th { border-bottom: none; font-weight: 700; padding: 1rem; }
+.table-geo td { padding: 1rem; vertical-align: middle; border-bottom: 1px solid var(--geo-light); }
+
+.badge-gold {
+    background-color: rgba(217, 119, 6, 0.1);
+    color: var(--geo-accent);
+    border: 1px solid var(--geo-accent);
+    padding: 0.4em 0.8em;
+    font-weight: 600;
+}
+
+.form-control, .btn-eye-admin { border-color: rgba(27, 87, 140, 0.2); background-color: #ffffff; }
+.form-control:focus { box-shadow: none; border-color: var(--geo-main); }
+.input-group:focus-within .btn-eye-admin,
+.input-group:focus-within .form-control {
+    border-color: var(--geo-main);
+}
