@@ -1,0 +1,194 @@
+/* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Геологическая палитра) === */
+:root {
+    --geo-dark: #112638;      /* Глубокий синий-темный (Навигация, шапки) */
+    --geo-main: #1b578c;      /* Основной синий (Кнопки, ховеры) */
+    --geo-accent: #d97706;    /* Золото/медь (Акценты, иконки) */
+    --geo-light: #e8eef3;     /* Светло-синий для подложек */
+    --geo-bg: #f4f7fa;        /* Общий фон страниц */
+}
+
+/* === БАЗОВЫЕ СТИЛИ === */
+body {
+    background-color: var(--geo-bg);
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Сетка на фоне только для Хаба */
+body.hub-page {
+    background-image: radial-gradient(rgba(27, 87, 140, 0.15) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+/* === НАВИГАЦИЯ (Общая для всех страниц) === */
+.navbar-custom {
+    background-color: var(--geo-dark);
+    border-bottom: 3px solid var(--geo-main);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* === СТИЛИ ХАБА === */
+.hero-section {
+    background-color: var(--geo-dark);
+    background-image: 
+        linear-gradient(135deg, rgba(17, 38, 56, 0.95) 0%, rgba(27, 87, 140, 0.85) 100%),
+        url("https://www.transparenttextures.com/patterns/topography.png");
+    color: white;
+    padding: 4.5rem 0;
+    border-radius: 0 0 20px 20px;
+    margin-bottom: -3.5rem; 
+    box-shadow: 0 10px 25px rgba(17, 38, 56, 0.3);
+    border-bottom: 2px solid var(--geo-accent);
+}
+
+.service-card {
+    border: 1px solid rgba(27, 87, 140, 0.1);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(27, 87, 140, 0.15);
+    border-color: var(--geo-main);
+}
+
+.card-icon-wrapper {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    background-color: var(--geo-light);
+    color: var(--geo-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.7rem;
+    margin-bottom: 1.2rem;
+    border: 1px solid rgba(27, 87, 140, 0.2);
+    transition: all 0.3s ease;
+}
+.service-card:hover .card-icon-wrapper {
+    background-color: var(--geo-main);
+    color: var(--geo-accent); 
+}
+
+/* Кнопки */
+.btn-geo {
+    background-color: var(--geo-main);
+    color: white;
+    border: none;
+    font-weight: 500;
+    padding: 0.6rem 1.5rem;
+    transition: background-color 0.2s;
+}
+.btn-geo:hover {
+    background-color: var(--geo-dark);
+    color: var(--geo-accent);
+}
+
+.btn-outline-geo {
+    border: 2px solid var(--geo-dark);
+    color: var(--geo-dark);
+    font-weight: 600;
+}
+.btn-outline-geo:hover {
+    background-color: var(--geo-dark);
+    color: var(--geo-accent);
+}
+
+/* === СТИЛИ ИНТЕРФЕЙСА КАРТЫ === */
+html.map-html, body.map-body { 
+    height: 100%; 
+    margin: 0; 
+    overflow: hidden; 
+}
+
+.map-wrapper { 
+    display: flex; 
+    height: calc(100vh - 62px); /* Высота под новую навигацию */
+    width: 100vw; 
+    position: relative; 
+}
+
+#layersSidebar {
+    width: 350px; 
+    min-width: 350px; 
+    max-width: 350px;
+    background-color: #ffffff; 
+    z-index: 1000;
+    transition: margin-left 0.3s ease;
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+    display: flex; 
+    flex-direction: column;
+    border-right: 1px solid var(--geo-light);
+}
+#layersSidebar.collapsed { margin-left: -350px; }
+
+#layersSidebarCollapse {
+    position: absolute; 
+    top: 20px; 
+    left: 370px; 
+    z-index: 1001;
+    transition: left 0.3s ease; 
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background-color: white;
+    color: var(--geo-main);
+    border: 1px solid var(--geo-light);
+}
+#layersSidebarCollapse:hover {
+    background-color: var(--geo-light);
+}
+#layersSidebar.collapsed + #layersSidebarCollapse { left: 20px; }
+
+#map { flex-grow: 1; height: 100%; width: 100%; z-index: 1; }
+
+.layer-item {
+    padding: 8px 14px 8px 40px !important; 
+    border-radius: 8px;
+    border: 1px solid #e9ecef; 
+    cursor: pointer; 
+    transition: background-color 0.2s, border-color 0.2s;
+}
+.layer-item:hover { 
+    background-color: var(--geo-light); 
+    border-color: rgba(27, 87, 140, 0.2);
+}
+.layer-item .form-check-input { 
+    cursor: pointer; 
+    margin-left: -26px; 
+    margin-top: 4px; 
+}
+
+/* Перекрашиваем стандартные синие чекбоксы Bootstrap в наш синий */
+.form-check-input:checked {
+    background-color: var(--geo-main);
+    border-color: var(--geo-main);
+}
+
+.leaflet-attribution-flag { display: none !important; }
+
+#attributeSidebar {
+    width: 450px; 
+    min-width: 450px; 
+    background-color: #ffffff; 
+    z-index: 1000;
+    transition: right 0.3s ease; 
+    box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+    display: flex; 
+    flex-direction: column; 
+    position: absolute;
+    top: 0; 
+    bottom: 0; 
+    right: -450px; 
+    border-left: 3px solid var(--geo-main);
+}
+#attributeSidebar.open { right: 0; }
+
+/* Кастомизация скроллбара, чтобы было красиво */
+.overflow-auto::-webkit-scrollbar { width: 6px; }
+.overflow-auto::-webkit-scrollbar-track { background: #f1f1f1; }
+.overflow-auto::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
+.overflow-auto::-webkit-scrollbar-thumb:hover { background: var(--geo-main); }
