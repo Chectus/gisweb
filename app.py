@@ -75,7 +75,7 @@ def login():
 def hub():
     if 'user' not in session:
         return redirect(url_for('login'))
-    return render_template('hub.html', username=session['user'])
+    return render_template('hub.html', username=session['user']) #, is_admin=user.is_admin) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 @app.route('/map')
 def map_page():

@@ -12,8 +12,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
     
     <!-- ПОДКЛЮЧАЕМ НАШ ВЫНЕСЕННЫЙ CSS -->
-     <link rel="stylesheet" href="../static/css/style.css">
-    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"> -->
+    <link rel="stylesheet" href="../static/css/style.css">
   </head>
   <body class="map-body">
     
@@ -38,7 +37,7 @@
 
     <div class="map-wrapper">
       <nav id="layersSidebar" class="p-3 bg-white">
-        <!-- Шапка бокового меню теперь в нашем темном цвете -->
+        <!-- Шапка бокового меню -->
         <h5 class="fw-bold mb-4 border-bottom pb-2" style="color: var(--geo-dark);">
           <i class="bi bi-layers me-2" style="color: var(--geo-main);"></i>Слои карты
         </h5>
@@ -95,7 +94,7 @@
                   <span><i class="bi bi-folder2-open me-2" style="color: var(--geo-main);"></i>Полезные ископаемые</span>
                   <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
                 </button>
-                <div class="collapse mt-2" id="folder290">
+                <div id="folder290" class="accordion-collapse collapse">
                   <div class="accordion-body p-2 d-flex flex-column gap-1">
                     <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">Металлогенические таксоны</div>
                     <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkOreNodes" /><label class="form-check-label w-100" for="chkOreNodes">Рудные узлы 1:1 000 000</label></div>
@@ -119,7 +118,7 @@
                   <span><i class="bi bi-folder2-open me-2" style="color: var(--geo-main);"></i>Экстенсивность оруденения</span>
                   <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
                 </button>
-                <div class="collapse mt-2" id="folder294">
+                <div id="folder294" class="accordion-collapse collapse">
                   <div class="accordion-body p-2 d-flex flex-column gap-2">
                     <div class="alert alert-secondary py-1 px-2 mb-1 text-center" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i> Группа будет дополняться</div>
                     <div class="border rounded p-2 bg-white shadow-sm"><div class="fw-bold mb-1 small border-bottom pb-1" style="color: var(--geo-main);">Бериллий</div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBeDep"><label class="form-check-label w-100 small" for="chkBeDep">Месторождения и рудопроявления</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBeExt"><label class="form-check-label w-100 small" for="chkBeExt">Экстенсивность</label></div><div class="form-check layer-item py-1 mb-0 border-0"><input class="form-check-input" type="checkbox" id="chkBeInt"><label class="form-check-label w-100 small" for="chkBeInt">Интенсивность</label></div></div>
@@ -144,7 +143,7 @@
                 <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder309" aria-expanded="false">
                   <span><i class="bi bi-folder2-open me-2" style="color: var(--geo-main);"></i>Геология</span><i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
                 </button>
-                <div class="collapse mt-2" id="folder309">
+                <div id="folder309" class="accordion-collapse collapse">
                   <div class="accordion-body p-2 d-flex flex-column gap-1">
                     <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">Тектоника</div>
                     <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkFaults1M" /><label class="form-check-label w-100" for="chkFaults1M">Разрывные нарушения 1:1 000 000</label></div>
@@ -159,7 +158,7 @@
                 <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder312" aria-expanded="false">
                   <span><i class="bi bi-folder2-open me-2" style="color: var(--geo-main);"></i>Геофизика</span><i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
                 </button>
-                <div class="collapse mt-2" id="folder312">
+                <div id="folder312" class="accordion-collapse collapse">
                   <div class="accordion-body p-2 d-flex flex-column gap-1">
                     <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">Геофизические поля (ДЗЗ)</div>
                     <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkEmag" /><label class="form-check-label w-100" for="chkEmag">Магнитные аномалии (EMAG2v3)</label></div>
@@ -172,7 +171,7 @@
                 <button class="btn btn-link btn-sm w-100 text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#folder318" aria-expanded="false">
                   <span><i class="bi bi-folder2-open me-2" style="color: var(--geo-main);"></i>Модели рельефа (ЦМР)</span><i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
                 </button>
-                <div class="collapse mt-2" id="folder318">
+                <div id="folder318" class="accordion-collapse collapse">
                   <div class="accordion-body p-2 d-flex flex-column gap-1">
                     <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary">ЦМР FABDEM</div>
                     <div class="form-check layer-item"><input class="form-check-input" type="checkbox" id="chkDemColor" /><label class="form-check-label w-100" for="chkDemColor">Визуализация в цвете</label></div>
@@ -204,16 +203,12 @@
       <div id="map"></div>
     </div>
 
-    <!-- БАЗОВЫЕ СКРИПТЫ -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- БАЗОВЫЕ СКРИПТЫ -->
+    <!-- БАЗОВЫЕ СКРИПТЫ (Теперь строго в одном экземпляре!) -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- ПОДКЛЮЧАЕМ НАШ ВЫНЕСЕННЫЙ JS -->
-    <!-- <script src="{{ url_for('static', filename='js/map_logic.js') }}"></script> -->
     <script src="../static/js/map_logic.js"></script>
 
   </body>

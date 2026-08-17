@@ -73,6 +73,8 @@
                 </div>
             </div>
 
+            <!-- Карточка 3: Админка (Скрыта от обычных геологов) -->
+            {% if is_admin %}
             <div class="col-md-4">
                 <div class="card service-card p-4">
                     <div class="card-icon-wrapper" style="background-color: #f8d7da; color: #dc3545; border-color: #f5c2c7;">
@@ -87,6 +89,7 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
         </div>
     </div>

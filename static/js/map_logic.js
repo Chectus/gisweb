@@ -1,5 +1,10 @@
+/**
+ * ГЛАВНЫЙ СКРИПТ КАРТЫ (ГИС Забайкальского края)
+ * Разработка: Лаборатория ГИС
+ */
+
 // ==========================================
-// БЛОК 1: ИНИЦИАЛИЗАЦИЯ
+// БЛОК 1: ИНИЦИАЛИЗАЦИЯ КАРТЫ И БАЗОВЫХ СЛОЕВ
 // ==========================================
 const map = L.map("map", { zoomControl: false, minZoom: 3, maxZoom: 18 }).setView([52.03, 117.5], 6);
 L.control.zoom({ position: "bottomleft" }).addTo(map);
@@ -19,7 +24,97 @@ document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
 const nextgisBaseUrl = "https://nextgis.tsugeoprognoz.ru";
 
 // ==========================================
-// БЛОК 2: ОБЫЧНЫЕ ПОЛИГОНЫ И ЛИНИИ (Всегда картинки TMS)
+// БЛОК 2: АРХИТЕКТУРА ИНТЕРФЕЙСА (ПАПКИ И ГАЛОЧКИ)
+// ==========================================
+const sidebar = document.getElementById("layersSidebar");
+const btnCollapse = document.getElementById("layersSidebarCollapse");
+const iconToggle = document.getElementById("layerToggleIcon");
+
+if (btnCollapse) {
+  btnCollapse.addEventListener("click", () => {
+    sidebar.classList.toggle("collapsed");
+    iconToggle.className = sidebar.classList.contains("collapsed") ? "bi bi-chevron-right" : "bi bi-chevron-left";
+    setTimeout(() => map.invalidateSize(), 300);
+  });
+}
+
+// 2.1 Создаем ГЛАВНЫЕ галочки для папок (Мастер-рубильники QGIS)
+document.querySelectorAll('button[data-bs-toggle="collapse"]').forEach(btn => {
+  const targetId = btn.getAttribute('data-bs-target');
+  const folderContent = document.querySelector(targetId);
+  if (!folderContent) return;
+
+  // Создаем обертку, чтобы отделить чекбокс от кнопки аккордеона
+  const wrapper = document.createElement('div');
+  wrapper.className = 'd-flex align-items-center w-100';
+  btn.parentNode.insertBefore(wrapper, btn);
+
+  // Создаем чекбокс папки
+  const masterCheck = document.createElement('input');
+  masterCheck.type = 'checkbox';
+  masterCheck.className = 'form-check-input ms-2 me-2 folder-master-checkbox';
+  masterCheck.title = 'Показать/скрыть слои группы на карте';
+  masterCheck.checked = true;
+  masterCheck.style.cursor = 'pointer';
+
+  // Перемещаем кнопку внутрь обертки и убираем ширину 100%, чтобы они стояли в ряд
+  btn.classList.remove('w-100');
+  btn.style.flexGrow = '1';
+  wrapper.appendChild(masterCheck);
+  wrapper.appendChild(btn);
+
+  // Логика: при клике на рубильник папки рассылаем сигнал слоям
+  masterCheck.addEventListener('change', () => {
+    folderContent.querySelectorAll('.layer-item input[type="checkbox"]').forEach(chk => {
+      chk.dispatchEvent(new Event('folderToggled')); 
+    });
+  });
+});
+
+// 2.2 Создаем мелкие галочки для подгрупп (Золото, Медь и т.д.)
+document.querySelectorAll('.accordion-body .fw-bold').forEach(header => {
+  if(header.closest('.alert')) return;
+
+  header.classList.add('d-flex', 'align-items-center');
+  const subCheck = document.createElement('input');
+  subCheck.type = 'checkbox';
+  subCheck.className = 'form-check-input me-2 mb-0';
+  subCheck.style.cssText = 'margin-top: 0; margin-left: -15px; cursor: pointer;';
+  subCheck.title = 'Выбрать все слои в подгруппе';
+  
+  // Эта галочка физически проставляет/снимает выбор у слоев ниже
+  subCheck.addEventListener('change', (e) => {
+    const isChecked = e.target.checked;
+    let nextEl = header.nextElementSibling;
+    while (nextEl && !nextEl.classList.contains('fw-bold')) {
+      if (nextEl.classList.contains('layer-item')) {
+        const chk = nextEl.querySelector('input[type="checkbox"]:not([disabled])');
+        if (chk && chk.checked !== isChecked) {
+          chk.checked = isChecked;
+          chk.dispatchEvent(new Event('change')); // Обновляем карту
+        }
+      }
+      nextEl = nextEl.nextElementSibling;
+    }
+  });
+  header.prepend(subCheck);
+});
+
+// ==========================================
+// УТИЛИТА: ПРОВЕРКА ВИДИМОСТИ ПАПКИ
+// ==========================================
+// Железобетонная функция проверки: включен ли рубильник у папки слоя?
+function isFolderChecked(chk) {
+  const folder = chk.closest('.collapse');
+  if (!folder) return true; // Если слой без папки
+  
+  const container = folder.parentElement;
+  const masterCheck = container.querySelector('.folder-master-checkbox');
+  return masterCheck ? masterCheck.checked : true;
+}
+
+// ==========================================
+// БЛОК 3: ОБЫЧНЫЕ СЛОИ (ПОЛИГОНЫ И ЛИНИИ)
 // ==========================================
 function createNextGisLayer(resourceId, layerZIndex = 10) {
   return L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${resourceId}&nd=204&z={z}&x={x}&y={y}`, {
@@ -28,15 +123,24 @@ function createNextGisLayer(resourceId, layerZIndex = 10) {
 }
 
 function setupLayerToggle(checkboxId, leafletLayer) {
-  const checkbox = document.getElementById(checkboxId);
-  if (!checkbox) return; 
-  if (checkbox.checked) map.addLayer(leafletLayer);
-  checkbox.addEventListener("change", (e) => {
-    if (e.target.checked) map.addLayer(leafletLayer);
-    else map.removeLayer(leafletLayer);
-  });
+  const chk = document.getElementById(checkboxId);
+  if (!chk) return; 
+
+  function updateVisibility() {
+    // Слой рисуется ТОЛЬКО если: 1. Он сам выбран И 2. Его папка включена
+    if (chk.checked && isFolderChecked(chk)) {
+      if (!map.hasLayer(leafletLayer)) map.addLayer(leafletLayer);
+    } else {
+      if (map.hasLayer(leafletLayer)) map.removeLayer(leafletLayer);
+    }
+  }
+
+  chk.addEventListener("change", updateVisibility); // Слушаем личный клик
+  chk.addEventListener("folderToggled", updateVisibility); // Слушаем рубильник папки
+  updateVisibility(); // Проверяем при загрузке
 }
 
+// Загрузка слоев (Строго по твоему коду!)
 const layerGrid200k = createNextGisLayer(321, 10); setupLayerToggle("chkGrid200k", layerGrid200k);
 const layerGrid1M = createNextGisLayer(323, 10); setupLayerToggle("chkGrid1M", layerGrid1M);
 const layerRailRoads = createNextGisLayer(327, 50); setupLayerToggle("chkRailRoads", layerRailRoads);
@@ -50,6 +154,7 @@ const layerBorderKant = createNextGisLayer(337, 10); setupLayerToggle("chkBorder
 const layerOreNodes = createNextGisLayer(341, 10); setupLayerToggle("chkOreNodes", layerOreNodes);
 const layerOreRegions = createNextGisLayer(343, 10); setupLayerToggle("chkOreRegions", layerOreRegions);
 
+// Экстенсивность и Интенсивность (из твоего Блока 2)
 const layerBeExt = createNextGisLayer(359, 10); setupLayerToggle("chkBeExt", layerBeExt);
 const layerBeInt = createNextGisLayer(361, 10); setupLayerToggle("chkBeInt", layerBeInt);
 const layerBiExt = createNextGisLayer(365, 10); setupLayerToggle("chkBiExt", layerBiExt);
@@ -87,18 +192,16 @@ const layerDemColor = createNextGisLayer(449, 5); setupLayerToggle("chkDemColor"
 const layerDem300m = createNextGisLayer(451, 5); setupLayerToggle("chkDem300m", layerDem300m);
 
 // ==========================================
-// БЛОК 3: ГИБРИДНЫЕ СЛОИ ДЛЯ ТОЧЕК (Кластеры <-> Картинки)
+// БЛОК 4: ГИБРИДНЫЕ СЛОИ (КЛАСТЕРЫ <-> КАРТИНКИ)
 // ==========================================
 function setupHybridPointLayer(checkboxId, styleId, vectorId, switchZoom = 9) {
   const chk = document.getElementById(checkboxId);
   if (!chk) return;
 
-  // Слой 1: Идеальные картинки из QGIS
   const tmsLayer = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${styleId}&nd=204&z={z}&x={x}&y={y}`, {
     transparent: true, format: 'image/png', noWrap: true, zIndex: 70
   });
 
-  // Слой 2: Кластеры
   const clusterGroup = L.markerClusterGroup({ maxClusterRadius: 50 });
   let isVectorLoaded = false;
 
@@ -136,27 +239,30 @@ function setupHybridPointLayer(checkboxId, styleId, vectorId, switchZoom = 9) {
   }
 
   function updateVisibility() {
-    if (!chk.checked) {
-      map.removeLayer(tmsLayer);
-      map.removeLayer(clusterGroup);
+    // Проверка логики QGIS: Если слой выключен ИЛИ папка скрыта
+    if (!(chk.checked && isFolderChecked(chk))) {
+      if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
+      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
       return;
     }
+    
+    // Гибридная подмена
     if (map.getZoom() < switchZoom) {
-      map.removeLayer(tmsLayer);
-      map.addLayer(clusterGroup);
+      if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
+      if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup);
       if (!isVectorLoaded) loadVector();
     } else {
-      map.removeLayer(clusterGroup);
-      map.addLayer(tmsLayer);
+      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+      if (!map.hasLayer(tmsLayer)) map.addLayer(tmsLayer);
     }
   }
 
   chk.addEventListener("change", updateVisibility);
+  chk.addEventListener("folderToggled", updateVisibility);
   map.on('zoomend', updateVisibility);
-  if (chk.checked) updateVisibility();
+  updateVisibility();
 }
 
-// ВОЗВРАЩАЕМ ТОЧКИ К ЖИЗНИ!
 setupHybridPointLayer("chkCities", 325, 324, 9);
 setupHybridPointLayer("chkMetalsDeposits", 345, 344, 9);
 setupHybridPointLayer("chkMetalsOccurrences", 347, 346, 9);
@@ -179,73 +285,6 @@ setupHybridPointLayer("chkPbZnDep", 417, 416, 9);
 setupHybridPointLayer("chkSbDep", 423, 422, 9);
 setupHybridPointLayer("chkTaNbDep", 429, 428, 9);
 setupHybridPointLayer("chkUDep", 435, 434, 9);
-
-
-// ==========================================
-// БЛОК 4: ИНТЕРФЕЙС И ГРУППИРОВКИ
-// ==========================================
-const sidebar = document.getElementById("layersSidebar");
-const btnCollapse = document.getElementById("layersSidebarCollapse");
-const iconToggle = document.getElementById("layerToggleIcon");
-
-btnCollapse.addEventListener("click", () => {
-  sidebar.classList.toggle("collapsed");
-  iconToggle.className = sidebar.classList.contains("collapsed") ? "bi bi-chevron-right" : "bi bi-chevron-left";
-  setTimeout(() => map.invalidateSize(), 300);
-});
-
-document.querySelectorAll('button[data-bs-toggle="collapse"]').forEach(btn => {
-  const targetId = btn.getAttribute('data-bs-target');
-  const folderContent = targetId ? document.querySelector(targetId) : null;
-  if (!folderContent) return;
-
-  const masterCheck = document.createElement('input');
-  masterCheck.type = 'checkbox';
-  masterCheck.className = 'form-check-input me-3';
-  masterCheck.style.cssText = 'margin-top: 2px; margin-left: -5px;';
-  masterCheck.title = 'Включить/выключить все слои в папке';
-
-  masterCheck.addEventListener('click', (e) => e.stopPropagation());
-  masterCheck.addEventListener('change', (e) => {
-    const isChecked = e.target.checked;
-    folderContent.querySelectorAll('.layer-item input[type="checkbox"]:not([disabled])').forEach(chk => {
-      if (chk.checked !== isChecked) {
-        chk.checked = isChecked;
-        chk.dispatchEvent(new Event('change')); 
-      }
-    });
-  });
-
-  const titleSpan = btn.querySelector('span');
-  if (titleSpan) {
-    titleSpan.classList.add('d-flex', 'align-items-center');
-    titleSpan.prepend(masterCheck);
-  }
-});
-
-document.querySelectorAll('.accordion-body .fw-bold.text-secondary').forEach(header => {
-  header.classList.add('d-flex', 'align-items-center');
-  const subCheck = document.createElement('input');
-  subCheck.type = 'checkbox';
-  subCheck.className = 'form-check-input me-2 mb-0';
-  subCheck.style.cssText = 'margin-top: 0; margin-left: -15px;';
-  
-  subCheck.addEventListener('change', (e) => {
-    const isChecked = e.target.checked;
-    let nextEl = header.nextElementSibling;
-    while (nextEl && !nextEl.classList.contains('fw-bold')) {
-      if (nextEl.classList.contains('layer-item')) {
-        const chk = nextEl.querySelector('input[type="checkbox"]:not([disabled])');
-        if (chk && chk.checked !== isChecked) {
-          chk.checked = isChecked;
-          chk.dispatchEvent(new Event('change'));
-        }
-      }
-      nextEl = nextEl.nextElementSibling;
-    }
-  });
-  header.prepend(subCheck);
-});
 
 // ==========================================
 // БЛОК 5: BBOX КЛИК И ПРАВЫЕ ТАБЛИЦЫ
@@ -276,9 +315,11 @@ const queryQueue = [
 
 map.on('click', async function(e) {
   const point = L.CRS.EPSG3857.project(e.latlng);
+  
   const activeLayers = queryQueue.filter(layer => {
     const checkbox = document.getElementById(layer.chkId);
-    return checkbox && checkbox.checked;
+    // Проверяем, что слой включен И его папка тоже включена
+    return checkbox && checkbox.checked && isFolderChecked(checkbox);
   });
 
   if (activeLayers.length === 0) return;
@@ -319,21 +360,24 @@ map.on('click', async function(e) {
 const attrSidebar = document.getElementById('attributeSidebar');
 const closeAttrBtn = document.getElementById('closeAttributeSidebar');
 const attrContainer = document.getElementById('attributeTableContainer');
-closeAttrBtn.addEventListener('click', () => attrSidebar.classList.remove('open'));
+
+if(closeAttrBtn) {
+  closeAttrBtn.addEventListener('click', () => attrSidebar.classList.remove('open'));
+}
 
 async function loadAttributeTable(vectorId, layerName) {
-  attrSidebar.classList.add('open');
-  attrContainer.innerHTML = `<div class="text-center mt-5">
-                                <div class="spinner-border" style="color: var(--geo-main);" role="status"></div>
-                                <div class="mt-2 text-muted">Стягиваем данные с NextGIS...</div>
-                             </div>`;
+  if(attrSidebar) attrSidebar.classList.add('open');
+  if(attrContainer) attrContainer.innerHTML = `<div class="text-center mt-5">
+                                                  <div class="spinner-border" style="color: var(--geo-main);" role="status"></div>
+                                                  <div class="mt-2 text-muted">Стягиваем данные с NextGIS...</div>
+                                               </div>`;
 
   try {
     const response = await fetch(`${nextgisBaseUrl}/api/resource/${vectorId}/feature/?geom=no`);
     const data = await response.json();
 
     if (!data || data.length === 0) {
-      attrContainer.innerHTML = `<div class="alert alert-warning mt-3">Слой пуст или данных нет.</div>`;
+      if(attrContainer) attrContainer.innerHTML = `<div class="alert alert-warning mt-3">Слой пуст или данных нет.</div>`;
       return;
     }
 
@@ -355,9 +399,9 @@ async function loadAttributeTable(vectorId, layerName) {
     }
     tableHTML += `</tbody></table>`;
     if (data.length > 500) tableHTML += `<div class="text-muted small mt-2">* Показаны только первые 500 записей.</div>`;
-    attrContainer.innerHTML = tableHTML;
+    if(attrContainer) attrContainer.innerHTML = tableHTML;
   } catch(err) {
-    attrContainer.innerHTML = `<div class="alert alert-danger mt-3">Ошибка загрузки данных.</div>`;
+    if(attrContainer) attrContainer.innerHTML = `<div class="alert alert-danger mt-3">Ошибка загрузки данных.</div>`;
   }
 }
 
@@ -369,15 +413,18 @@ queryQueue.forEach(layer => {
       layerItem.classList.add('d-flex', 'align-items-center');
       const label = layerItem.querySelector('label');
       const layerName = label ? label.innerText.trim() : 'Слой';
-      const btn = document.createElement('button');
-      btn.className = "btn btn-sm btn-link p-0 ms-auto text-secondary";
-      btn.title = "Открыть таблицу атрибутов";
-      btn.innerHTML = `<i class="bi bi-table"></i>`; 
-      btn.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        loadAttributeTable(layer.vectorId, layerName);
-      });
-      layerItem.appendChild(btn);
+      
+      if (!layerItem.querySelector('button[title="Открыть таблицу атрибутов"]')) {
+        const btn = document.createElement('button');
+        btn.className = "btn btn-sm btn-link p-0 ms-auto text-secondary";
+        btn.title = "Открыть таблицу атрибутов";
+        btn.innerHTML = `<i class="bi bi-table"></i>`; 
+        btn.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          loadAttributeTable(layer.vectorId, layerName);
+        });
+        layerItem.appendChild(btn);
+      }
     }
   }
 });

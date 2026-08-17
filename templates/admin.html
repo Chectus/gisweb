@@ -34,11 +34,13 @@
             </div>
             <div class="card-body p-4" style="background-color: #fafbfc; border-radius: 0 0 12px 12px;">
                 <form action="{{ url_for('add_user') }}" method="POST" class="row g-3 align-items-end">
-                    <div class="col-md-3">
+                    <!-- Логин -->
+                    <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Логин</label>
-                        <input type="text" class="form-control" name="username" placeholder="Например: geo_worker" required>
+                        <input type="text" class="form-control" name="username" placeholder="geo_worker" required>
                     </div>
                     
+                    <!-- Пароль с глазиком -->
                     <div class="col-md-3">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Пароль</label>
                         <div class="input-group">
@@ -48,13 +50,25 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- НОВОЕ: Выбор роли -->
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Роль</label>
+                        <select class="form-select" name="is_admin" style="border-color: rgba(27, 87, 140, 0.2);">
+                            <option value="0" selected>⛏️ Геолог</option>
+                            <option value="1">👑 Админ</option>
+                        </select>
+                    </div>
                     
+                    <!-- Срок действия -->
                     <div class="col-md-3">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней доступа</label>
                         <input type="number" class="form-control" name="expire_days" placeholder="Пусто = навсегда">
                     </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-geo w-100 py-2"><i class="bi bi-plus-lg me-1"></i>Добавить</button>
+                    
+                    <!-- Кнопка -->
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-geo w-100 py-2"><i class="bi bi-plus-lg me-1"></i>Создать</button>
                     </div>
                 </form>
             </div>
@@ -77,8 +91,18 @@
                         <tbody>
                             {% for u in users %}
                             <tr>
-                                <td class="ps-4 fw-bold" style="color: var(--geo-dark);">
-                                    <i class="bi bi-person-circle me-2 text-muted opacity-50"></i>{{ u.username }}
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-person-circle me-3 fs-4 text-muted opacity-50"></i>
+                                        <div>
+                                            <div class="fw-bold" style="color: var(--geo-dark);">{{ u.username }}</div>
+                                            {% if u.is_admin %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Администратор</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Пользователь</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </td>
                                 
                                 <td>
