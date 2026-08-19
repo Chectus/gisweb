@@ -113,6 +113,37 @@ class TrustedDevice(db.Model):
     def is_valid(self):
         return datetime.now() < (self.last_login + timedelta(days=3))
 
+# --- НОВАЯ МОДЕЛЬ ДЛЯ ЛОГОВ ---
+class ActionLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.now)
+    # ondelete='SET NULL' значит, что если мы удалим юзера, его логи останутся, просто ID станет пустым
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True) 
+    username = db.Column(db.String(50)) # Запоминаем логин текстом навечно
+    action_type = db.Column(db.String(50)) # Категория (ВХОД, ОШИБКА, АДМИНКА)
+    details = db.Column(db.String(255)) # Суть действия
+    ip_address = db.Column(db.String(50))
+    user_agent = db.Column(db.String(255)) # Браузер и ОС
+
+# --- ФУНКЦИЯ-ШПИОН ЗАПИСИ ЛОГОВ ---
+def log_action(user_id, username, action_type, details):
+    """Тихо записывает действие пользователя в базу"""
+    # Достаем реальный IP (даже если сервер за прокси)
+    ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+    # Достаем инфу о браузере
+    user_agent = request.user_agent.string[:255] 
+    
+    log_entry = ActionLog(
+        user_id=user_id,
+        username=username,
+        action_type=action_type,
+        details=details,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+    db.session.add(log_entry)
+    db.session.commit()
+
 @app.before_request
 def make_session_permanent():
     session.permanent = True
@@ -151,53 +182,52 @@ def login():
         
         user = User.query.filter_by(username=username).first()
         
-        # 1. Проверяем правильность логина и пароля
         if user and check_password_hash(user.password_hash, password):
             if not user.is_active():
+                log_action(user.id, user.username, 'ОШИБКА_ВХОДА', 'Попытка входа с истекшим сроком')
                 return render_template('login.html', error='Срок действия вашего аккаунта истёк.')
             
-            # 2. Если у юзера НЕТ почты (общий аккаунт) -> пускаем сразу
+            # 1. Логин без 2FA (общий аккаунт)
             if not user.email:
+                log_action(user.id, user.username, 'ВХОД', 'Успешный вход (Без 2FA)')
                 session['user'] = username
                 session['is_admin'] = user.is_admin
                 return redirect(url_for('hub'))
             
-            # 3. Если почта ЕСТЬ -> ищем токен доверенного устройства в браузере
+            # 2. Логин по токену доверенного устройства
             device_token = request.cookies.get('trusted_device')
             if device_token:
                 trusted_device = TrustedDevice.query.filter_by(device_token=device_token, user_id=user.id).first()
-                # Если устройство найдено и таймер (3 дня) не истёк -> пускаем
                 if trusted_device and trusted_device.is_valid():
-                    # Обновляем таймер последнего входа
                     trusted_device.last_login = datetime.now()
                     db.session.commit()
                     
+                    log_action(user.id, user.username, 'ВХОД', 'Успешный вход (По токену устройства)')
                     session['user'] = username
                     session['is_admin'] = user.is_admin
                     return redirect(url_for('hub'))
             
-            # 4. Если устройства нет или оно просрочено -> Генерируем 2FA
-            # Генерируем 6 случайных цифр
+            # 3. Отправка 2FA
             code = ''.join(random.choices(string.digits, k=6))
             user.current_2fa_code = code
             db.session.commit()
             
-            # ВОТ ТУТ МЫ СТРЕЛЯЕМ ИЗ НАШЕЙ ФУНКЦИИ!
             send_2fa_email(user.email, code)
+            log_action(user.id, user.username, '2FA_ЗАПРОС', 'Отправлен код подтверждения на почту')
             
-            # Запоминаем во временную сессию, кто именно пытается войти
             session['pending_2fa_user_id'] = user.id
             return redirect(url_for('verify_2fa'))
             
         else:
+            # Пишем лог, даже если логин неверный (чтобы ловить брутфорсеров)
+            user_id = user.id if user else None
+            log_action(user_id, username, 'ОШИБКА_ВХОДА', 'Неверный логин или пароль')
             return render_template('login.html', error='Неверный логин или пароль')
             
     return render_template('login.html')
 
-
 @app.route('/verify_2fa', methods=['GET', 'POST'])
 def verify_2fa():
-    # Если никто не пытается войти, выкидываем отсюда
     user_id = session.get('pending_2fa_user_id')
     if not user_id:
         return redirect(url_for('login'))
@@ -207,29 +237,26 @@ def verify_2fa():
     if request.method == 'POST':
         entered_code = request.form.get('code')
         
-        # Если код совпал с тем, что в базе
         if entered_code and entered_code == user.current_2fa_code:
-            # Чистим временный код
             user.current_2fa_code = None
             
-            # Генерируем длинный криптографический токен для устройства
             new_token = secrets.token_hex(32)
             new_device = TrustedDevice(user_id=user.id, device_token=new_token)
             db.session.add(new_device)
             db.session.commit()
             
-            # Авторизуем в системе
             session['user'] = user.username
             session['is_admin'] = user.is_admin
-            session.pop('pending_2fa_user_id', None) # Удаляем временную метку
+            session.pop('pending_2fa_user_id', None)
             
-            # Создаем ответ и кладем токен в куки браузера на 30 дней
-            # (сама кука живет 30 дней, но база пустит только 3 дня)
+            log_action(user.id, user.username, 'ВХОД', 'Успешный вход (Подтвержден код 2FA)')
+            
             resp = make_response(redirect(url_for('hub')))
             resp.set_cookie('trusted_device', new_token, max_age=60*60*24*30, httponly=True)
             return resp
             
         else:
+            log_action(user.id, user.username, 'ОШИБКА_2FA', 'Введен неверный код подтверждения')
             return render_template('verify_2fa.html', error='Неверный код подтверждения')
             
     return render_template('verify_2fa.html', email=user.email)
