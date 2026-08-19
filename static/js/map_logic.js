@@ -21,7 +21,7 @@ document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
   });
 });
 
-const nextgisBaseUrl = "https://nextgis.tsugeoprognoz.ru";
+const nextgisBaseUrl = "";
 
 // ==========================================
 // БЛОК 2: АРХИТЕКТУРА ИНТЕРФЕЙСА (ПАПКИ И ГАЛОЧКИ)
