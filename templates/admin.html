@@ -60,7 +60,7 @@
                         </select>
                     </div>
 
-                    <!-- НОВОЕ: Email для 2FA -->
+                    <!-- Email для 2FA -->
                     <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Email (2FA)</label>
                         <input type="email" class="form-control px-2" name="email" placeholder="Опционально">
@@ -80,6 +80,7 @@
             </div>
         </div>
 
+        <!-- БЛОК 2: Список пользователей -->
         <div class="admin-card mb-5">
             <div class="admin-card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-people-fill me-2" style="color: var(--geo-main);"></i>Активные учетные записи</h5>
@@ -89,8 +90,9 @@
                     <table class="table table-hover table-geo align-middle mb-0">
                         <thead>
                             <tr>
-                                <th class="ps-4 w-50">Пользователь</th>
-                                <th>Статус / Годен до</th>
+                                <th class="ps-4 w-25">Пользователь</th>
+                                <th class="w-25">Почта (2FA)</th> 
+                                <th class="w-25">Статус / Годен до</th>
                                 <th class="text-end pe-4">Действие</th>
                             </tr>
                         </thead>
@@ -111,11 +113,20 @@
                                     </div>
                                 </td>
                                 
+                                <!-- КОЛОНКА С ПОЧТОЙ -->
+                                <td>
+                                    {% if u.email %}
+                                        <span class="text-secondary small fw-medium"><i class="bi bi-envelope me-1"></i> {{ u.email }}</span>
+                                    {% else %}
+                                        <span class="text-muted small opacity-50">—</span>
+                                    {% endif %}
+                                </td>
+                                
                                 <td>
                                     {% if u.expires_at %}
-                                        <span class="text-secondary fw-medium"><i class="bi bi-calendar-event me-1"></i>{{ u.expires_at }}</span>
+                                        <span class="text-secondary fw-medium"><i class="bi bi-calendar-event me-1"></i> {{ u.expires_at }}</span>
                                     {% else %}
-                                        <span class="badge badge-gold rounded-pill"><i class="bi bi-infinity me-1"></i>Бессрочный</span>
+                                        <span class="badge badge-gold rounded-pill"><i class="bi bi-infinity me-1"></i> Бессрочный</span>
                                     {% endif %}
                                 </td>
                                 
@@ -138,12 +149,13 @@
                         <i class="bi bi-inbox fs-2" style="color: var(--geo-main);"></i>
                     </div>
                     <h6 class="fw-bold" style="color: var(--geo-dark);">База пуста</h6>
-                    <p class="text-muted small mb-0">Здесь появятся добавленные геологи.</p>
+                    <p class="text-muted small mb-0">Здесь появятся добавленные пользователи.</p>
                 </div>
                 {% endif %}
 
             </div>
         </div>
+
         
     </div>
 
