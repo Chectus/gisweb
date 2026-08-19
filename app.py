@@ -1,6 +1,7 @@
 import os
+import requests
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -10,12 +11,20 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Достаем ключ из сейфа
+# Достаем главный ключ из сейфа[cite: 4]
 app.secret_key = os.environ.get('SECRET_KEY')
-
-# Если ключа нет (например, забыли создать .env), роняем сервер с ошибкой
 if not app.secret_key:
     raise ValueError("Не задан SECRET_KEY в переменных окружения!")
+
+# НОВОЕ: Достаем учетку от NextGIS из сейфа
+NEXTGIS_USER = os.environ.get('NEXTGIS_USER')
+NEXTGIS_PASS = os.environ.get('NEXTGIS_PASS')
+
+if not NEXTGIS_USER or not NEXTGIS_PASS:
+    raise ValueError("Не заданы логин или пароль NextGIS в переменных окружения (.env)!")
+
+NEXTGIS_AUTH = (NEXTGIS_USER, NEXTGIS_PASS)
+NEXTGIS_LOCAL_URL = "http://127.0.0.1:8081" # Порт докера NextGIS
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -41,6 +50,24 @@ with app.app_context():
     db.create_all()
 
 # --- РОУТЫ ---
+
+@app.route('/api/<path:subpath>')
+def proxy_nextgis(subpath):
+    # 1. Жесткая защита: пропускаем только своих авторизованных геологов
+    if 'user' not in session:
+        return "Доступ запрещен", 403
+
+    # 2. Формируем запрос к скрытому локальному NextGIS
+    url = f"{NEXTGIS_LOCAL_URL}/api/{subpath}"
+    
+    # 3. Flask сам идет в NextGIS с правами из .env и прокидывает параметры от пользователя
+    req = requests.get(url, params=request.args, auth=NEXTGIS_AUTH)
+    
+    # 4. Аккуратно передаем картинку (тайл) или GeoJSON обратно в браузер
+    excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+    headers = [(name, value) for (name, value) in req.headers.items() if name.lower() not in excluded_headers]
+    
+    return Response(req.content, req.status_code, headers)
 
 @app.route('/')
 def index():
