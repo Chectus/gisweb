@@ -33,7 +33,7 @@
                 <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-person-plus-fill me-2" style="color: var(--geo-main);"></i>Новый доступ</h5>
             </div>
             <div class="card-body p-4" style="background-color: #fafbfc; border-radius: 0 0 12px 12px;">
-                <form action="{{ url_for('add_user') }}" method="POST" class="row g-3 align-items-end">
+                <form action="{{ url_for('add_user') }}" method="POST" class="row g-2 align-items-end">
                     <!-- Логин -->
                     <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Логин</label>
@@ -41,34 +41,40 @@
                     </div>
                     
                     <!-- Пароль с глазиком -->
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Пароль</label>
                         <div class="input-group">
-                            <input type="password" class="form-control border-end-0" id="adminPassword" name="password" placeholder="••••••••" required>
-                            <button class="btn btn-eye-admin border-start-0" type="button" id="toggleAdminPassword">
+                            <input type="password" class="form-control border-end-0 px-2" id="adminPassword" name="password" placeholder="••••••••" required>
+                            <button class="btn btn-eye-admin border-start-0 px-2" type="button" id="toggleAdminPassword">
                                 <i class="bi bi-eye text-muted" id="toggleAdminIcon"></i>
                             </button>
                         </div>
                     </div>
 
-                    <!-- НОВОЕ: Выбор роли -->
+                    <!-- Роль -->
                     <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Роль</label>
-                        <select class="form-select" name="is_admin" style="border-color: rgba(27, 87, 140, 0.2);">
+                        <select class="form-select px-2" name="is_admin" style="border-color: rgba(27, 87, 140, 0.2);">
                             <option value="0" selected>⛏️ Геолог</option>
                             <option value="1">👑 Админ</option>
                         </select>
                     </div>
+
+                    <!-- НОВОЕ: Email для 2FA -->
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Email (2FA)</label>
+                        <input type="email" class="form-control px-2" name="email" placeholder="Опционально">
+                    </div>
                     
                     <!-- Срок действия -->
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней доступа</label>
-                        <input type="number" class="form-control" name="expire_days" placeholder="Пусто = навсегда">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней</label>
+                        <input type="number" class="form-control px-2" name="expire_days" placeholder="Навсегда">
                     </div>
                     
                     <!-- Кнопка -->
                     <div class="col-md-2">
-                        <button type="submit" class="btn btn-geo w-100 py-2"><i class="bi bi-plus-lg me-1"></i>Создать</button>
+                        <button type="submit" class="btn btn-geo w-100 py-2 px-1"><i class="bi bi-plus-lg me-1"></i>Создать</button>
                     </div>
                 </form>
             </div>

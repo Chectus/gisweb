@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение входа | ГИС Забайкалья</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- ПОДКЛЮЧАЕМ ЕДИНЫЙ CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-page">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-5 col-lg-4">
+                
+                <div class="card login-card mt-5">
+                    <!-- Иконка щита для 2FA -->
+                    <div class="login-icon-wrapper">
+                        <i class="bi bi-shield-lock-fill"></i>
+                    </div>
+                    
+                    <div class="card-body p-4 pt-2">
+                        <h4 class="card-title text-center mb-1 fw-bold" style="color: var(--geo-dark);">Проверка безопасности</h4>
+                        <p class="text-center text-muted small mb-4">
+                            Мы отправили 6-значный код на почту:<br>
+                            <strong style="color: var(--geo-main);">{{ email }}</strong>
+                        </p>
+                        
+                        <!-- Блок с ошибкой -->
+                        {% if error %}
+                            <div class="alert alert-danger text-center small py-2 fw-medium" role="alert">
+                                <i class="bi bi-shield-exclamation me-1"></i> {{ error }}
+                            </div>
+                        {% endif %}
+                        
+                        <form method="POST" action="{{ url_for('verify_2fa') }}">
+                            <div class="mb-4">
+                                <label for="code" class="form-label small fw-bold" style="color: var(--geo-main);">Код подтверждения</label>
+                                <input type="text" 
+                                       class="form-control form-control-lg text-center fw-bold" 
+                                       id="code" 
+                                       name="code" 
+                                       placeholder="••••••" 
+                                       maxlength="6" 
+                                       required 
+                                       autocomplete="off"
+                                       style="letter-spacing: 0.5rem; color: var(--geo-dark); border-color: rgba(27, 87, 140, 0.2);">
+                            </div>
+                            
+                            <button type="submit" class="btn btn-geo w-100 fw-bold py-2 mb-3">
+                                Подтвердить вход <i class="bi bi-check2-circle ms-1"></i>
+                            </button>
+                        </form>
+
+                        <div class="text-center mt-2">
+                            <a href="{{ url_for('login') }}" class="text-decoration-none small text-muted">
+                                <i class="bi bi-arrow-left me-1"></i> Вернуться к авторизации
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4 small" style="color: rgba(255,255,255,0.5);">
+                    &copy; 2026 Лаборатория ГИС
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</body>
+</html>
