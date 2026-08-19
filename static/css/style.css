@@ -198,9 +198,7 @@ html.map-html, body.map-body {
    ========================================== */
 body.login-page {
     background-color: var(--geo-dark);
-    background-image: 
-        linear-gradient(135deg, rgba(17, 38, 56, 0.95) 0%, rgba(27, 87, 140, 0.85) 100%),
-        url("https://www.transparenttextures.com/patterns/topography.png");
+    background-image: linear-gradient(135deg, rgba(17, 38, 56, 0.95) 0%, rgba(27, 87, 140, 0.85) 100%);
     height: 100vh;
     display: flex;
     align-items: center;
