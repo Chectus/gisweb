@@ -1,7 +1,8 @@
 import os
+import re
 import requests
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, make_response, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -156,6 +157,29 @@ def proxy_nextgis(subpath):
     if 'user' not in session:
         return "Доступ запрещен", 403
 
+    # --- НАЧАЛО БЛОКА УМНОГО ШПИОНАЖА ЗА КАРТОЙ ---
+    match = re.search(r'resource/(\d+)', subpath)
+    if match:
+        layer_id = match.group(1)
+        user_name = session.get('user', 'Неизвестно')
+        user_id = session.get('user_id')
+        
+        session_key = f'log_layer_{layer_id}'
+        last_logged_str = session.get(session_key)
+        
+        should_log = False
+        if not last_logged_str:
+            should_log = True
+        else:
+            last_logged_time = datetime.fromisoformat(last_logged_str)
+            if datetime.now() > last_logged_time + timedelta(minutes=5):
+                should_log = True
+                
+        if should_log:
+            log_action(user_id, user_name, 'КАРТА', f'Работа со слоем/ресурсом #{layer_id}')
+            session[session_key] = datetime.now().isoformat()
+    # --- КОНЕЦ ШПИОНАЖА ---
+
     # 2. Формируем запрос к скрытому локальному NextGIS
     url = f"{NEXTGIS_LOCAL_URL}/api/{subpath}"
     
@@ -191,6 +215,7 @@ def login():
             if not user.email:
                 log_action(user.id, user.username, 'ВХОД', 'Успешный вход (Без 2FA)')
                 session['user'] = username
+                session['user_id'] = user.id # НОВОЕ: Запоминаем ID для шпионажа
                 session['is_admin'] = user.is_admin
                 return redirect(url_for('hub'))
             
@@ -204,6 +229,7 @@ def login():
                     
                     log_action(user.id, user.username, 'ВХОД', 'Успешный вход (По токену устройства)')
                     session['user'] = username
+                    session['user_id'] = user.id # НОВОЕ
                     session['is_admin'] = user.is_admin
                     return redirect(url_for('hub'))
             
@@ -219,7 +245,6 @@ def login():
             return redirect(url_for('verify_2fa'))
             
         else:
-            # Пишем лог, даже если логин неверный (чтобы ловить брутфорсеров)
             user_id = user.id if user else None
             log_action(user_id, username, 'ОШИБКА_ВХОДА', 'Неверный логин или пароль')
             return render_template('login.html', error='Неверный логин или пароль')
@@ -246,6 +271,7 @@ def verify_2fa():
             db.session.commit()
             
             session['user'] = user.username
+            session['user_id'] = user.id # НОВОЕ: Запоминаем ID
             session['is_admin'] = user.is_admin
             session.pop('pending_2fa_user_id', None)
             
@@ -283,9 +309,18 @@ def docs():
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
-    session.pop('is_admin', None) # Чистим админские права при выходе
-    return redirect(url_for('login'))
+    username = session.get('user')
+    user_id = session.get('user_id')
+    
+    if username:
+        log_action(user_id, username, 'ВЫХОД', 'Пользователь завершил сессию')
+        
+    session.clear() # Очищаем всю сессию махом
+    
+    # Жестко убиваем куку доверенного устройства, чтобы выкинуло наверняка
+    resp = make_response(redirect(url_for('login')))
+    resp.set_cookie('trusted_device', '', expires=0) 
+    return resp
 
 @app.route('/admin')
 def admin_panel():
@@ -307,9 +342,7 @@ def add_user():
     expire_days = request.form.get('expire_days')
     is_admin_flag = request.form.get('is_admin') == 'on'
     
-    # Забираем почту из формы (если она есть)
     email = request.form.get('email')
-    # Если поле было, но оно пустое (просто пробелы или ничего не ввели), делаем его None
     if not email or email.strip() == '':
         email = None
 
@@ -324,7 +357,6 @@ def add_user():
     if expire_days and expire_days.isdigit():
         expires_at = datetime.now() + timedelta(days=int(expire_days))
 
-    # Создаем юзера с учетом роли и почты
     new_user = User(
         username=username, 
         password_hash=hashed_pw, 
@@ -335,6 +367,12 @@ def add_user():
     
     db.session.add(new_user)
     db.session.commit()
+
+    # --- ШПИОНАЖ ЗА СОЗДАНИЕМ ---
+    current_admin = session.get('user')
+    admin_id = session.get('user_id')
+    role_text = "Админ" if is_admin_flag else "Геолог"
+    log_action(admin_id, current_admin, 'АДМИНКА', f'Создан новый {role_text}: {username}')
 
     flash(f'Пользователь {username} успешно добавлен!', 'success')
     return redirect(url_for('admin_panel'))
@@ -350,11 +388,37 @@ def delete_user(user_id):
         if user_to_delete.username == session['user']:
             flash('Вы не можете удалить сами себя!', 'error')
         else:
+            # --- ШПИОНАЖ ЗА УДАЛЕНИЕМ ---
+            log_action(session.get('user_id'), session.get('user'), 'АДМИНКА', f'Удален пользователь: {user_to_delete.username}')
+            
             db.session.delete(user_to_delete)
             db.session.commit()
             flash(f'Пользователь {user_to_delete.username} удален.', 'success')
     
     return redirect(url_for('admin_panel'))
+
+@app.route('/admin/api/logs/<username>', methods=['GET'])
+def get_user_logs(username):
+    # Защита: логи может смотреть только админ
+    if not session.get('is_admin'):
+        return jsonify({'error': 'Доступ запрещен'}), 403
+        
+    # Ищем логи этого пользователя, сортируем от новых к старым, берем последние 50 штук
+    logs = ActionLog.query.filter_by(username=username).order_by(ActionLog.timestamp.desc()).limit(50).all()
+    
+    # Упаковываем в удобный для фронтенда формат (массив словарей)
+    logs_data = []
+    for log in logs:
+        logs_data.append({
+            'timestamp': log.timestamp.strftime('%d.%m.%Y %H:%M:%S'),
+            'action_type': log.action_type,
+            'details': log.details,
+            'ip_address': log.ip_address,
+            # Отрезаем кусок юзер-агента, чтобы не был слишком длинным
+            'user_agent': log.user_agent[:60] + '...' if log.user_agent and len(log.user_agent) > 60 else log.user_agent
+        })
+        
+    return jsonify(logs_data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
