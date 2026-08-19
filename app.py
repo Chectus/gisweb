@@ -38,7 +38,7 @@ def send_2fa_email(to_email, code):
         
     msg = MIMEMultipart('alternative')
     msg['Subject'] = 'Код подтверждения входа в Веб-ГИС'
-    msg['From'] = f"Лаборатория ГИС <{MAIL_USERNAME}>"
+    msg['From'] = MAIL_USERNAME
     msg['To'] = to_email
 
     # Красивое текстовое оформление письма
