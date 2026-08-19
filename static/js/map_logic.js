@@ -15,7 +15,7 @@ L.control.zoom({ position: "bottomleft" }).addTo(map);
 const basemaps = {
   gis2: L.tileLayer("https://tile{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1", { subdomains: ["0", "1", "2", "3"], attribution: "&copy; 2GIS", noWrap: true, maxZoom: 19, zIndex: 1 }).addTo(map),
   esri: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: "&copy; Esri", maxZoom: 19, noWrap: true, zIndex: 1 }),
-  osmLocal: L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=&nd=204&z={z}&x={x}&y={y}`, { 
+  osmLocal: L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=&nd=1&z={z}&x={x}&y={y}`, { 
       attribution: "&copy; OpenStreetMap contributors via NextGIS", 
       maxZoom: 19, 
       noWrap: true, 
