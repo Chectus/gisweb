@@ -290,3 +290,54 @@ body.login-page {
 .input-group:focus-within .form-control {
     border-color: var(--geo-main);
 }
+
+/* ==========================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ (СМАРТФОНЫ)
+   ========================================== */
+@media (max-width: 768px) {
+    /* Боковое меню со слоями */
+    #layersSidebar {
+        position: absolute; /* Отрываем от верстки, чтобы висело поверх карты */
+        z-index: 1000;      /* Поднимаем над картой */
+        height: 100%;
+        width: 85% !important; /* Занимаем 85% экрана, чтобы сбоку торчала карта */
+        max-width: 320px;
+        box-shadow: 4px 0 15px rgba(0,0,0,0.2); /* Красивая тень */
+        transition: transform 0.3s ease;
+    }
+
+    /* Когда меню свернуто - прячем его за левый край экрана */
+    #layersSidebar.collapsed {
+        transform: translateX(-100%);
+    }
+
+    /* Кнопка-стрелочка для открытия/закрытия */
+    #layersSidebarCollapse {
+        position: absolute;
+        z-index: 1001;
+        left: 85%; /* Кнопка прилипает к правому краю открытого меню */
+        transition: left 0.3s ease;
+    }
+
+    /* Если меню свернуто - кнопка возвращается к левому краю экрана */
+    #layersSidebar.collapsed + #layersSidebarCollapse {
+        left: 0;
+    }
+
+    /* Правая панель с таблицей атрибутов (выводим снизу, как шторку) */
+    #attributeSidebar {
+        position: absolute;
+        z-index: 1005;
+        width: 100% !important;
+        height: 60% !important; /* На пол-экрана */
+        bottom: 0;
+        top: auto;
+        box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
+        transform: translateY(100%); /* Прячем вниз */
+        transition: transform 0.3s ease;
+    }
+    
+    #attributeSidebar.open {
+        transform: translateY(0); /* Выезжает снизу */
+    }
+}

@@ -30,6 +30,14 @@ const sidebar = document.getElementById("layersSidebar");
 const btnCollapse = document.getElementById("layersSidebarCollapse");
 const iconToggle = document.getElementById("layerToggleIcon");
 
+// ----- НОВЫЙ МОБИЛЬНЫЙ КУСОК -----
+// Если зашли с телефона, сразу прячем меню при загрузке
+if (window.innerWidth <= 768) {
+  sidebar.classList.add("collapsed");
+  if (iconToggle) iconToggle.className = "bi bi-chevron-right";
+}
+// ---------------------------------
+
 if (btnCollapse) {
   btnCollapse.addEventListener("click", () => {
     sidebar.classList.toggle("collapsed");
@@ -37,6 +45,16 @@ if (btnCollapse) {
     setTimeout(() => map.invalidateSize(), 300);
   });
 }
+
+// ----- НОВЫЙ МОБИЛЬНЫЙ КУСОК -----
+// Если на телефоне человек тапнул по карте — меню прячется само
+map.on('click', () => {
+  if (window.innerWidth <= 768 && !sidebar.classList.contains("collapsed")) {
+    sidebar.classList.add("collapsed");
+    if (iconToggle) iconToggle.className = "bi bi-chevron-right";
+  }
+});
+// ---------------------------------
 
 // 2.1 Создаем ГЛАВНЫЕ галочки для папок (Мастер-рубильники QGIS)
 document.querySelectorAll('button[data-bs-toggle="collapse"]').forEach(btn => {
