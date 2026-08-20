@@ -32,7 +32,7 @@ MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
 MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
 
 def send_2fa_email(to_email, code):
-    """Отправка 6-значного кода подтверждения на почту геолога"""
+    """Отправка 6-значного кода подтверждения на почту пользователя"""
     if not MAIL_USERNAME or not MAIL_PASSWORD:
         print("[-] Ошибка: Настройки почты не заданы в .env!")
         return False
@@ -371,7 +371,7 @@ def add_user():
     # --- ШПИОНАЖ ЗА СОЗДАНИЕМ ---
     current_admin = session.get('user')
     admin_id = session.get('user_id')
-    role_text = "Админ" if is_admin_flag else "Геолог"
+    role_text = "Админ" if is_admin_flag else "Гость"
     log_action(admin_id, current_admin, 'АДМИНКА', f'Создан новый {role_text}: {username}')
 
     flash(f'Пользователь {username} успешно добавлен!', 'success')

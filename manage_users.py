@@ -61,7 +61,7 @@ def list_users():
         else:
             for u in users:
                 status = "Бессрочный" if u.expires_at is None else u.expires_at.strftime('%d.%m.%Y %H:%M')
-                role = "Админ" if u.is_admin else "Геолог"
+                role = "Админ" if u.is_admin else "Гость"
                 mail_status = u.email if u.email else "Нет"
                 print(f"ID: {u.id} | Логин: {u.username} | Роль: {role} | Почта (2FA): {mail_status} | Годен до: {status}")
         print("-" * 50)
