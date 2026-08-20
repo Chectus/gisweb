@@ -131,6 +131,12 @@
                                 </td>
                                 
                                 <td class="text-end pe-4">
+                                    <!-- НОВАЯ КНОПКА ЛОГОВ -->
+                                    <button class="btn btn-outline-info btn-sm px-3 me-2" onclick="openLogsModal('{{ u.username }}')" title="Журнал действий">
+                                        <i class="bi bi-journal-text"></i>
+                                    </button>
+                                    
+                                    <!-- СТАРАЯ КНОПКА УДАЛЕНИЯ -->
                                     <form action="{{ url_for('delete_user', user_id=u.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Отключить доступ для {{ u.username }}?');">
                                         <button type="submit" class="btn btn-outline-danger btn-sm px-3" title="Удалить">
                                             <i class="bi bi-trash3-fill"></i>
@@ -158,7 +164,27 @@
 
         
     </div>
-
+    <!-- Модальное окно для логов -->
+    <div class="modal fade" id="logsModal" tabindex="-1" aria-labelledby="logsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-light border-bottom-0">
+            <h5 class="modal-title fw-bold" id="logsModalLabel" style="color: var(--geo-dark, #212529);">
+                <i class="bi bi-activity text-primary me-2"></i>История действий: 
+                <span id="logsModalUsername" class="text-primary"></span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        </div>
+        <div class="modal-body bg-light" id="logsContainer">
+            <!-- Сюда JS будет генерировать плашки с логами -->
+            <div class="text-center text-muted mt-4 mb-4">
+                <i class="bi bi-hourglass-split fs-2 opacity-50"></i>
+                <p class="mt-2">Ожидание данных...</p>
+            </div>
+        </div>
+        </div>
+    </div>
+    </div>
     <script>
         const toggleAdminPassword = document.getElementById('toggleAdminPassword');
         const adminPasswordInput = document.getElementById('adminPassword');
@@ -170,6 +196,89 @@
             toggleAdminIcon.classList.toggle('bi-eye');
             toggleAdminIcon.classList.toggle('bi-eye-slash');
         });
+
+        async function openLogsModal(username) {
+        // 1. Показываем модалку и ставим загрузочный текст
+        const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+        document.getElementById('logsModalUsername').innerText = username;
+        const container = document.getElementById('logsContainer');
+        
+        // Красивый лоадер
+        container.innerHTML = `
+            <div class="text-center mt-5 mb-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-3 text-muted small fw-bold text-uppercase">Связь с сервером...</p>
+            </div>`;
+        
+        modal.show();
+
+        try {
+            // 2. Стучимся на бэкенд
+            const response = await fetch(`/admin/api/logs/${username}`);
+            const logs = await response.json();
+
+            // 3. Обработка ошибок доступа
+            if (logs.error) {
+                container.innerHTML = `
+                    <div class="alert alert-danger d-flex align-items-center m-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <div>${logs.error}</div>
+                    </div>`;
+                return;
+            }
+
+            // 4. Если логов нет
+            if (logs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted mt-5 mb-5">
+                        <i class="bi bi-clipboard-x fs-1 opacity-25"></i>
+                        <p class="mt-2">У этого пользователя пока нет истории действий.</p>
+                    </div>`;
+                return;
+            }
+
+            // 5. Отрисовка данных
+            container.innerHTML = '';
+            logs.forEach(log => {
+                // Раскрашиваем бейджи
+                let badgeClass = 'bg-secondary';
+                if (log.action_type.includes('ВХОД')) badgeClass = 'bg-success';
+                if (log.action_type.includes('ВЫХОД')) badgeClass = 'bg-dark';
+                if (log.action_type.includes('ОШИБКА')) badgeClass = 'bg-danger';
+                if (log.action_type === 'КАРТА') badgeClass = 'bg-primary';
+                if (log.action_type === 'АДМИНКА') badgeClass = 'bg-warning text-dark';
+
+                // Генерируем карточку лога
+                const logHTML = `
+                    <div class="card mb-3 border-0 shadow-sm rounded-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                                <span class="badge ${badgeClass} px-3 py-2 rounded-pill fw-bold">${log.action_type}</span>
+                                <small class="text-muted fw-bold"><i class="bi bi-clock me-1"></i> ${log.timestamp}</small>
+                            </div>
+                            <p class="card-text mb-3 font-monospace text-dark" style="font-size: 0.95rem;">
+                                ${log.details}
+                            </p>
+                            <div class="d-flex flex-wrap gap-4 px-2 py-2 bg-light rounded text-muted" style="font-size: 0.75rem;">
+                                <span><i class="bi bi-globe me-1"></i> <strong>IP:</strong> ${log.ip_address}</span>
+                                <span class="text-truncate" style="max-width: 250px;" title="${log.user_agent}">
+                                    <i class="bi bi-laptop me-1"></i> ${log.user_agent}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', logHTML);
+            });
+
+        } catch (error) {
+            console.error("Ошибка загрузки логов:", error);
+            container.innerHTML = `
+                <div class="alert alert-danger m-3">
+                    <i class="bi bi-x-circle-fill me-2"></i> Произошла ошибка при загрузке логов. Проверьте консоль браузера.
+                </div>`;
+        }
+    }
     </script>
 </body>
 </html>
