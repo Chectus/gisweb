@@ -340,7 +340,7 @@ def add_user():
     username = request.form.get('username')
     password = request.form.get('password')
     expire_days = request.form.get('expire_days')
-    is_admin_flag = request.form.get('is_admin') == 'on'
+    is_admin_flag = str(request.form.get('is_admin')) == '1'
     
     email = request.form.get('email')
     if not email or email.strip() == '':
