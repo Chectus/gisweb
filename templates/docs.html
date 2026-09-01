@@ -61,7 +61,7 @@
             </span>
             <div class="d-flex align-items-center">
                 <a href="/hub" class="btn btn-outline-light border-opacity-50 btn-sm rounded-pill px-3 fw-medium">
-                    <i class="bi bi-arrow-left me-1"></i> Вернуться в Хаб
+                    <i class="bi bi-arrow-left me-1"></i> <span class="d-none d-md-inline">Назад</span>
                 </a>
             </div>
         </div>
@@ -70,18 +70,28 @@
     <div class="container my-4">
         <div class="row">
             
-            <!-- Левая колонка: Оглавление (Якоря) -->
-            <div class="col-md-3 d-none d-md-block">
-                <div class="doc-sidebar doc-card p-3">
-                    <h6 class="text-uppercase small fw-bold text-muted mb-3 px-2">Содержание</h6>
-                    <nav class="nav nav-pills flex-column gap-1">
-                        <a class="nav-link active py-2 small" href="#section1"><i class="bi bi-info-circle me-2"></i>1. Общие сведения</a>
-                        <a class="nav-link py-2 small" href="#section2"><i class="bi bi-map me-2"></i>2. Работа с картой</a>
-                        <a class="nav-link py-2 small" href="#section3"><i class="bi bi-layers me-2"></i>3. Слои и кластеры</a>
-                        <a class="nav-link py-2 small" href="#section4"><i class="bi bi-table me-2"></i>4. Таблицы атрибутов</a>
-                        <a class="nav-link py-2 small" href="#section5"><i class="bi bi-shield-lock me-2"></i>5. Панель админа</a>
-                        <a class="nav-link py-2 small" href="#section6"><i class="bi bi-cpu me-2"></i>6. Стек технологий</a>
-                    </nav>
+            <div class="col-md-3 mb-4">
+                
+                <div class="d-md-none mb-2">
+                    <button class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#tocCollapse" aria-expanded="false" aria-controls="tocCollapse">
+                        <span class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-list-nested me-2" style="color: var(--geo-main);"></i>Содержание</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                </div>
+
+                <div class="collapse d-md-block" id="tocCollapse">
+                    <div class="doc-sidebar doc-card p-3">
+                        <h6 class="text-uppercase small fw-bold text-muted mb-3 px-2 d-none d-md-block">Содержание</h6>
+                        
+                        <nav class="nav nav-pills flex-column gap-1">
+                            <a class="nav-link active py-2 small" href="#section1"><i class="bi bi-info-circle me-2"></i>1. Общие сведения</a>
+                            <a class="nav-link py-2 small" href="#section2"><i class="bi bi-map me-2"></i>2. Работа с картой</a>
+                            <a class="nav-link py-2 small" href="#section3"><i class="bi bi-layers me-2"></i>3. Слои и кластеры</a>
+                            <a class="nav-link py-2 small" href="#section4"><i class="bi bi-table me-2"></i>4. Таблицы атрибутов</a>
+                            <a class="nav-link py-2 small" href="#section5"><i class="bi bi-shield-lock me-2"></i>5. Панель админа</a>
+                            <a class="nav-link py-2 small" href="#section6"><i class="bi bi-cpu me-2"></i>6. Стек технологий</a>
+                        </nav>
+                    </div>
                 </div>
             </div>
 
