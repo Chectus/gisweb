@@ -11,6 +11,8 @@ const nextgisBaseUrl = "";
 
 const map = L.map("map", { zoomControl: false, minZoom: 3, maxZoom: 18 }).setView([52.03, 117.5], 6);
 L.control.zoom({ position: "bottomleft" }).addTo(map);
+// Добавляем классическую линейку масштаба в правый нижний угол
+L.control.scale({ position: 'bottomright', metric: true, imperial: false }).addTo(map);
 
 const basemaps = {
   gis2: L.tileLayer("https://tile{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1", { subdomains: ["0", "1", "2", "3"], attribution: "&copy; 2GIS", noWrap: true, maxZoom: 19, zIndex: 1 }).addTo(map),
@@ -447,3 +449,37 @@ queryQueue.forEach(layer => {
     }
   }
 });
+
+// ==========================================
+// БЛОК: СИНХРОНИЗАЦИЯ МАСШТАБА (QGIS STYLE)
+// ==========================================
+const scaleSelect = document.getElementById('scaleSelect');
+
+if (scaleSelect) {
+  // 1. Когда геолог выбирает масштаб из списка -> меняем зум карты
+  scaleSelect.addEventListener('change', (e) => {
+    map.setZoom(parseInt(e.target.value));
+  });
+
+  // 2. Когда геолог крутит колесико мыши -> меняем цифру в списке
+  map.on('zoomend', () => {
+    const currentZoom = map.getZoom();
+    
+    // Ищем в нашем списке масштабов ближайший к текущему зуму
+    let closestOption = scaleSelect.options[0];
+    let minDiff = Infinity;
+    
+    Array.from(scaleSelect.options).forEach(opt => {
+      const diff = Math.abs(parseInt(opt.value) - currentZoom);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestOption = opt;
+      }
+    });
+    
+    scaleSelect.value = closestOption.value;
+  });
+
+  // Устанавливаем правильное значение при первой загрузке
+  map.fire('zoomend');
+}
