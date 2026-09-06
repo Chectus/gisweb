@@ -12,6 +12,7 @@ import random
 import string
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from flask_migrate import Migrate
 
 # Активируем чтение скрытого файла .env
 load_dotenv()
@@ -74,10 +75,11 @@ NEXTGIS_LOCAL_URL = "http://127.0.0.1:8081" # Порт докера NextGIS
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # --- НАСТРОЙКИ СЕССИЙ (ТАЙМ-АУТ 3 ЧАСА) ---
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=3) # Время жизни сессии ровно 3 часа
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1) # Время жизни сессии ровно 1 часа
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True             # Скользящее окно: каждый клик/запрос обновляет таймер
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # --- МОДЕЛЬ ПОЛЬЗОВАТЕЛЯ В БАЗЕ ДАННЫХ ---
 class User(db.Model):
@@ -112,7 +114,7 @@ class TrustedDevice(db.Model):
 
     # Метод, который проверяет тот самый тайм-аут в 3 дня (72 часа)
     def is_valid(self):
-        return datetime.now() < (self.last_login + timedelta(days=3))
+        return datetime.now() < (self.last_login + timedelta(days=1))
 
 # --- НОВАЯ МОДЕЛЬ ДЛЯ ЛОГОВ ---
 class ActionLog(db.Model):
@@ -278,7 +280,7 @@ def verify_2fa():
             log_action(user.id, user.username, 'ВХОД', 'Успешный вход (Подтвержден код 2FA)')
             
             resp = make_response(redirect(url_for('hub')))
-            resp.set_cookie('trusted_device', new_token, max_age=60*60*24*30, httponly=True)
+            resp.set_cookie('trusted_device', new_token, max_age=60*60*24*1, httponly=True)
             return resp
             
         else:
