@@ -13,11 +13,20 @@ import string
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask_migrate import Migrate
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # Активируем чтение скрытого файла .env
 load_dotenv()
 
 app = Flask(__name__)
+
+# --- НОВОЕ: Настройка защиты от брутфорса ---
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    storage_uri="memory://"
+)
 
 # Достаем главный ключ из сейфа[cite: 4]
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -151,6 +160,11 @@ def log_action(user_id, username, action_type, details):
 def make_session_permanent():
     session.permanent = True
 
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+    print(f"[-] БЛОКИРОВКА БРУТФОРСА: IP {ip_address} забанен на 15 минут!")
+    return render_template('login.html', error="Слишком много попыток входа. Ваш IP заблокирован на 15 минут!"), 429
 # --- РОУТЫ ---
 
 @app.route('/api/<path:subpath>')
@@ -201,6 +215,7 @@ def index():
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per 15 minute", methods=["POST"]) # НОВОЕ: Блокируем IP на 15 минут после 5 попыток входа
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -217,7 +232,7 @@ def login():
             if not user.email:
                 log_action(user.id, user.username, 'ВХОД', 'Успешный вход (Без 2FA)')
                 session['user'] = username
-                session['user_id'] = user.id # НОВОЕ: Запоминаем ID для шпионажа
+                session['user_id'] = user.id
                 session['is_admin'] = user.is_admin
                 return redirect(url_for('hub'))
             
@@ -231,7 +246,7 @@ def login():
                     
                     log_action(user.id, user.username, 'ВХОД', 'Успешный вход (По токену устройства)')
                     session['user'] = username
-                    session['user_id'] = user.id # НОВОЕ
+                    session['user_id'] = user.id
                     session['is_admin'] = user.is_admin
                     return redirect(url_for('hub'))
             
