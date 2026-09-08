@@ -3,10 +3,11 @@ import shutil
 from app import app, db, User
 from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta
+import glob
 
 # --- НАСТРОЙКИ ПУТЕЙ ДЛЯ ВОССТАНОВЛЕНИЯ БД ---
-TARGET_DB_PATH = '/home/cmp_mpi_2026/gis_project/instance/users.db' 
-BACKUP_DB_PATH = '/home/cmp_mpi_2026/cloud_data/__SYSTEM_CRITICAL_DO_NOT_TOUCH__/users_backup.db'
+BACKUP_DIR = '/home/cmp_mpi_2026/cloud_data/__SYSTEM_CRITICAL_DO_NOT_TOUCH__'
+TARGET_DB_PATH = '/home/cmp_mpi_2026/gis_project/instance/users.db'
 
 def create_user(username, password, days_valid=None, is_admin=False, email=None):
     with app.app_context():
@@ -74,22 +75,55 @@ def list_users():
 
 def restore_database():
     print("\n--- ВОССТАНОВЛЕНИЕ БАЗЫ ДАННЫХ ИЗ ОБЛАКА ---")
-    print("ВНИМАНИЕ! Текущая база данных будет полностью ПЕРЕЗАПИСАНА файлом из облака.")
-    confirm = input("Продолжить? (y/n): ")
     
-    if confirm.lower() in ['y', 'yes', 'д', 'да']:
-        if not os.path.exists(BACKUP_DB_PATH):
-            print(f"[-] ОШИБКА: Файл резервной копии не найден по пути:\n{BACKUP_DB_PATH}")
+    if not os.path.exists(BACKUP_DIR):
+        print(f"[-] ОШИБКА: Папка с бэкапами не найдена:\n{BACKUP_DIR}")
+        return
+        
+    # Ищем все бэкапы
+    search_pattern = os.path.join(BACKUP_DIR, 'users_backup_*.db')
+    backups = glob.glob(search_pattern)
+    
+    if not backups:
+        print("[-] В облаке нет доступных бэкапов для восстановления!")
+        return
+        
+    # Сортируем от самых старых к самым новым
+    backups.sort(key=os.path.getmtime)
+    
+    print("Доступные резервные копии:")
+    for i, backup_path in enumerate(backups, 1):
+        filename = os.path.basename(backup_path)
+        # Получаем размер в килобайтах
+        size_kb = os.path.getsize(backup_path) // 1024
+        print(f"{i}. {filename} ({size_kb} KB)")
+        
+    choice = input(f"\nВыберите номер бэкапа (1-{len(backups)}) или 0 для отмены: ")
+    
+    try:
+        choice_idx = int(choice)
+        if choice_idx == 0:
+            print("[-] Восстановление отменено.")
             return
             
-        try:
-            shutil.copy2(BACKUP_DB_PATH, TARGET_DB_PATH)
-            print("[+] БД успешно восстановлена из резервной копии!")
-            print("[!] Обязательно перезапусти Flask-сервер (app.py) в tmux, чтобы изменения вступили в силу.")
-        except Exception as e:
-            print(f"[-] Произошла ошибка при копировании файла: {e}")
-    else:
-        print("[-] Восстановление отменено.")
+        if 1 <= choice_idx <= len(backups):
+            selected_backup = backups[choice_idx - 1]
+            selected_filename = os.path.basename(selected_backup)
+            
+            print(f"\nВНИМАНИЕ! Текущая база данных будет ПЕРЕЗАПИСАНА файлом '{selected_filename}'.")
+            confirm = input("Точно продолжить? (y/n): ")
+            
+            if confirm.lower() in ['y', 'yes', 'д', 'да']:
+                # Копируем выбранный файл и автоматом переименовываем его обратно в users.db
+                shutil.copy2(selected_backup, TARGET_DB_PATH)
+                print(f"[+] БД успешно восстановлена из {selected_filename}!")
+                print("[!] Обязательно перезапусти Flask-сервер (app.py) в tmux, чтобы изменения вступили в силу.")
+            else:
+                print("[-] Восстановление отменено.")
+        else:
+            print("[-] Ошибка: Неверный номер бэкапа!")
+    except ValueError:
+        print("[-] Ошибка: Нужно ввести число!")
 
 if __name__ == '__main__':
     while True:
