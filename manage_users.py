@@ -1,10 +1,16 @@
+import os
+import shutil
 from app import app, db, User
 from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta
 
+# --- НАСТРОЙКИ ПУТЕЙ ДЛЯ ВОССТАНОВЛЕНИЯ БД ---
+TARGET_DB_PATH = '/home/cmp_mpi_2026/gis_project/instance/users.db' 
+BACKUP_DB_PATH = '/home/cmp_mpi_2026/cloud_data/__SYSTEM_CRITICAL_DO_NOT_TOUCH__/users_backup.db'
+
 def create_user(username, password, days_valid=None, is_admin=False, email=None):
     with app.app_context():
-        db.create_all() # НОВОЕ: Железобетонно создаем таблицы перед любым действием
+        db.create_all() 
         
         if User.query.filter_by(username=username).first():
             print(f"[-] Пользователь {username} уже существует!")
@@ -37,7 +43,7 @@ def create_user(username, password, days_valid=None, is_admin=False, email=None)
 
 def delete_user(username):
     with app.app_context():
-        db.create_all() # НОВОЕ: Проверяем таблицы перед удалением
+        db.create_all() 
         
         user_to_delete = User.query.filter_by(username=username).first()
         
@@ -51,7 +57,7 @@ def delete_user(username):
 
 def list_users():
     with app.app_context():
-        db.create_all() # НОВОЕ: Проверяем таблицы перед просмотром списка
+        db.create_all() 
         
         users = User.query.all()
         
@@ -66,15 +72,35 @@ def list_users():
                 print(f"ID: {u.id} | Логин: {u.username} | Роль: {role} | Почта (2FA): {mail_status} | Годен до: {status}")
         print("-" * 50)
 
+def restore_database():
+    print("\n--- ВОССТАНОВЛЕНИЕ БАЗЫ ДАННЫХ ИЗ ОБЛАКА ---")
+    print("ВНИМАНИЕ! Текущая база данных будет полностью ПЕРЕЗАПИСАНА файлом из облака.")
+    confirm = input("Продолжить? (y/n): ")
+    
+    if confirm.lower() in ['y', 'yes', 'д', 'да']:
+        if not os.path.exists(BACKUP_DB_PATH):
+            print(f"[-] ОШИБКА: Файл резервной копии не найден по пути:\n{BACKUP_DB_PATH}")
+            return
+            
+        try:
+            shutil.copy2(BACKUP_DB_PATH, TARGET_DB_PATH)
+            print("[+] БД успешно восстановлена из резервной копии!")
+            print("[!] Обязательно перезапусти Flask-сервер (app.py) в tmux, чтобы изменения вступили в силу.")
+        except Exception as e:
+            print(f"[-] Произошла ошибка при копировании файла: {e}")
+    else:
+        print("[-] Восстановление отменено.")
+
 if __name__ == '__main__':
     while True:
         print("\n=== ГЛАВНОЕ МЕНЮ УПРАВЛЕНИЯ ДОСТУПОМ ===")
         print("1. Посмотреть всех пользователей")
         print("2. Создать нового пользователя")
         print("3. Удалить пользователя")
+        print("4. Восстановить базу данных из резервной копии")
         print("0. Выйти")
         
-        choice = input("Выберите действие (0-3): ")
+        choice = input("Выберите действие (0-4): ")
         
         if choice == '0' or choice.lower() == 'q':
             print("Завершение работы. Удачи!")
@@ -113,5 +139,8 @@ if __name__ == '__main__':
             else:
                 print("[-] Удаление отменено.")
                 
+        elif choice == '4':
+            restore_database()
+                
         else:
-            print("[-] Неверный выбор. Пожалуйста, введите цифру от 0 до 3.")
+            print("[-] Неверный выбор. Пожалуйста, введите цифру от 0 до 4.")
