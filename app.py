@@ -15,6 +15,7 @@ from email.mime.multipart import MIMEMultipart
 from flask_migrate import Migrate
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 
 # Активируем чтение скрытого файла .env
 load_dotenv()
@@ -40,6 +41,9 @@ MAIL_SERVER = os.environ.get('MAIL_SERVER')
 MAIL_PORT = int(os.environ.get('MAIL_PORT', 465))
 MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
 MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+
+def get_reset_serializer():
+    return URLSafeTimedSerializer(app.secret_key)
 
 def send_2fa_email(to_email, code):
     """Отправка 6-значного кода подтверждения на почту пользователя"""
@@ -267,6 +271,152 @@ def login():
             return render_template('login.html', error='Неверный логин или пароль')
             
     return render_template('login.html')
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        # Ищем пользователя ТОЛЬКО по почте
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Генерируем безопасный токен
+            s = get_reset_serializer()
+            token = s.dumps(user.email, salt='password-reset-salt')
+            
+            # Создаем полную ссылку (с твоим доменом)
+            reset_link = url_for('reset_password', token=token, _external=True)
+            
+            # Отправляем письмо
+            send_reset_email(user.email, reset_link)
+            log_action(user.id, user.username, 'ЗАПРОС_СБРОСА', 'Отправлена ссылка для сброса пароля')
+        
+        # ВАЖНО: Мы всегда выводим одно и то же сообщение, даже если почты нет в базе.
+        # Это защита от хакеров, чтобы они не могли проверять, какие email зарегистрированы.
+        return render_template('forgot_password.html', 
+                               message='Если такой email есть в системе, мы отправили на него ссылку для сброса пароля.')
+        
+    return render_template('forgot_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    s = get_reset_serializer()
+    try:
+        # Проверяем токен. max_age=900 означает, что ссылка живет ровно 15 минут
+        email = s.loads(token, salt='password-reset-salt', max_age=900)
+    except SignatureExpired:
+        return render_template('reset_password.html', error='Ссылка устарела. Запросите новую.')
+    except BadSignature:
+        return render_template('reset_password.html', error='Неверная ссылка.')
+        
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        new_password = request.form.get('password')
+        
+        # Хешируем новый пароль и сохраняем
+        user.password_hash = generate_password_hash(new_password)
+        
+        # Очищаем временные коды (на всякий случай)
+        user.current_2fa_code = None
+        db.session.commit()
+        
+        log_action(user.id, user.username, 'СБРОС_ПАРОЛЯ', 'Пароль успешно изменен')
+        
+        # Перекидываем на логин
+        return render_template('login.html', message='Пароль успешно изменен! Теперь вы можете войти.')
+        
+    return render_template('reset_password.html', token=token)
+
+@app.route('/profile')
+def profile():
+    """Просто отрисовка профиля со всей инфой и таймером"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
+    return render_template('profile.html', user=user)
+
+@app.route('/logout_devices', methods=['POST'])
+def logout_devices():
+    """Кнопка 'Выйти со всех других устройств'"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    # Сносим все сохраненные сессии этого юзера
+    TrustedDevice.query.filter_by(user_id=session['user_id']).delete()
+    db.session.commit()
+    
+    log_action(session['user_id'], session.get('user'), 'БЕЗОПАСНОСТЬ', 'Завершены все другие сеансы')
+    
+    user = User.query.get(session['user_id'])
+    return render_template('profile.html', user=user, message='Все другие устройства успешно отключены!')
+
+# --- УМНАЯ СМЕНА ПАРОЛЯ В ПРОФИЛЕ ---
+
+@app.route('/change_password_request', methods=['POST'])
+def change_password_request():
+    """Шаг 1: Проверка старого пароля и отправка кода (если есть почта)"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user = User.query.get(session['user_id'])
+    old_password = request.form.get('old_password')
+    new_password = request.form.get('new_password')
+    
+    # Проверяем старый пароль
+    if not check_password_hash(user.password_hash, old_password):
+        return render_template('profile.html', user=user, error_pwd='Неверный текущий пароль!')
+        
+    # Если у юзера нет почты (общий аккаунт) - меняем сразу
+    if not user.email:
+        user.password_hash = generate_password_hash(new_password)
+        db.session.commit()
+        log_action(user.id, user.username, 'СМЕНА_ПАРОЛЯ', 'Пароль изменен (без 2FA)')
+        return render_template('profile.html', user=user, msg_pwd='Пароль успешно изменен!')
+        
+    # Если есть почта - генерируем код 2FA
+    code = ''.join(random.choices(string.digits, k=6))
+    user.current_2fa_code = code
+    db.session.commit()
+    
+    send_2fa_email(user.email, code)
+    
+    # Временно сохраняем новый пароль в сессию, чтобы применить после ввода кода
+    session['pending_new_password'] = new_password
+    
+    # Отдаем профиль обратно, но с флагом show_pwd_2fa=True, чтобы фронтенд показал поле для кода
+    return render_template('profile.html', user=user, show_pwd_2fa=True, msg_pwd='Код подтверждения отправлен на почту!')
+
+@app.route('/change_password_confirm', methods=['POST'])
+def change_password_confirm():
+    """Шаг 2: Проверка кода и финальное сохранение пароля"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user = User.query.get(session['user_id'])
+    code = request.form.get('code')
+    pending_password = session.get('pending_new_password')
+    
+    if not pending_password:
+         return render_template('profile.html', user=user, error_pwd='Что-то пошло не так. Попробуйте снова.')
+         
+    if user.current_2fa_code and user.current_2fa_code == code:
+        # Код верный! Сохраняем пароль
+        user.password_hash = generate_password_hash(pending_password)
+        user.current_2fa_code = None
+        db.session.commit()
+        
+        session.pop('pending_new_password', None)
+        
+        log_action(user.id, user.username, 'СМЕНА_ПАРОЛЯ', 'Пароль успешно изменен с подтверждением 2FA')
+        return render_template('profile.html', user=user, msg_pwd='Пароль успешно изменен!')
+    else:
+        # Код неверный, возвращаем обратно на форму ввода кода
+        return render_template('profile.html', user=user, show_pwd_2fa=True, error_pwd='Неверный код подтверждения!')
 
 @app.route('/verify_2fa', methods=['GET', 'POST'])
 def verify_2fa():
