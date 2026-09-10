@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import requests
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, make_response, jsonify
@@ -109,6 +110,7 @@ class User(db.Model):
     # Связь базы данных: один пользователь -> много устройств
     # cascade="all, delete-orphan" значит, что если мы удалим геолога, все его устройства тоже удалятся
     trusted_devices = db.relationship('TrustedDevice', backref='user', lazy=True, cascade="all, delete-orphan")
+    allowed_layers = db.Column(db.JSON, default="*")
 
     def is_active(self):
         if self.expires_at is None:
@@ -171,42 +173,67 @@ def ratelimit_handler(e):
     return render_template('login.html', error="Слишком много попыток входа. Ваш IP заблокирован на 15 минут!"), 429
 # --- РОУТЫ ---
 
-@app.route('/api/<path:subpath>')
+@app.route('/api/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy_nextgis(subpath):
-    # 1. Жесткая защита: пропускаем только своих авторизованных геологов
-    if 'user' not in session:
+    # 1. Базовая авторизация
+    if 'user_id' not in session:
         return "Доступ запрещен", 403
 
-    # --- НАЧАЛО БЛОКА УМНОГО ШПИОНАЖА ЗА КАРТОЙ ---
+    user = User.query.get(session['user_id'])
+    
+    # --- НАЧАЛО БЛОКА ФЕЙС-КОНТРОЛЯ И ШПИОНАЖА ---
+    # Пытаемся найти ID ресурса (в пути или в аргументах)
+    layer_id_str = None
     match = re.search(r'resource/(\d+)', subpath)
     if match:
-        layer_id = match.group(1)
-        user_name = session.get('user', 'Неизвестно')
-        user_id = session.get('user_id')
-        
-        session_key = f'log_layer_{layer_id}'
-        last_logged_str = session.get(session_key)
-        
-        should_log = False
-        if not last_logged_str:
-            should_log = True
-        else:
-            last_logged_time = datetime.fromisoformat(last_logged_str)
-            if datetime.now() > last_logged_time + timedelta(minutes=5):
+        layer_id_str = match.group(1)
+    elif request.args.get('resource'):
+        layer_id_str = request.args.get('resource')
+
+    if layer_id_str:
+        try:
+            layer_id = int(layer_id_str)
+            
+            # --- ЗЛОЙ ОХРАННИК (ДАТА-РУМЫ) ---
+            if user.allowed_layers != "*":
+                # Если список пустой или слоя там нет
+                if not user.allowed_layers or layer_id not in user.allowed_layers:
+                    log_action(user.id, user.username, 'ВТОРЖЕНИЕ', f'Попытка доступа к закрытому слою ID {layer_id}')
+                    return "У вас нет доступа к этому дата-руму", 403
+
+            # --- УМНЫЙ ШПИОНАЖ (только для разрешенных слоев) ---
+            session_key = f'log_layer_{layer_id}'
+            last_logged_str = session.get(session_key)
+            
+            should_log = False
+            if not last_logged_str:
                 should_log = True
+            else:
+                last_logged_time = datetime.fromisoformat(last_logged_str)
+                if datetime.now() > last_logged_time + timedelta(minutes=5):
+                    should_log = True
+                    
+            if should_log:
+                log_action(user.id, user.username, 'КАРТА', f'Работа со слоем/ресурсом #{layer_id}')
+                session[session_key] = datetime.now().isoformat()
                 
-        if should_log:
-            log_action(user_id, user_name, 'КАРТА', f'Работа со слоем/ресурсом #{layer_id}')
-            session[session_key] = datetime.now().isoformat()
-    # --- КОНЕЦ ШПИОНАЖА ---
+        except ValueError:
+            pass # Если ID оказался не числом, просто пропускаем
+    # --- КОНЕЦ БЛОКА ФЕЙС-КОНТРОЛЯ И ШПИОНАЖА ---
 
     # 2. Формируем запрос к скрытому локальному NextGIS
     url = f"{NEXTGIS_LOCAL_URL}/api/{subpath}"
     
-    # 3. Flask сам идет в NextGIS с правами из .env и прокидывает параметры от пользователя
-    req = requests.get(url, params=request.args, auth=NEXTGIS_AUTH)
+    # 3. Flask сам идет в NextGIS (поддерживаем любые методы GET/POST)
+    req = requests.request(
+        method=request.method,
+        url=url, 
+        params=request.args,
+        data=request.get_data(), 
+        auth=NEXTGIS_AUTH
+    )
     
-    # 4. Аккуратно передаем картинку (тайл) или GeoJSON обратно в браузер
+    # 4. Аккуратно передаем ответ обратно в браузер
     excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
     headers = [(name, value) for (name, value) in req.headers.items() if name.lower() not in excluded_headers]
     
@@ -544,6 +571,74 @@ def add_user():
     flash(f'Пользователь {username} успешно добавлен!', 'success')
     return redirect(url_for('admin_panel'))
 
+@app.route('/admin/users')
+def admin_dashboard():
+    """Страница управления пользователями (только для админов)"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    current_user = User.query.get(session['user_id'])
+    if not current_user.is_admin:
+        return "Доступ запрещен. Вы не администратор.", 403
+        
+    # Достаем всех юзеров, чтобы вывести их в таблицу
+    all_users = User.query.all()
+    return render_template('admin.html', users=all_users)
+
+@app.route('/admin/api/create_user', methods=['POST'])
+def api_create_user():
+    """API-эндпоинт для создания геолога с правами на слои"""
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+        
+    current_user = User.query.get(session['user_id'])
+    if not current_user.is_admin:
+        return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
+
+    # Получаем данные в формате JSON от фронтенда
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
+
+    username = data.get('username')
+    email = data.get('email')
+    # Получаем тот самый массив ID слоев, например: [324, 325, 330]
+    allowed_layers = data.get('allowed_layers', []) 
+    
+    if User.query.filter_by(username=username).first():
+        return jsonify({'status': 'error', 'message': 'Пользователь с таким логином уже существует'}), 400
+
+    # Генерируем случайный пароль для нового геолога (8 символов)
+    temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    
+    # Создаем юзера
+    new_user = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(temp_password),
+        is_admin=False,
+        allowed_layers=allowed_layers # Записываем выданные права!
+    )
+    
+    db.session.add(new_user)
+    db.session.commit()
+    
+    log_action(current_user.id, current_user.username, 'АДМИН', f'Создан новый пользователь: {username}')
+
+    # Если указана почта - отправляем пароль
+    if email:
+        subject = "Доступ к WebGIS Лаборатории"
+        body = f"Здравствуйте!\n\nВам открыт доступ к системе.\nВаш логин: {username}\nВаш временный пароль: {temp_password}\n\nОбязательно смените пароль в Личном кабинете после входа!"
+        # Тут вызываем твою функцию отправки почты
+        # send_email_custom(email, subject, body) 
+        pass 
+
+    return jsonify({
+        'status': 'success', 
+        'message': f'Пользователь {username} успешно создан!',
+        'temp_password': temp_password # Возвращаем пароль, чтобы админ мог скопировать его, если почты нет
+    })
+
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
     if not session.get('is_admin'):
@@ -586,6 +681,21 @@ def get_user_logs(username):
         })
         
     return jsonify(logs_data)
+
+@app.route('/api/layers_config')
+def get_layers_config():
+    """Отдает структуру слоев для отрисовки дерева на фронтенде"""
+    # Если на сервере юзер не авторизован - нечего ему смотреть на структуру
+    if 'user_id' not in session:
+         return jsonify({"error": "Unauthorized"}), 401
+         
+    config_path = os.path.join(app.root_path, 'layers_config.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": f"Ошибка чтения конфига: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=True)
