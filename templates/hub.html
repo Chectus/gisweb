@@ -29,10 +29,11 @@
                 <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
             </button>
             <div class="d-flex align-items-center">
-                <div class="d-flex align-items-center rounded px-3 py-1 me-3" style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                <!-- Кликабельный бейджик с переходом в профиль -->
+                <a href="/profile" class="d-flex align-items-center rounded px-3 py-1 me-3 text-decoration-none" style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.05)'">
                     <i class="bi bi-person-badge text-white opacity-75 me-2"></i>
                     <span class="text-white fw-medium">{{ username }}</span>
-                </div>
+                </a>
                 <a href="/logout" class="btn btn-outline-danger btn-sm px-3 fw-medium">
                     <i class="bi bi-door-closed me-1"></i> Выход
                 </a>
