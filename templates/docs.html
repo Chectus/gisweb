@@ -51,7 +51,12 @@
     </style>
 </head>
 <body>
-
+    <script>
+        // Срабатывает мгновенно, до отрисовки карточек и текстов
+        if (localStorage.getItem('app-theme') === 'dark') {
+            document.body.classList.add('dark-theme');
+        }
+    </script>
     <!-- Навигация -->
     <nav class="navbar navbar-expand-lg navbar-custom py-3">
         <div class="container-fluid px-4">
@@ -59,6 +64,9 @@
                 <i class="bi bi-journal-bookmark-fill me-2" style="color: var(--geo-accent);"></i>
                 База знаний и регламенты
             </span>
+            <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
+                <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+            </button>
             <div class="d-flex align-items-center">
                 <a href="/hub" class="btn btn-outline-light border-opacity-50 btn-sm rounded-pill px-3 fw-medium">
                     <i class="bi bi-arrow-left me-1"></i> <span class="d-none d-md-inline">Назад</span>
@@ -193,6 +201,8 @@
 
         </div>
     </div>
+    <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
+    <script src="../static/js/theme.js"></script>
 
 </body>
 </html>

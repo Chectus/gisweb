@@ -12,6 +12,12 @@
     <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"> -->
 </head>
 <body class="hub-page">
+    <script>
+        // Срабатывает мгновенно, до отрисовки карточек и текстов
+        if (localStorage.getItem('app-theme') === 'dark') {
+            document.body.classList.add('dark-theme');
+        }
+    </script>
 
     <nav class="navbar navbar-expand-lg navbar-custom py-3">
         <div class="container">
@@ -19,6 +25,9 @@
                 <i class="bi bi-globe-americas me-2" style="color: var(--geo-accent);"></i>
                 Лаборатория ГИС
             </span>
+            <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
+                <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+            </button>
             <div class="d-flex align-items-center">
                 <div class="d-flex align-items-center rounded px-3 py-1 me-3" style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
                     <i class="bi bi-person-badge text-white opacity-75 me-2"></i>
@@ -100,6 +109,7 @@
             <i class="bi bi-c-circle me-1"></i> 2026 Разработка Лаборатории ГИС. Все права защищены.
         </p>
     </footer>
-
+    <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
+    <script src="../static/js/theme.js"></script>
 </body>
 </html>

@@ -1,16 +1,41 @@
 /* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Геологическая палитра) === */
+/* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Светлая тема - более яркая и сочная) === */
 :root {
-    --geo-dark: #112638;      /* Глубокий синий-темный (Навигация, шапки) */
-    --geo-main: #1b578c;      /* Основной синий (Кнопки, ховеры) */
-    --geo-accent: #d97706;    /* Золото/медь (Акценты, иконки) */
+    --geo-dark: #15324d;      /* Чуть более яркий темно-синий (Навигация, шапки) */
+    --geo-main: #2170ad;      /* Более сочный синий (Кнопки, ховеры) */
+    --geo-accent: #d97706;    /* Золото/медь (Акценты оставляем яркими) */
     --geo-light: #e8eef3;     /* Светло-синий для подложек */
     --geo-bg: #f4f7fa;        /* Общий фон страниц */
+    
+    /* Базовые цвета элементов (чтобы легко переключать в тёмной теме) */
+    --geo-card-bg: #ffffff;
+    --geo-text: #212529;
+    --geo-text-muted: #6c757d;
+    --geo-border: rgba(27, 87, 140, 0.1);
+    --geo-input-bg: #ffffff;
 }
 
-/* === БАЗОВЫЕ СТИЛИ === */
+/* === ТЁМНАЯ ТЕМА (Глубокая и приглушенная) === */
+body.dark-theme {
+    --geo-dark: #09121a;      /* Очень глубокий сине-черный (Навигация) */
+    --geo-main: #143b5c;      /* Спокойный, приглушенный синий (Кнопки) */
+    --geo-accent: #b45f06;    /* Приглушенная медь, чтобы не била по глазам */
+    --geo-light: #16212b;     /* Темно-сине-серый для плашек и панелей */
+    --geo-bg: #0f151b;        /* Почти черный фон с синим отливом */
+    
+    --geo-card-bg: #1a232c;
+    --geo-text: #e2e8f0;
+    --geo-text-muted: #94a3b8;
+    --geo-border: rgba(255, 255, 255, 0.05);
+    --geo-input-bg: #0f172a;
+}
+
+/* === БАЗОВЫЕ СТИЛИ (Подключаем переменные текста) === */
 body {
     background-color: var(--geo-bg);
+    color: var(--geo-text);
     font-family: system-ui, -apple-system, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease; /* Плавное переключение */
 }
 
 /* Сетка на фоне только для Хаба */
@@ -354,4 +379,76 @@ body.login-page {
         font-size: 1.1rem; /* Чуть мельче для мобилок */
         white-space: nowrap;
     }
+}
+
+/* ==============================================================
+                    ПРАВИЛА ДЛЯ ТЁМНОЙ ТЕМЫ:
+   ============================================================== */
+
+/* Тёмная тема: Карточки (Хаб, Профиль, Админка, Документация) */
+body.dark-theme .card,
+body.dark-theme .service-card,
+body.dark-theme .admin-card,
+body.dark-theme .doc-card,
+body.dark-theme .login-card {
+    background-color: var(--geo-card-bg);
+    border-color: var(--geo-border);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Тёмная тема: Тексты и заголовки */
+body.dark-theme .text-dark, 
+body.dark-theme h1, body.dark-theme h2, 
+body.dark-theme h3, body.dark-theme h4, 
+body.dark-theme h5, body.dark-theme h6 {
+    color: var(--geo-text) !important;
+}
+body.dark-theme .text-muted {
+    color: var(--geo-text-muted) !important;
+}
+body.dark-theme .bg-light {
+    background-color: var(--geo-light) !important;
+}
+
+/* Тёмная тема: Инпуты и формы */
+body.dark-theme .form-control,
+body.dark-theme .form-select {
+    background-color: var(--geo-input-bg);
+    border-color: var(--geo-border);
+    color: var(--geo-text);
+}
+body.dark-theme .form-control:focus,
+body.dark-theme .form-select:focus {
+    border-color: var(--geo-main);
+    background-color: var(--geo-input-bg);
+    color: white;
+}
+body.dark-theme .input-group-text {
+    background-color: var(--geo-light);
+    border-color: var(--geo-border);
+    color: var(--geo-text-muted);
+}
+
+/* Тёмная тема: Списки и таблицы (Админка, Документация) */
+body.dark-theme .list-group-item,
+body.dark-theme .table {
+    background-color: transparent;
+    border-color: var(--geo-border);
+    color: var(--geo-text);
+}
+body.dark-theme .table-light, body.dark-theme thead, body.dark-theme .table-geo thead {
+    background-color: var(--geo-light);
+    color: var(--geo-text);
+}
+
+/* Тёмная тема: Уведомления */
+body.dark-theme .alert-success {
+    background-color: rgba(25, 135, 84, 0.15);
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.2);
+}
+body.dark-theme .alert-danger {
+    background-color: rgba(220, 53, 69, 0.15);
+    color: #f87171;
+    border-color: rgba(248, 113, 113, 0.2);
 }

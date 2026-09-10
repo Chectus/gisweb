@@ -15,6 +15,12 @@
     <link rel="stylesheet" href="../static/css/style.css">
   </head>
   <body class="map-body">
+    <script>
+        // Срабатывает мгновенно, до отрисовки карточек и текстов
+        if (localStorage.getItem('app-theme') === 'dark') {
+            document.body.classList.add('dark-theme');
+        }
+    </script>
     
     <!-- ОБНОВЛЕННАЯ СИНЯЯ НАВИГАЦИЯ -->
     <nav class="navbar navbar-expand-lg navbar-custom py-2">
@@ -26,6 +32,9 @@
               <i class="bi bi-globe-americas me-2" style="color: var(--geo-accent);"></i>
               ГИС Забайкальского края
           </span>
+            <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
+                <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+            </button>
           <div class="d-flex align-items-center ms-auto">
               <div class="d-flex align-items-center rounded px-3 py-1 bg-white bg-opacity-10 border border-light border-opacity-10">
                   <i class="bi bi-person-badge text-white opacity-75 me-2"></i>
@@ -225,6 +234,8 @@
 
     <!-- ПОДКЛЮЧАЕМ НАШ ВЫНЕСЕННЫЙ JS -->
     <script src="../static/js/map_logic.js"></script>
+    <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
+    <script src="../static/js/theme.js"></script>
 
   </body>
 </html>
