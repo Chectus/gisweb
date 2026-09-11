@@ -59,68 +59,6 @@ map.on('click', () => {
 });
 // ---------------------------------
 
-// 2.1 Создаем ГЛАВНЫЕ галочки для папок (Мастер-рубильники QGIS)
-document.querySelectorAll('button[data-bs-toggle="collapse"]').forEach(btn => {
-  const targetId = btn.getAttribute('data-bs-target');
-  const folderContent = document.querySelector(targetId);
-  if (!folderContent) return;
-
-  // Создаем обертку, чтобы отделить чекбокс от кнопки аккордеона
-  const wrapper = document.createElement('div');
-  wrapper.className = 'd-flex align-items-center w-100';
-  btn.parentNode.insertBefore(wrapper, btn);
-
-  // Создаем чекбокс папки
-  const masterCheck = document.createElement('input');
-  masterCheck.type = 'checkbox';
-  masterCheck.className = 'form-check-input ms-2 me-2 folder-master-checkbox';
-  masterCheck.title = 'Показать/скрыть слои группы на карте';
-  masterCheck.checked = true;
-  masterCheck.style.cursor = 'pointer';
-
-  // Перемещаем кнопку внутрь обертки и убираем ширину 100%, чтобы они стояли в ряд
-  btn.classList.remove('w-100');
-  btn.style.flexGrow = '1';
-  wrapper.appendChild(masterCheck);
-  wrapper.appendChild(btn);
-
-  // Логика: при клике на рубильник папки рассылаем сигнал слоям
-  masterCheck.addEventListener('change', () => {
-    folderContent.querySelectorAll('.layer-item input[type="checkbox"]').forEach(chk => {
-      chk.dispatchEvent(new Event('folderToggled')); 
-    });
-  });
-});
-
-// 2.2 Создаем мелкие галочки для подгрупп (Золото, Медь и т.д.)
-document.querySelectorAll('.accordion-body .fw-bold').forEach(header => {
-  if(header.closest('.alert')) return;
-
-  header.classList.add('d-flex', 'align-items-center');
-  const subCheck = document.createElement('input');
-  subCheck.type = 'checkbox';
-  subCheck.className = 'form-check-input me-2 mb-0';
-  subCheck.style.cssText = 'margin-top: 0; margin-left: -15px; cursor: pointer;';
-  subCheck.title = 'Выбрать все слои в подгруппе';
-  
-  // Эта галочка физически проставляет/снимает выбор у слоев ниже
-  subCheck.addEventListener('change', (e) => {
-    const isChecked = e.target.checked;
-    let nextEl = header.nextElementSibling;
-    while (nextEl && !nextEl.classList.contains('fw-bold')) {
-      if (nextEl.classList.contains('layer-item')) {
-        const chk = nextEl.querySelector('input[type="checkbox"]:not([disabled])');
-        if (chk && chk.checked !== isChecked) {
-          chk.checked = isChecked;
-          chk.dispatchEvent(new Event('change')); // Обновляем карту
-        }
-      }
-      nextEl = nextEl.nextElementSibling;
-    }
-  });
-  header.prepend(subCheck);
-});
-
 // ==========================================
 // УТИЛИТА: ПРОВЕРКА ВИДИМОСТИ ПАПКИ
 // ==========================================
@@ -135,247 +73,302 @@ function isFolderChecked(chk) {
 }
 
 // ==========================================
-// БЛОК 3: ОБЫЧНЫЕ СЛОИ (ПОЛИГОНЫ И ЛИНИИ)
+// ДИНАМИЧЕСКИЙ ДВИЖОК СЛОЕВ И ПЕРЕХВАТ 403
 // ==========================================
-function createNextGisLayer(resourceId, layerZIndex = 10) {
-  return L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${resourceId}&nd=204&z={z}&x={x}&y={y}`, {
-    transparent: true, format: 'image/png', noWrap: true, zIndex: layerZIndex
-  });
-}
 
-function setupLayerToggle(checkboxId, leafletLayer) {
-  const chk = document.getElementById(checkboxId);
-  if (!chk) return; 
+// Очередь для BBOX-запросов (формируется автоматически)
+let dynamicQueryQueue = [];
 
-  function updateVisibility() {
-    // Слой рисуется ТОЛЬКО если: 1. Он сам выбран И 2. Его папка включена
-    if (chk.checked && isFolderChecked(chk)) {
-      if (!map.hasLayer(leafletLayer)) map.addLayer(leafletLayer);
-    } else {
-      if (map.hasLayer(leafletLayer)) map.removeLayer(leafletLayer);
-    }
-  }
-
-  chk.addEventListener("change", updateVisibility); // Слушаем личный клик
-  chk.addEventListener("folderToggled", updateVisibility); // Слушаем рубильник папки
-  updateVisibility(); // Проверяем при загрузке
-}
-
-// Загрузка слоев (Строго по твоему коду!)
-const layerGrid200k = createNextGisLayer(321, 10); setupLayerToggle("chkGrid200k", layerGrid200k);
-const layerGrid1M = createNextGisLayer(323, 10); setupLayerToggle("chkGrid1M", layerGrid1M);
-const layerRailRoads = createNextGisLayer(327, 50); setupLayerToggle("chkRailRoads", layerRailRoads);
-const layerAutoRoads = createNextGisLayer(329, 40); setupLayerToggle("chkAutoRoads", layerAutoRoads);
-const layerRivers = createNextGisLayer(331, 30); setupLayerToggle("chkRivers", layerRivers);
-const layerLabels = createNextGisLayer(339, 50); setupLayerToggle("chkLabels", layerLabels);
-const layerSubjBorder = createNextGisLayer(333, 20); setupLayerToggle("chkSubjBorder", layerSubjBorder);
-const layerGovBorder = createNextGisLayer(335, 20); setupLayerToggle("chkGovBorder", layerGovBorder);
-const layerBorderKant = createNextGisLayer(337, 10); setupLayerToggle("chkBorderKant", layerBorderKant);
-
-const layerOreNodes = createNextGisLayer(341, 10); setupLayerToggle("chkOreNodes", layerOreNodes);
-const layerOreRegions = createNextGisLayer(343, 10); setupLayerToggle("chkOreRegions", layerOreRegions);
-
-// Экстенсивность и Интенсивность (из твоего Блока 2)
-const layerBeExt = createNextGisLayer(359, 10); setupLayerToggle("chkBeExt", layerBeExt);
-const layerBeInt = createNextGisLayer(361, 10); setupLayerToggle("chkBeInt", layerBeInt);
-const layerBiExt = createNextGisLayer(365, 10); setupLayerToggle("chkBiExt", layerBiExt);
-const layerBiInt = createNextGisLayer(367, 10); setupLayerToggle("chkBiInt", layerBiInt);
-const layerWExt = createNextGisLayer(371, 10); setupLayerToggle("chkWExt", layerWExt);
-const layerWInt = createNextGisLayer(373, 10); setupLayerToggle("chkWInt", layerWInt);
-const layerGeExt = createNextGisLayer(377, 10); setupLayerToggle("chkGeExt", layerGeExt);
-const layerGeInt = createNextGisLayer(379, 10); setupLayerToggle("chkGeInt", layerGeInt);
-const layerAuExt = createNextGisLayer(382, 10); setupLayerToggle("chkAuExt", layerAuExt);
-const layerAuInt = createNextGisLayer(384, 10); setupLayerToggle("chkAuInt", layerAuInt);
-const layerLiExt = createNextGisLayer(389, 10); setupLayerToggle("chkLiExt", layerLiExt);
-const layerLiInt = createNextGisLayer(391, 10); setupLayerToggle("chkLiInt", layerLiInt);
-const layerCuExt = createNextGisLayer(395, 10); setupLayerToggle("chkCuExt", layerCuExt);
-const layerCuInt = createNextGisLayer(397, 10); setupLayerToggle("chkCuInt", layerCuInt);
-const layerMoExt = createNextGisLayer(401, 10); setupLayerToggle("chkMoExt", layerMoExt);
-const layerMoInt = createNextGisLayer(403, 10); setupLayerToggle("chkMoInt", layerMoInt);
-const layerAsExt = createNextGisLayer(407, 10); setupLayerToggle("chkAsExt", layerAsExt);
-const layerAsInt = createNextGisLayer(409, 10); setupLayerToggle("chkAsInt", layerAsInt);
-const layerSnExt = createNextGisLayer(413, 10); setupLayerToggle("chkSnExt", layerSnExt);
-const layerSnInt = createNextGisLayer(415, 10); setupLayerToggle("chkSnInt", layerSnInt);
-const layerPbZnExt = createNextGisLayer(419, 10); setupLayerToggle("chkPbZnExt", layerPbZnExt);
-const layerPbZnInt = createNextGisLayer(421, 10); setupLayerToggle("chkPbZnInt", layerPbZnInt);
-const layerSbExt = createNextGisLayer(425, 10); setupLayerToggle("chkSbExt", layerSbExt);
-const layerSbInt = createNextGisLayer(427, 10); setupLayerToggle("chkSbInt", layerSbInt);
-const layerTaNbExt = createNextGisLayer(431, 10); setupLayerToggle("chkTaNbExt", layerTaNbExt);
-const layerTaNbInt = createNextGisLayer(433, 10); setupLayerToggle("chkTaNbInt", layerTaNbInt);
-const layerUExt = createNextGisLayer(437, 10); setupLayerToggle("chkUExt", layerUExt);
-const layerUInt = createNextGisLayer(439, 10); setupLayerToggle("chkUInt", layerUInt);
-
-const layerFaults1M = createNextGisLayer(441, 40); setupLayerToggle("chkFaults1M", layerFaults1M);
-const layerGeoMap1M = createNextGisLayer(443, 5); setupLayerToggle("chkGeoMap1M", layerGeoMap1M);
-const layerEmag = createNextGisLayer(445, 5); setupLayerToggle("chkEmag", layerEmag);
-const layerWgm = createNextGisLayer(447, 5); setupLayerToggle("chkWgm", layerWgm);
-const layerDemColor = createNextGisLayer(449, 5); setupLayerToggle("chkDemColor", layerDemColor);
-const layerDem300m = createNextGisLayer(451, 5); setupLayerToggle("chkDem300m", layerDem300m);
-
-// ==========================================
-// БЛОК 4: ГИБРИДНЫЕ СЛОИ (КЛАСТЕРЫ <-> КАРТИНКИ)
-// ==========================================
-function setupHybridPointLayer(checkboxId, styleId, vectorId, switchZoom = 9) {
-  const chk = document.getElementById(checkboxId);
-  if (!chk) return;
-
-  const tmsLayer = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${styleId}&nd=204&z={z}&x={x}&y={y}`, {
-    transparent: true, format: 'image/png', noWrap: true, zIndex: 70
-  });
-
-  const clusterGroup = L.markerClusterGroup({ maxClusterRadius: 50 });
-  let isVectorLoaded = false;
-
-  async function loadVector() {
-    if (isVectorLoaded) return;
-    try {
-      const label = chk.nextElementSibling;
-      const originalText = label.innerHTML;
-      label.innerHTML = `<span class="spinner-border spinner-border-sm text-primary me-1" role="status" aria-hidden="true"></span> ${originalText}`;
-
-      const response = await fetch(`${nextgisBaseUrl}/api/resource/${vectorId}/geojson?srs=4326`);
-      const data = await response.json();
-
-      if (data && data.features) {
-        const geoJsonLayer = L.geoJSON(data, {
-          coordsToLatLng: function (coords) {
-            if (Math.abs(coords[0]) > 180 || Math.abs(coords[1]) > 90) {
-              const pt = L.point(coords[0], coords[1]);
-              return L.CRS.EPSG3857.unproject(pt); 
-            }
-            return new L.LatLng(coords[1], coords[0]);
-          },
-          pointToLayer: function (feature, latlng) {
-            return L.circleMarker(latlng, { radius: 5, fillColor: "#6c757d", color: "#ffffff", weight: 1, opacity: 1, fillOpacity: 0.9 });
-          }
-        });
-        clusterGroup.addLayer(geoJsonLayer);
-      }
-      isVectorLoaded = true;
-      label.innerHTML = originalText;
-    } catch (e) {
-      console.error(`Ошибка гибридного слоя ${vectorId}:`, e);
-      chk.checked = false;
-    }
-  }
-
-  function updateVisibility() {
-    // Проверка логики QGIS: Если слой выключен ИЛИ папка скрыта
-    if (!(chk.checked && isFolderChecked(chk))) {
-      if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
-      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
-      return;
+// Тост-уведомление для 403 ошибки
+function showForbiddenToast(layerName = 'Запрошенный слой') {
+    let toastContainer = document.getElementById('geo-toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'geo-toast-container';
+        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
     }
     
-    // Гибридная подмена
-    if (map.getZoom() < switchZoom) {
-      if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
-      if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup);
-      if (!isVectorLoaded) loadVector();
-    } else {
-      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
-      if (!map.hasLayer(tmsLayer)) map.addLayer(tmsLayer);
-    }
-  }
-
-  chk.addEventListener("change", updateVisibility);
-  chk.addEventListener("folderToggled", updateVisibility);
-  map.on('zoomend', updateVisibility);
-  updateVisibility();
+    const toastHtml = `
+        <div class="toast align-items-center text-bg-danger border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body fw-medium">
+                    <i class="bi bi-shield-lock-fill me-2"></i> Нет доступа к дата-руму:<br><small>${layerName}</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close" onclick="this.closest('.toast').remove()"></button>
+            </div>
+        </div>`;
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    setTimeout(() => { if (toastContainer.lastChild) toastContainer.lastChild.remove(); }, 4000);
 }
 
-setupHybridPointLayer("chkCities", 325, 324, 9);
-setupHybridPointLayer("chkMetalsDeposits", 345, 344, 9);
-setupHybridPointLayer("chkMetalsOccurrences", 347, 346, 9);
-setupHybridPointLayer("chkMetalsPoints", 349, 348, 9);
-setupHybridPointLayer("chkNonMetalsDeposits", 351, 350, 9);
-setupHybridPointLayer("chkNonMetalsOccurrences", 353, 352, 9);
-setupHybridPointLayer("chkNonMetalsPoints", 355, 354, 9);
+// Генерация UI на лету из JSON
+async function initDynamicLayers() {
+    try {
+        const response = await fetch('/api/layers_config');
+        if (!response.ok) throw new Error('Ошибка загрузки конфига');
+        const config = await response.json();
+        
+        const container = document.getElementById('layersAccordion');
+        container.innerHTML = ''; 
 
-setupHybridPointLayer("chkBeDep", 357, 356, 9);
-setupHybridPointLayer("chkBiDep", 363, 362, 9);
-setupHybridPointLayer("chkWDep", 369, 368, 9);
-setupHybridPointLayer("chkGeDep", 375, 374, 9);
-setupHybridPointLayer("chkAuDep", 381, 380, 9);
-setupHybridPointLayer("chkLiDep", 387, 386, 9);
-setupHybridPointLayer("chkCuDep", 393, 392, 9);
-setupHybridPointLayer("chkMoDep", 399, 398, 9);
-setupHybridPointLayer("chkAsDep", 405, 404, 9);
-setupHybridPointLayer("chkSnDep", 411, 410, 9);
-setupHybridPointLayer("chkPbZnDep", 417, 416, 9);
-setupHybridPointLayer("chkSbDep", 423, 422, 9);
-setupHybridPointLayer("chkTaNbDep", 429, 428, 9);
-setupHybridPointLayer("chkUDep", 435, 434, 9);
+        let folderIndex = 0;
+        for (const [categoryName, subcategories] of Object.entries(config)) {
+            folderIndex++;
+            const folderId = `dyn_folder_${folderIndex}`;
+
+            let html = `
+            <div class="border rounded-3 bg-light p-2 mb-2">
+                <div class="d-flex align-items-center w-100">
+                    <input type="checkbox" class="form-check-input ms-2 me-2 folder-master-checkbox" checked style="cursor: pointer;" title="Включить/скрыть папку">
+                    <button class="btn btn-link btn-sm text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#${folderId}" style="flex-grow: 1;">
+                        <span><i class="bi bi-folder2-open me-2" style="color: var(--geo-main);"></i>${categoryName}</span>
+                        <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
+                    </button>
+                </div>
+                <div id="${folderId}" class="accordion-collapse collapse">
+                    <div class="accordion-body p-2 d-flex flex-column gap-1">`;
+
+            for (const [subName, layers] of Object.entries(subcategories)) {
+                html += `
+                <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2 mb-0 sub-master-checkbox" style="margin-top: 0; margin-left: -15px; cursor: pointer;" title="Выбрать подгруппу">
+                    ${subName}
+                </div>`;
+
+                for (const [layerName, ids] of Object.entries(layers)) {
+                    const vectorId = ids[0];
+                    const rasterId = ids[1] || ids[0];
+                    const chkId = `chk_${rasterId}`;
+                    
+                    // Определяем приоритет (delta) для BBOX: точкам даем 5000, остальным 1000
+                    const isPointLayer = categoryName.includes('Полезные ископаемые') || categoryName.includes('Экстенсивность') || subName.includes('Населённые пункты');
+                    const delta = isPointLayer ? 5000 : 1000;
+                    
+                    // Сохраняем в очередь
+                    dynamicQueryQueue.push({ chkId: chkId, vectorId: vectorId, delta: delta, name: layerName });
+
+                    html += `
+                    <div class="form-check layer-item d-flex align-items-center">
+                        <input class="form-check-input dyn-layer-chk" type="checkbox" id="${chkId}" data-vector="${vectorId}" data-raster="${rasterId}" data-name="${layerName}" data-hybrid="${isPointLayer}">
+                        <label class="form-check-label w-100" for="${chkId}">${layerName}</label>
+                        <button class="btn btn-sm btn-link p-0 ms-auto text-secondary attr-btn" title="Таблица атрибутов" data-vid="${vectorId}" data-lname="${layerName}">
+                            <i class="bi bi-table"></i>
+                        </button>
+                    </div>`;
+                }
+            }
+            html += `</div></div></div>`;
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        bindDynamicLogic();
+
+    } catch (error) {
+        console.error("Сбой сборки меню:", error);
+    }
+}
+
+// Привязка картографии к сгенерированным чекбоксам
+function bindDynamicLogic() {
+    // 1. Оживляем рубильники папок
+    document.querySelectorAll('.folder-master-checkbox').forEach(master => {
+        master.addEventListener('change', (e) => {
+            const folder = e.target.closest('.border').querySelector('.collapse');
+            folder.querySelectorAll('.dyn-layer-chk').forEach(chk => {
+                chk.dispatchEvent(new Event('folderToggled'));
+            });
+        });
+    });
+
+    // Оживляем рубильники подгрупп
+    document.querySelectorAll('.sub-master-checkbox').forEach(sub => {
+        sub.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            let nextEl = e.target.parentElement.nextElementSibling;
+            while (nextEl && !nextEl.classList.contains('fw-bold')) {
+                if (nextEl.classList.contains('layer-item')) {
+                    const chk = nextEl.querySelector('.dyn-layer-chk');
+                    if (chk && chk.checked !== isChecked) {
+                        chk.checked = isChecked;
+                        chk.dispatchEvent(new Event('change'));
+                    }
+                }
+                nextEl = nextEl.nextElementSibling;
+            }
+        });
+    });
+
+    // 2. Создаем сами слои Leaflet
+    document.querySelectorAll('.dyn-layer-chk').forEach(chk => {
+        const rasterId = chk.getAttribute('data-raster');
+        const vectorId = chk.getAttribute('data-vector');
+        const layerName = chk.getAttribute('data-name');
+        const isHybrid = chk.getAttribute('data-hybrid') === 'true';
+        const switchZoom = 9;
+        
+        // Создаем растровый слой (картинка)
+        const tmsLayer = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${rasterId}&nd=204&z={z}&x={x}&y={y}`, {
+            transparent: true, format: 'image/png', noWrap: true, zIndex: isHybrid ? 70 : 10
+        });
+
+        // ПЕРЕХВАТ 403 ДЛЯ КАРТЫ: Если тайл не загрузился из-за прав доступа
+        tmsLayer.on('tileerror', function() {
+            if (!chk.dataset.errorShown) {
+                showForbiddenToast(layerName);
+                chk.dataset.errorShown = "true"; 
+                setTimeout(() => chk.dataset.errorShown = "false", 10000); // Глушим спам тостов на 10 сек
+                chk.checked = false; // Отщелкиваем галочку
+                if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
+            }
+        });
+
+        // Логика для кластеров (если слой помечен как гибридный)
+        let clusterGroup = null;
+        let isVectorLoaded = false;
+        
+        if (isHybrid) {
+            clusterGroup = L.markerClusterGroup({ maxClusterRadius: 50 });
+        }
+
+        async function loadHybridVector() {
+            if (isVectorLoaded || !isHybrid) return;
+            try {
+                const response = await fetch(`${nextgisBaseUrl}/api/resource/${vectorId}/geojson?srs=4326`);
+                if (response.status === 403) {
+                    showForbiddenToast(layerName);
+                    chk.checked = false;
+                    return;
+                }
+                const data = await response.json();
+                if (data && data.features) {
+                    const geoJsonLayer = L.geoJSON(data, {
+                        coordsToLatLng: function (coords) {
+                            if (Math.abs(coords[0]) > 180 || Math.abs(coords[1]) > 90) {
+                                const pt = L.point(coords[0], coords[1]);
+                                return L.CRS.EPSG3857.unproject(pt); 
+                            }
+                            return new L.LatLng(coords[1], coords[0]);
+                        },
+                        pointToLayer: function (feature, latlng) {
+                            return L.circleMarker(latlng, { radius: 5, fillColor: "#6c757d", color: "#ffffff", weight: 1, opacity: 1, fillOpacity: 0.9 });
+                        }
+                    });
+                    clusterGroup.addLayer(geoJsonLayer);
+                }
+                isVectorLoaded = true;
+            } catch (e) {
+                console.error("Ошибка вектора:", e);
+                chk.checked = false;
+            }
+        }
+
+        function updateVisibility() {
+            if (!(chk.checked && isFolderChecked(chk))) {
+                if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
+                if (isHybrid && map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+                return;
+            }
+            
+            // Если слой гибридный — включаем логику кластеров
+            if (isHybrid) {
+                if (map.getZoom() < switchZoom) {
+                    if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
+                    if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup);
+                    if (!isVectorLoaded) loadHybridVector();
+                } else {
+                    if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+                    if (!map.hasLayer(tmsLayer)) map.addLayer(tmsLayer);
+                }
+            } else {
+                // Обычный слой (просто показываем картинку)
+                if (!map.hasLayer(tmsLayer)) map.addLayer(tmsLayer);
+            }
+        }
+
+        chk.addEventListener("change", updateVisibility);
+        chk.addEventListener("folderToggled", updateVisibility);
+        if (isHybrid) map.on('zoomend', updateVisibility);
+    });
+    
+    // 3. Перехват 403 для кнопок таблиц атрибутов
+    document.querySelectorAll('.attr-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const vid = btn.getAttribute('data-vid');
+            const lname = btn.getAttribute('data-lname');
+            
+            // Быстрая проверка прав перед загрузкой огромной таблицы
+            const testResponse = await fetch(`${nextgisBaseUrl}/api/resource/${vid}/feature/?geom=no&limit=1`);
+            if (testResponse.status === 403) {
+                showForbiddenToast(lname);
+                return;
+            }
+            loadAttributeTable(vid, lname);
+        });
+    });
+}
+
+// Запускаем сборку интерфейса
+initDynamicLayers();
 
 // ==========================================
 // БЛОК 5: BBOX КЛИК И ПРАВЫЕ ТАБЛИЦЫ
 // ==========================================
-const queryQueue = [
-  { chkId: "chkCities", vectorId: 324, delta: 3000 }, 
-  { chkId: "chkLabels", vectorId: 338, delta: 3000 }, 
-  { chkId: "chkMetalsDeposits", vectorId: 344, delta: 3000 }, 
-  { chkId: "chkMetalsOccurrences", vectorId: 346, delta: 3000 }, 
-  { chkId: "chkMetalsPoints", vectorId: 348, delta: 3000 }, 
-  { chkId: "chkNonMetalsDeposits", vectorId: 350, delta: 3000 }, 
-  { chkId: "chkNonMetalsOccurrences", vectorId: 352, delta: 3000 }, 
-  { chkId: "chkNonMetalsPoints", vectorId: 354, delta: 3000 }, 
-  { chkId: "chkBeDep", vectorId: 356, delta: 5000 }, { chkId: "chkBiDep", vectorId: 362, delta: 5000 },
-  { chkId: "chkWDep", vectorId: 368, delta: 5000 }, { chkId: "chkGeDep", vectorId: 374, delta: 5000 },
-  { chkId: "chkAuDep", vectorId: 380, delta: 5000 }, { chkId: "chkLiDep", vectorId: 386, delta: 5000 },
-  { chkId: "chkCuDep", vectorId: 392, delta: 5000 }, { chkId: "chkMoDep", vectorId: 398, delta: 5000 },
-  { chkId: "chkAsDep", vectorId: 404, delta: 5000 }, { chkId: "chkSnDep", vectorId: 410, delta: 5000 },
-  { chkId: "chkPbZnDep", vectorId: 416, delta: 5000 }, { chkId: "chkSbDep", vectorId: 422, delta: 5000 },
-  { chkId: "chkTaNbDep", vectorId: 428, delta: 5000 }, { chkId: "chkUDep", vectorId: 434, delta: 5000 },
-  { chkId: "chkRivers", vectorId: 330, delta: 1000 }, { chkId: "chkRailRoads", vectorId: 326, delta: 1000 }, 
-  { chkId: "chkAutoRoads", vectorId: 328, delta: 1000 }, { chkId: "chkBorderKant", vectorId: 336, delta: 1000 }, 
-  { chkId: "chkFaults1M", vectorId: 440, delta: 1000 }, { chkId: "chkGrid200k", vectorId: 320, delta: 100 }, 
-  { chkId: "chkGrid1M", vectorId: 322, delta: 100 }, { chkId: "chkSubjBorder", vectorId: 332, delta: 100 }, 
-  { chkId: "chkGovBorder", vectorId: 334, delta: 100 }, { chkId: "chkOreNodes", vectorId: 340, delta: 100 }, 
-  { chkId: "chkOreRegions", vectorId: 342, delta: 100 }, { chkId: "chkGeoMap1M", vectorId: 442, delta: 100 } 
-];
 
 map.on('click', async function(e) {
-  const point = L.CRS.EPSG3857.project(e.latlng);
-  
-  const activeLayers = queryQueue.filter(layer => {
-    const checkbox = document.getElementById(layer.chkId);
-    // Проверяем, что слой включен И его папка тоже включена
-    return checkbox && checkbox.checked && isFolderChecked(checkbox);
-  });
-
-  if (activeLayers.length === 0) return;
-
-  for (const layer of activeLayers) {
-    const d = layer.delta; 
-    const bbox = `${point.x - d} ${point.y - d}, ${point.x + d} ${point.y - d}, ${point.x + d} ${point.y + d}, ${point.x - d} ${point.y + d}, ${point.x - d} ${point.y - d}`;
-    const wktPolygon = `POLYGON((${bbox}))`;
-    const url = `${nextgisBaseUrl}/api/resource/${layer.vectorId}/feature/?intersects=${encodeURIComponent(wktPolygon)}&geom=no`;
+    const point = L.CRS.EPSG3857.project(e.latlng);
     
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
+    // Берем активные слои из динамической очереди
+    let activeLayers = dynamicQueryQueue.filter(layer => {
+        const checkbox = document.getElementById(layer.chkId);
+        return checkbox && checkbox.checked && isFolderChecked(checkbox);
+    });
 
-      if (data && data.length > 0) {
-        const props = data[0].fields;
-        let popupContent = `<div style="min-width: 200px;">
-                              <h6 class="fw-bold mb-2 border-bottom pb-1" style="color: var(--geo-main);">
-                                <i class="bi bi-info-circle me-1" style="color: var(--geo-accent);"></i> Информация об объекте
-                              </h6>
-                              <table class="table table-sm table-bordered table-striped mb-0" style="font-size: 0.8rem;"><tbody>`;
+    if (activeLayers.length === 0) return;
+
+    // СОРТИРОВКА: Сначала проверяем точечные слои (delta=5000), потом полигоны
+    activeLayers.sort((a, b) => b.delta - a.delta);
+
+    for (const layer of activeLayers) {
+        const d = layer.delta; 
+        const bbox = `${point.x - d} ${point.y - d}, ${point.x + d} ${point.y - d}, ${point.x + d} ${point.y + d}, ${point.x - d} ${point.y + d}, ${point.x - d} ${point.y - d}`;
+        const wktPolygon = `POLYGON((${bbox}))`;
+        const url = `${nextgisBaseUrl}/api/resource/${layer.vectorId}/feature/?intersects=${encodeURIComponent(wktPolygon)}&geom=no`;
         
-        for (const key in props) {
-          if (props[key] !== null && props[key] !== '') {
-              popupContent += `<tr><td class="text-muted fw-bold w-50">${key}</td><td>${props[key]}</td></tr>`;
-          }
+        try {
+            const response = await fetch(url);
+            
+            // ПЕРЕХВАТ 403 ДЛЯ BBOX
+            if (response.status === 403) {
+                showForbiddenToast(layer.name);
+                continue; // Пропускаем этот слой и ищем дальше
+            }
+            
+            const data = await response.json();
+
+            if (data && data.length > 0) {
+                const props = data[0].fields;
+                let popupContent = `<div style="min-width: 200px;">
+                                      <h6 class="fw-bold mb-2 border-bottom pb-1" style="color: var(--geo-main);">
+                                        <i class="bi bi-info-circle me-1" style="color: var(--geo-accent);"></i> Информация об объекте
+                                      </h6>
+                                      <table class="table table-sm table-bordered table-striped mb-0" style="font-size: 0.8rem;"><tbody>`;
+                
+                for (const key in props) {
+                    if (props[key] !== null && props[key] !== '') {
+                        popupContent += `<tr><td class="text-muted fw-bold w-50">${key}</td><td>${props[key]}</td></tr>`;
+                    }
+                }
+                popupContent += `</tbody></table></div>`;
+                L.popup({ maxWidth: 400 }).setLatLng(e.latlng).setContent(popupContent).openOn(map);
+                break; // Нашли объект — обрываем цикл
+            }
+        } catch(err) {
+            console.error(`Ошибка при запросе к слою ${layer.vectorId}:`, err);
         }
-        popupContent += `</tbody></table></div>`;
-        L.popup({ maxWidth: 400 }).setLatLng(e.latlng).setContent(popupContent).openOn(map);
-        break; 
-      }
-    } catch(err) {
-      console.error(`Ошибка при запросе к слою ${layer.vectorId}:`, err);
     }
-  }
 });
 
 const attrSidebar = document.getElementById('attributeSidebar');
@@ -425,30 +418,6 @@ async function loadAttributeTable(vectorId, layerName) {
     if(attrContainer) attrContainer.innerHTML = `<div class="alert alert-danger mt-3">Ошибка загрузки данных.</div>`;
   }
 }
-
-queryQueue.forEach(layer => {
-  const checkbox = document.getElementById(layer.chkId);
-  if (checkbox) {
-    const layerItem = checkbox.closest('.layer-item');
-    if (layerItem) {
-      layerItem.classList.add('d-flex', 'align-items-center');
-      const label = layerItem.querySelector('label');
-      const layerName = label ? label.innerText.trim() : 'Слой';
-      
-      if (!layerItem.querySelector('button[title="Открыть таблицу атрибутов"]')) {
-        const btn = document.createElement('button');
-        btn.className = "btn btn-sm btn-link p-0 ms-auto text-secondary";
-        btn.title = "Открыть таблицу атрибутов";
-        btn.innerHTML = `<i class="bi bi-table"></i>`; 
-        btn.addEventListener('click', (e) => {
-          e.preventDefault(); e.stopPropagation();
-          loadAttributeTable(layer.vectorId, layerName);
-        });
-        layerItem.appendChild(btn);
-      }
-    }
-  }
-});
 
 // ==========================================
 // БЛОК: СИНХРОНИЗАЦИЯ МАСШТАБА (QGIS STYLE)
