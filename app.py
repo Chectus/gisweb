@@ -490,10 +490,16 @@ def hub():
 
 @app.route('/map')
 def map_page():
-    if 'user' not in session:
+    if 'user_id' not in session:
         return redirect(url_for('login'))
-    # НОВОЕ: Передаем имя пользователя в шаблон карты, как просили в ТЗ
-    return render_template('map.html', username=session.get('user'))
+    
+    # Достаем юзера из базы
+    user = db.session.get(User, session['user_id'])
+    
+    # Передаем в шаблон и логин, и JSON с массивом разрешенных слоев
+    return render_template('map.html', 
+                           username=user.username,
+                           allowed_layers=json.dumps(user.allowed_layers))
 
 @app.route('/docs')
 def docs():
