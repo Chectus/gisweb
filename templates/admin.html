@@ -361,20 +361,23 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Создание...';
             alertBox.innerHTML = '';
 
-            // Собираем ID из галочек
+            // Собираем ID из галочек в плоский массив
             let allowed_layers = [];
             document.querySelectorAll('.admin-layer-chk:checked').forEach(chk => {
                 const ids = JSON.parse(chk.value);
                 allowed_layers.push(...ids);
             });
 
-            // Формируем полный payload для бэкенда
+            // Переводим текстовое значение селектора ('1' или '0') в настоящий boolean (true/false)
+            const isAdminValue = document.getElementById('newRole').value === '1';
+
+            // Формируем полный payload строго по ТЗ
             const payload = {
                 username: document.getElementById('newUsername').value,
                 password: document.getElementById('newPassword').value,
                 email: document.getElementById('newEmail').value,
-                is_admin: document.getElementById('newRole').value, // Отдаем '1' или '0'
-                expire_days: document.getElementById('newExpire').value, // Отдаем число или пустую строку
+                is_admin: isAdminValue,
+                expire_days: document.getElementById('newExpire').value,
                 allowed_layers: allowed_layers
             };
 
@@ -387,13 +390,23 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    alertBox.innerHTML = `<div class="alert alert-success fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Пользователь успешно создан!</div>`;
+                    // Если пароль сгенерирован сервером (был пустым), выводим его админу
+                    const pwdInfo = result.temp_password && !payload.password 
+                        ? `<div class="font-monospace bg-white border p-2 rounded mt-2 text-dark">Сгенерированный пароль: <strong>${result.temp_password}</strong></div>` 
+                        : '';
+                    
+                    alertBox.innerHTML = `
+                        <div class="alert alert-success d-flex flex-column" role="alert">
+                            <div class="fw-bold mb-1"><i class="bi bi-check-circle-fill me-2"></i>${result.message}</div>
+                            ${pwdInfo}
+                        </div>`;
                     e.target.reset(); 
                 } else {
                     alertBox.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>${result.message || 'Ошибка сервера'}</div>`;
                 }
             } catch (err) {
-                alertBox.innerHTML = `<div class="alert alert-danger">Критическая ошибка сети.</div>`;
+                alertBox.innerHTML = `<div class="alert alert-danger">Критическая ошибка сети. Проверьте консоль.</div>`;
+                console.error(err);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = 'Создать пользователя <i class="bi bi-arrow-right ms-2"></i>';

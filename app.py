@@ -526,51 +526,6 @@ def admin_panel():
     all_users = User.query.all()
     return render_template('admin.html', users=all_users)
 
-@app.route('/admin/add_user', methods=['POST'])
-def add_user():
-    if not session.get('is_admin'):
-        return redirect(url_for('index'))
-
-    username = request.form.get('username')
-    password = request.form.get('password')
-    expire_days = request.form.get('expire_days')
-    is_admin_flag = str(request.form.get('is_admin')) == '1'
-    
-    email = request.form.get('email')
-    if not email or email.strip() == '':
-        email = None
-
-    existing_user = User.query.filter_by(username=username).first()
-    if existing_user:
-        flash(f'Пользователь {username} уже существует!', 'error')
-        return redirect(url_for('admin_panel'))
-
-    hashed_pw = generate_password_hash(password)
-
-    expires_at = None
-    if expire_days and expire_days.isdigit():
-        expires_at = datetime.now() + timedelta(days=int(expire_days))
-
-    new_user = User(
-        username=username, 
-        password_hash=hashed_pw, 
-        expires_at=expires_at, 
-        is_admin=is_admin_flag,
-        email=email
-    )
-    
-    db.session.add(new_user)
-    db.session.commit()
-
-    # --- ШПИОНАЖ ЗА СОЗДАНИЕМ ---
-    current_admin = session.get('user')
-    admin_id = session.get('user_id')
-    role_text = "Админ" if is_admin_flag else "Гость"
-    log_action(admin_id, current_admin, 'АДМИНКА', f'Создан новый {role_text}: {username}')
-
-    flash(f'Пользователь {username} успешно добавлен!', 'success')
-    return redirect(url_for('admin_panel'))
-
 @app.route('/admin/users')
 def admin_dashboard():
     """Страница управления пользователями (только для админов)"""
@@ -587,11 +542,11 @@ def admin_dashboard():
 
 @app.route('/admin/api/create_user', methods=['POST'])
 def api_create_user():
-    """API-эндпоинт для создания геолога с правами на слои"""
+    """Единый API-эндпоинт для создания юзеров (с паролями, ролями и слоями)"""
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
         
-    current_user = User.query.get(session['user_id'])
+    current_user = db.session.get(User, session['user_id'])
     if not current_user.is_admin:
         return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
 
@@ -602,41 +557,47 @@ def api_create_user():
 
     username = data.get('username')
     email = data.get('email')
-    # Получаем тот самый массив ID слоев, например: [324, 325, 330]
+    password = data.get('password') # Теперь ждем пароль от фронтенда!
+    expire_days = data.get('expire_days') # Ждем таймер
+    is_admin = data.get('is_admin', False) # Ждем роль (по умолчанию False)
     allowed_layers = data.get('allowed_layers', []) 
     
+    # Обработка пустой почты
+    if not email or email.strip() == '':
+        email = None
+
     if User.query.filter_by(username=username).first():
         return jsonify({'status': 'error', 'message': 'Пользователь с таким логином уже существует'}), 400
 
-    # Генерируем случайный пароль для нового геолога (8 символов)
-    temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-    
-    # Создаем юзера
+    # Если пароль не ввели руками, генерим кракозябру сами (на всякий случай)
+    if not password:
+        password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+
+    # Логика таймера жизни аккаунта
+    expires_at = None
+    if expire_days and str(expire_days).isdigit():
+        expires_at = datetime.now() + timedelta(days=int(expire_days))
+
+    # Создаем юзера со ВСЕМИ параметрами
     new_user = User(
         username=username,
         email=email,
-        password_hash=generate_password_hash(temp_password),
-        is_admin=False,
-        allowed_layers=allowed_layers # Записываем выданные права!
+        password_hash=generate_password_hash(password),
+        expires_at=expires_at,
+        is_admin=is_admin,
+        allowed_layers=allowed_layers
     )
     
     db.session.add(new_user)
     db.session.commit()
     
-    log_action(current_user.id, current_user.username, 'АДМИН', f'Создан новый пользователь: {username}')
-
-    # Если указана почта - отправляем пароль
-    if email:
-        subject = "Доступ к WebGIS Лаборатории"
-        body = f"Здравствуйте!\n\nВам открыт доступ к системе.\nВаш логин: {username}\nВаш временный пароль: {temp_password}\n\nОбязательно смените пароль в Личном кабинете после входа!"
-        # Тут вызываем твою функцию отправки почты
-        # send_email_custom(email, subject, body) 
-        pass 
+    role_text = "Админ" if is_admin else "Геолог"
+    log_action(current_user.id, current_user.username, 'АДМИНКА', f'Создан новый {role_text}: {username}')
 
     return jsonify({
         'status': 'success', 
         'message': f'Пользователь {username} успешно создан!',
-        'temp_password': temp_password # Возвращаем пароль, чтобы админ мог скопировать его, если почты нет
+        'temp_password': password # Возвращаем пароль, чтобы вывести админу на экран, если нужно
     })
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
