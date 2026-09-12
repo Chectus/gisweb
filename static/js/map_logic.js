@@ -1,17 +1,14 @@
 /**
  * ГЛАВНЫЙ СКРИПТ КАРТЫ (ГИС Забайкальского края)
- * Разработка: Лаборатория ГИС
  */
 
-// ==========================================
-// БЛОК 1: ИНИЦИАЛИЗАЦИЯ КАРТЫ И БАЗОВЫХ СЛОЕВ
-// ==========================================
+const nextgisBaseUrl = ""; // Адрес сервера (если нужен)
 
-const nextgisBaseUrl = "";
-
+// ==========================================
+// БЛОК 1: ИНИЦИАЛИЗАЦИЯ КАРТЫ
+// ==========================================
 const map = L.map("map", { zoomControl: false, minZoom: 3, maxZoom: 18 }).setView([52.03, 117.5], 6);
 L.control.zoom({ position: "bottomleft" }).addTo(map);
-// Добавляем классическую линейку масштаба в правый нижний угол
 L.control.scale({ position: 'bottomright', metric: true, imperial: false }).addTo(map);
 
 const basemaps = {
@@ -27,19 +24,16 @@ document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
 });
 
 // ==========================================
-// БЛОК 2: АРХИТЕКТУРА ИНТЕРФЕЙСА (ПАПКИ И ГАЛОЧКИ)
+// БЛОК 2: АРХИТЕКТУРА ИНТЕРФЕЙСА
 // ==========================================
 const sidebar = document.getElementById("layersSidebar");
 const btnCollapse = document.getElementById("layersSidebarCollapse");
 const iconToggle = document.getElementById("layerToggleIcon");
 
-// ----- НОВЫЙ МОБИЛЬНЫЙ КУСОК -----
-// Если зашли с телефона, сразу прячем меню при загрузке
 if (window.innerWidth <= 768) {
-  sidebar.classList.add("collapsed");
+  if (sidebar) sidebar.classList.add("collapsed");
   if (iconToggle) iconToggle.className = "bi bi-chevron-right";
 }
-// ---------------------------------
 
 if (btnCollapse) {
   btnCollapse.addEventListener("click", () => {
@@ -49,38 +43,27 @@ if (btnCollapse) {
   });
 }
 
-// ----- НОВЫЙ МОБИЛЬНЫЙ КУСОК -----
-// Если на телефоне человек тапнул по карте — меню прячется само
 map.on('click', () => {
-  if (window.innerWidth <= 768 && !sidebar.classList.contains("collapsed")) {
+  if (window.innerWidth <= 768 && sidebar && !sidebar.classList.contains("collapsed")) {
     sidebar.classList.add("collapsed");
     if (iconToggle) iconToggle.className = "bi bi-chevron-right";
   }
 });
-// ---------------------------------
 
-// ==========================================
-// УТИЛИТА: ПРОВЕРКА ВИДИМОСТИ ПАПКИ
-// ==========================================
-// Железобетонная функция проверки: включен ли рубильник у папки слоя?
 function isFolderChecked(chk) {
   const folder = chk.closest('.collapse');
-  if (!folder) return true; // Если слой без папки
-  
+  if (!folder) return true;
   const container = folder.parentElement;
   const masterCheck = container.querySelector('.folder-master-checkbox');
   return masterCheck ? masterCheck.checked : true;
 }
 
 // ==========================================
-// ДИНАМИЧЕСКИЙ ДВИЖОК СЛОЕВ И ПЕРЕХВАТ 403
+// БЛОК 3: ДИНАМИЧЕСКИЙ ДВИЖОК СЛОЕВ
 // ==========================================
-
-// Очередь для BBOX-запросов (формируется автоматически)
 let dynamicQueryQueue = [];
 
-// Тост-уведомление для 403 ошибки
-function showForbiddenToast(layerName = 'Запрошенный слой') {
+function showForbiddenToast(layerName) {
     let toastContainer = document.getElementById('geo-toast-container');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
@@ -103,7 +86,6 @@ function showForbiddenToast(layerName = 'Запрошенный слой') {
     setTimeout(() => { if (toastContainer.lastChild) toastContainer.lastChild.remove(); }, 4000);
 }
 
-// Генерация UI на лету из JSON (Скрываем недоступные слои и пустые папки)
 async function initDynamicLayers() {
     try {
         const response = await fetch('/api/layers_config');
@@ -111,6 +93,7 @@ async function initDynamicLayers() {
         const config = await response.json();
         
         const container = document.getElementById('layersAccordion');
+        if (!container) return;
         container.innerHTML = ''; 
 
         let folderIndex = 0;
@@ -120,41 +103,44 @@ async function initDynamicLayers() {
             const folderId = `dyn_folder_${folderIndex}`;
             
             let categoryHtmlContent = "";
-            let hasAnyLayerInCategory = false; // Флаг: есть ли в этой папке хоть что-то доступное?
+            let hasAnyLayerInCategory = false; 
 
             for (const [subName, layers] of Object.entries(subcategories)) {
                 let subcategoryHtmlContent = "";
-                let hasAnyLayerInSub = false; // Флаг: есть ли доступное в этой подгруппе?
+                let hasAnyLayerInSub = false; 
 
                 for (const [layerName, ids] of Object.entries(layers)) {
                     const vectorId = ids[0];
                     const rasterId = ids[1] || ids[0];
                     const chkId = `chk_${rasterId}`;
                     
-                    // ПРОВЕРКА ПРАВ: Если "*", то можно всё. Иначе ищем ID в массиве.
-                    const isAllowed = userAllowedLayers === "*" || userAllowedLayers.includes(rasterId) || userAllowedLayers.includes(vectorId);
+                    // Безопасное чтение прав с бэкенда
+                    let allowed = [];
+                    let isAllAllowed = false;
+                    
+                    if (typeof userAllowedLayers !== 'undefined') {
+                        if (userAllowedLayers === "*") {
+                            isAllAllowed = true;
+                        } else if (Array.isArray(userAllowedLayers)) {
+                            allowed = userAllowedLayers;
+                        } else if (typeof userAllowedLayers === 'string') {
+                            try { allowed = JSON.parse(userAllowedLayers); } catch(e) {}
+                        }
+                    }
 
-                    // ЕСЛИ ДОСТУП ЕСТЬ — ГЕНЕРИМ СЛОЙ
+                    const isAllowed = isAllAllowed || allowed.includes(rasterId) || allowed.includes(vectorId);
+
                     if (isAllowed) {
                         hasAnyLayerInSub = true;
                         hasAnyLayerInCategory = true;
                         
-                        // ПРОВЕРКА ПРАВ: Если "*", то можно всё. Иначе ищем ID в массиве.
-                        const isAllowed = userAllowedLayers === "*" || userAllowedLayers.includes(rasterId) || userAllowedLayers.includes(vectorId);
-
-                        // ЕСЛИ ДОСТУП ЕСТЬ — ГЕНЕРИМ СЛОЙ
-                        if (isAllowed) {
-                            hasAnyLayerInSub = true;
-                            hasAnyLayerInCategory = true;
-                            
-                            // ИСПРАВЛЕНИЕ 1: Ищем гибриды СТРОГО по названию слоя 
-                            const isPointLayer = layerName.includes('Населённые пункты') || 
-                                                layerName.includes('Месторождения') || 
-                                                layerName.includes('Рудопроявления') || 
-                                                layerName.includes('Пункты минерализации');
-                                                
-                            const delta = isPointLayer ? 5000 : 1000;
-
+                        // Гибриды только для реальных точек (ИСПРАВЛЕНО)
+                        const isPointLayer = layerName.includes('Населённые пункты') || 
+                                             layerName.includes('Месторождения') || 
+                                             layerName.includes('Рудопроявления') || 
+                                             layerName.includes('Пункты минерализации');
+                                             
+                        const delta = isPointLayer ? 5000 : 1000;
                         
                         dynamicQueryQueue.push({ chkId: chkId, vectorId: vectorId, delta: delta, name: layerName });
 
@@ -169,8 +155,6 @@ async function initDynamicLayers() {
                     }
                 }
 
-                // ВАЖНО: Рисуем заголовок подгруппы (например "Металлические ископаемые"), 
-                // ТОЛЬКО если в ней сгенерировался хотя бы один слой
                 if (hasAnyLayerInSub) {
                     categoryHtmlContent += `
                     <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary d-flex align-items-center">
@@ -180,7 +164,6 @@ async function initDynamicLayers() {
                 }
             }
 
-            // ВАЖНО: Рисуем саму папку (аккордеон), ТОЛЬКО если в ней есть доступные данные
             if (hasAnyLayerInCategory) {
                 let html = `
                 <div class="border rounded-3 bg-light p-2 mb-2">
@@ -208,19 +191,18 @@ async function initDynamicLayers() {
     }
 }
 
-// Привязка картографии к сгенерированным чекбоксам
 function bindDynamicLogic() {
-    // 1. Оживляем рубильники папок
     document.querySelectorAll('.folder-master-checkbox').forEach(master => {
         master.addEventListener('change', (e) => {
             const folder = e.target.closest('.border').querySelector('.collapse');
-            folder.querySelectorAll('.dyn-layer-chk').forEach(chk => {
-                chk.dispatchEvent(new Event('folderToggled'));
-            });
+            if(folder) {
+                folder.querySelectorAll('.dyn-layer-chk').forEach(chk => {
+                    chk.dispatchEvent(new Event('folderToggled'));
+                });
+            }
         });
     });
 
-    // Оживляем рубильники подгрупп
     document.querySelectorAll('.sub-master-checkbox').forEach(sub => {
         sub.addEventListener('change', (e) => {
             const isChecked = e.target.checked;
@@ -238,7 +220,6 @@ function bindDynamicLogic() {
         });
     });
 
-    // 2. Создаем сами слои Leaflet
     document.querySelectorAll('.dyn-layer-chk').forEach(chk => {
         const rasterId = chk.getAttribute('data-raster');
         const vectorId = chk.getAttribute('data-vector');
@@ -246,12 +227,10 @@ function bindDynamicLogic() {
         const isHybrid = chk.getAttribute('data-hybrid') === 'true';
         const switchZoom = 9;
         
-        // Создаем растровый слой (картинка)
         const tmsLayer = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${rasterId}&nd=204&z={z}&x={x}&y={y}`, {
             transparent: true, format: 'image/png', noWrap: true, zIndex: isHybrid ? 70 : 10
         });
 
-        // Логика для кластеров (если слой помечен как гибридный)
         let clusterGroup = null;
         let isVectorLoaded = false;
         
@@ -287,18 +266,16 @@ function bindDynamicLogic() {
                 isVectorLoaded = true;
             } catch (e) {
                 console.error("Ошибка вектора:", e);
-                chk.checked = false;
             }
         }
 
         function updateVisibility() {
             if (!(chk.checked && isFolderChecked(chk))) {
                 if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
-                if (isHybrid && map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+                if (isHybrid && clusterGroup && map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
                 return;
             }
             
-            // Если слой гибридный — включаем логику кластеров
             if (isHybrid) {
                 if (map.getZoom() < switchZoom) {
                     if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
@@ -309,7 +286,6 @@ function bindDynamicLogic() {
                     if (!map.hasLayer(tmsLayer)) map.addLayer(tmsLayer);
                 }
             } else {
-                // Обычный слой (просто показываем картинку)
                 if (!map.hasLayer(tmsLayer)) map.addLayer(tmsLayer);
             }
         }
@@ -319,14 +295,12 @@ function bindDynamicLogic() {
         if (isHybrid) map.on('zoomend', updateVisibility);
     });
     
-    // 3. Перехват 403 для кнопок таблиц атрибутов
     document.querySelectorAll('.attr-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
             const vid = btn.getAttribute('data-vid');
             const lname = btn.getAttribute('data-lname');
             
-            // Быстрая проверка прав перед загрузкой огромной таблицы
             const testResponse = await fetch(`${nextgisBaseUrl}/api/resource/${vid}/feature/?geom=no&limit=1`);
             if (testResponse.status === 403) {
                 showForbiddenToast(lname);
@@ -341,13 +315,11 @@ function bindDynamicLogic() {
 initDynamicLayers();
 
 // ==========================================
-// БЛОК 5: BBOX КЛИК И ПРАВЫЕ ТАБЛИЦЫ
+// БЛОК 4: BBOX КЛИК ПО КАРТЕ
 // ==========================================
-
 map.on('click', async function(e) {
     const point = L.CRS.EPSG3857.project(e.latlng);
     
-    // Берем активные слои из динамической очереди
     let activeLayers = dynamicQueryQueue.filter(layer => {
         const checkbox = document.getElementById(layer.chkId);
         return checkbox && checkbox.checked && isFolderChecked(checkbox);
@@ -355,7 +327,6 @@ map.on('click', async function(e) {
 
     if (activeLayers.length === 0) return;
 
-    // СОРТИРОВКА: Сначала проверяем точечные слои (delta=5000), потом полигоны
     activeLayers.sort((a, b) => b.delta - a.delta);
 
     for (const layer of activeLayers) {
@@ -366,11 +337,9 @@ map.on('click', async function(e) {
         
         try {
             const response = await fetch(url);
-            
-            // ПЕРЕХВАТ 403 ДЛЯ BBOX
             if (response.status === 403) {
                 showForbiddenToast(layer.name);
-                continue; // Пропускаем этот слой и ищем дальше
+                continue;
             }
             
             const data = await response.json();
@@ -390,7 +359,7 @@ map.on('click', async function(e) {
                 }
                 popupContent += `</tbody></table></div>`;
                 L.popup({ maxWidth: 400 }).setLatLng(e.latlng).setContent(popupContent).openOn(map);
-                break; // Нашли объект — обрываем цикл
+                break; 
             }
         } catch(err) {
             console.error(`Ошибка при запросе к слою ${layer.vectorId}:`, err);
@@ -398,19 +367,22 @@ map.on('click', async function(e) {
     }
 });
 
+// ==========================================
+// БЛОК 5: ТАБЛИЦА АТРИБУТОВ И СИНХРОНИЗАЦИЯ МАСШТАБА
+// ==========================================
 const attrSidebar = document.getElementById('attributeSidebar');
 const closeAttrBtn = document.getElementById('closeAttributeSidebar');
 const attrContainer = document.getElementById('attributeTableContainer');
 
 if(closeAttrBtn) {
-  closeAttrBtn.addEventListener('click', () => attrSidebar.classList.remove('open'));
+  closeAttrBtn.addEventListener('click', () => { if(attrSidebar) attrSidebar.classList.remove('open'); });
 }
 
 async function loadAttributeTable(vectorId, layerName) {
   if(attrSidebar) attrSidebar.classList.add('open');
   if(attrContainer) attrContainer.innerHTML = `<div class="text-center mt-5">
                                                   <div class="spinner-border" style="color: var(--geo-main);" role="status"></div>
-                                                  <div class="mt-2 text-muted">Стягиваем данные с NextGIS...</div>
+                                                  <div class="mt-2 text-muted">Стягиваем данные с сервера...</div>
                                                </div>`;
 
   try {
@@ -446,22 +418,14 @@ async function loadAttributeTable(vectorId, layerName) {
   }
 }
 
-// ==========================================
-// БЛОК: СИНХРОНИЗАЦИЯ МАСШТАБА (QGIS STYLE)
-// ==========================================
 const scaleSelect = document.getElementById('scaleSelect');
-
 if (scaleSelect) {
-  // 1. Когда геолог выбирает масштаб из списка -> меняем зум карты
   scaleSelect.addEventListener('change', (e) => {
     map.setZoom(parseInt(e.target.value));
   });
 
-  // 2. Когда геолог крутит колесико мыши -> меняем цифру в списке
   map.on('zoomend', () => {
     const currentZoom = map.getZoom();
-    
-    // Ищем в нашем списке масштабов ближайший к текущему зуму
     let closestOption = scaleSelect.options[0];
     let minDiff = Infinity;
     
@@ -472,10 +436,7 @@ if (scaleSelect) {
         closestOption = opt;
       }
     });
-    
     scaleSelect.value = closestOption.value;
   });
-
-  // Устанавливаем правильное значение при первой загрузке
   map.fire('zoomend');
 }
