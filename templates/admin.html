@@ -39,29 +39,60 @@
         
         <div class="admin-card mb-4">
             <div class="admin-card-header">
-                <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-person-plus-fill me-2" style="color: var(--geo-main);"></i>Новый пользователь (с правами)</h5>
+                <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-person-plus-fill me-2" style="color: var(--geo-main);"></i>Новый доступ (с правами на дата-румы)</h5>
             </div>
             <div class="card-body p-4" style="background-color: #fafbfc; border-radius: 0 0 12px 12px;">
                 
                 <div id="adminAlertContainer"></div>
 
-                <form id="apiCreateUserForm" class="row g-3">
-                    <div class="col-md-6">
+                <form id="apiCreateUserForm" class="row g-3 align-items-end">
+                    <!-- Логин -->
+                    <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Логин</label>
                         <input type="text" class="form-control" id="newUsername" required placeholder="geo_worker">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Email (Опционально)</label>
-                        <input type="email" class="form-control" id="newEmail" placeholder="Для отправки пароля и 2FA">
+                    
+                    <!-- Пароль с глазиком -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Пароль</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control border-end-0" id="newPassword" required placeholder="••••••••">
+                            <button class="btn btn-eye-admin border-start-0 bg-white" type="button" id="toggleNewPassword">
+                                <i class="bi bi-eye text-muted" id="toggleNewIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Роль (1 или 0) -->
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Роль</label>
+                        <select class="form-select" id="newRole" style="border-color: rgba(27, 87, 140, 0.2);">
+                            <option value="0" selected>⛏️ Гость</option>
+                            <option value="1">👑 Админ</option>
+                        </select>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Email (2FA)</label>
+                        <input type="email" class="form-control" id="newEmail" placeholder="Опционально">
                     </div>
                     
+                    <!-- Срок действия -->
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней</label>
+                        <input type="number" class="form-control" id="newExpire" placeholder="Навсегда">
+                    </div>
+                    
+                    <!-- Дерево слоев -->
                     <div class="col-12 mt-4">
-                        <h6 class="fw-bold mb-3" style="color: var(--geo-dark);"><i class="bi bi-layers text-secondary me-2"></i>Доступ к дата-румам</h6>
+                        <h6 class="fw-bold mb-3" style="color: var(--geo-dark);"><i class="bi bi-layers text-secondary me-2"></i>Доступ к слоям (Дата-румы)</h6>
                         <div id="adminLayersTree" class="border rounded bg-white p-3 shadow-sm" style="max-height: 250px; overflow-y: auto;">
                             <div class="text-center text-muted spinner-border spinner-border-sm" role="status"></div> Загрузка структуры...
                         </div>
                     </div>
 
+                    <!-- Кнопка -->
                     <div class="col-12 mt-4 text-end">
                         <button type="submit" class="btn btn-geo px-5 fw-bold" id="btnCreateUser">
                             Создать пользователя <i class="bi bi-arrow-right ms-2"></i>
@@ -279,7 +310,22 @@
 
     <script>
     document.addEventListener("DOMContentLoaded", async () => {
-        // 1. Отрисовка дерева слоев в админке
+        
+        // Глазик для нового пароля
+        const toggleNewPassword = document.getElementById('toggleNewPassword');
+        const newPasswordInput = document.getElementById('newPassword');
+        const toggleNewIcon = document.getElementById('toggleNewIcon');
+
+        if (toggleNewPassword) {
+            toggleNewPassword.addEventListener('click', function () {
+                const type = newPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                newPasswordInput.setAttribute('type', type);
+                toggleNewIcon.classList.toggle('bi-eye');
+                toggleNewIcon.classList.toggle('bi-eye-slash');
+            });
+        }
+
+        // 1. Отрисовка дерева слоев
         try {
             const response = await fetch('/api/layers_config');
             const config = await response.json();
@@ -305,7 +351,7 @@
             document.getElementById('adminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки слоев</div>';
         }
 
-        // 2. Отправка POST-запроса на создание пользователя
+        // 2. Сборка и отправка JSON
         document.getElementById('apiCreateUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btnCreateUser');
@@ -315,16 +361,20 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Создание...';
             alertBox.innerHTML = '';
 
-            // Собираем плоский массив всех ID из выбранных галочек
+            // Собираем ID из галочек
             let allowed_layers = [];
             document.querySelectorAll('.admin-layer-chk:checked').forEach(chk => {
                 const ids = JSON.parse(chk.value);
                 allowed_layers.push(...ids);
             });
 
+            // Формируем полный payload для бэкенда
             const payload = {
                 username: document.getElementById('newUsername').value,
+                password: document.getElementById('newPassword').value,
                 email: document.getElementById('newEmail').value,
+                is_admin: document.getElementById('newRole').value, // Отдаем '1' или '0'
+                expire_days: document.getElementById('newExpire').value, // Отдаем число или пустую строку
                 allowed_layers: allowed_layers
             };
 
@@ -337,14 +387,10 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    alertBox.innerHTML = `
-                        <div class="alert alert-success d-flex flex-column" role="alert">
-                            <div class="fw-bold mb-1"><i class="bi bi-check-circle-fill me-2"></i>${result.message}</div>
-                            <div class="font-monospace bg-white border p-2 rounded mt-2 text-dark">Временный пароль: <strong>${result.temp_password}</strong></div>
-                        </div>`;
-                    e.target.reset(); // Сбрасываем форму
+                    alertBox.innerHTML = `<div class="alert alert-success fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Пользователь успешно создан!</div>`;
+                    e.target.reset(); 
                 } else {
-                    alertBox.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>${result.message}</div>`;
+                    alertBox.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>${result.message || 'Ошибка сервера'}</div>`;
                 }
             } catch (err) {
                 alertBox.innerHTML = `<div class="alert alert-danger">Критическая ошибка сети.</div>`;
