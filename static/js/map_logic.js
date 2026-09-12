@@ -103,7 +103,7 @@ function showForbiddenToast(layerName = 'Запрошенный слой') {
     setTimeout(() => { if (toastContainer.lastChild) toastContainer.lastChild.remove(); }, 4000);
 }
 
-// Генерация UI на лету из JSON
+// Генерация UI на лету из JSON (Скрываем недоступные слои и пустые папки)
 async function initDynamicLayers() {
     try {
         const response = await fetch('/api/layers_config');
@@ -114,53 +114,77 @@ async function initDynamicLayers() {
         container.innerHTML = ''; 
 
         let folderIndex = 0;
+
         for (const [categoryName, subcategories] of Object.entries(config)) {
             folderIndex++;
             const folderId = `dyn_folder_${folderIndex}`;
-
-            let html = `
-            <div class="border rounded-3 bg-light p-2 mb-2">
-                <div class="d-flex align-items-center w-100">
-                    <input type="checkbox" class="form-check-input ms-2 me-2 folder-master-checkbox" checked style="cursor: pointer;" title="Включить/скрыть папку">
-                    <button class="btn btn-link btn-sm text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#${folderId}" style="flex-grow: 1;">
-                        <span><i class="bi bi-folder2-open me-2" style="color: var(--geo-main);"></i>${categoryName}</span>
-                        <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
-                    </button>
-                </div>
-                <div id="${folderId}" class="accordion-collapse collapse">
-                    <div class="accordion-body p-2 d-flex flex-column gap-1">`;
+            
+            let categoryHtmlContent = "";
+            let hasAnyLayerInCategory = false; // Флаг: есть ли в этой папке хоть что-то доступное?
 
             for (const [subName, layers] of Object.entries(subcategories)) {
-                html += `
-                <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary d-flex align-items-center">
-                    <input type="checkbox" class="form-check-input me-2 mb-0 sub-master-checkbox" style="margin-top: 0; margin-left: -15px; cursor: pointer;" title="Выбрать подгруппу">
-                    ${subName}
-                </div>`;
+                let subcategoryHtmlContent = "";
+                let hasAnyLayerInSub = false; // Флаг: есть ли доступное в этой подгруппе?
 
                 for (const [layerName, ids] of Object.entries(layers)) {
                     const vectorId = ids[0];
                     const rasterId = ids[1] || ids[0];
                     const chkId = `chk_${rasterId}`;
                     
-                    // Определяем приоритет (delta) для BBOX: точкам даем 5000, остальным 1000
-                    const isPointLayer = categoryName.includes('Полезные ископаемые') || categoryName.includes('Экстенсивность') || subName.includes('Населённые пункты');
-                    const delta = isPointLayer ? 5000 : 1000;
-                    
-                    // Сохраняем в очередь
-                    dynamicQueryQueue.push({ chkId: chkId, vectorId: vectorId, delta: delta, name: layerName });
+                    // ПРОВЕРКА ПРАВ: Если "*", то можно всё. Иначе ищем ID в массиве.
+                    const isAllowed = userAllowedLayers === "*" || userAllowedLayers.includes(rasterId) || userAllowedLayers.includes(vectorId);
 
-                    html += `
-                    <div class="form-check layer-item d-flex align-items-center">
-                        <input class="form-check-input dyn-layer-chk" type="checkbox" id="${chkId}" data-vector="${vectorId}" data-raster="${rasterId}" data-name="${layerName}" data-hybrid="${isPointLayer}">
-                        <label class="form-check-label w-100" for="${chkId}">${layerName}</label>
-                        <button class="btn btn-sm btn-link p-0 ms-auto text-secondary attr-btn" title="Таблица атрибутов" data-vid="${vectorId}" data-lname="${layerName}">
-                            <i class="bi bi-table"></i>
-                        </button>
-                    </div>`;
+                    // ЕСЛИ ДОСТУП ЕСТЬ — ГЕНЕРИМ СЛОЙ
+                    if (isAllowed) {
+                        hasAnyLayerInSub = true;
+                        hasAnyLayerInCategory = true;
+                        
+                        const isPointLayer = categoryName.includes('Полезные ископаемые') || categoryName.includes('Экстенсивность') || subName.includes('Населённые пункты');
+                        const delta = isPointLayer ? 5000 : 1000;
+                        
+                        dynamicQueryQueue.push({ chkId: chkId, vectorId: vectorId, delta: delta, name: layerName });
+
+                        subcategoryHtmlContent += `
+                        <div class="form-check layer-item d-flex align-items-center">
+                            <input class="form-check-input dyn-layer-chk" type="checkbox" id="${chkId}" data-vector="${vectorId}" data-raster="${rasterId}" data-name="${layerName}" data-hybrid="${isPointLayer}">
+                            <label class="form-check-label w-100" for="${chkId}">${layerName}</label>
+                            <button class="btn btn-sm btn-link p-0 ms-auto text-secondary attr-btn" title="Таблица атрибутов" data-vid="${vectorId}" data-lname="${layerName}">
+                                <i class="bi bi-table"></i>
+                            </button>
+                        </div>`;
+                    }
+                }
+
+                // ВАЖНО: Рисуем заголовок подгруппы (например "Металлические ископаемые"), 
+                // ТОЛЬКО если в ней сгенерировался хотя бы один слой
+                if (hasAnyLayerInSub) {
+                    categoryHtmlContent += `
+                    <div class="fw-bold mt-2 mb-1 ms-2 small text-secondary d-flex align-items-center">
+                        <input type="checkbox" class="form-check-input me-2 mb-0 sub-master-checkbox" style="margin-top: 0; margin-left: -15px; cursor: pointer;" title="Выбрать подгруппу">
+                        ${subName}
+                    </div>` + subcategoryHtmlContent;
                 }
             }
-            html += `</div></div></div>`;
-            container.insertAdjacentHTML('beforeend', html);
+
+            // ВАЖНО: Рисуем саму папку (аккордеон), ТОЛЬКО если в ней есть доступные данные
+            if (hasAnyLayerInCategory) {
+                let html = `
+                <div class="border rounded-3 bg-light p-2 mb-2">
+                    <div class="d-flex align-items-center w-100">
+                        <input type="checkbox" class="form-check-input ms-2 me-2 folder-master-checkbox" checked style="cursor: pointer;" title="Включить/скрыть папку">
+                        <button class="btn btn-link btn-sm text-start d-flex justify-content-between align-items-center text-decoration-none fw-bold text-dark ps-2" type="button" data-bs-toggle="collapse" data-bs-target="#${folderId}" style="flex-grow: 1;">
+                            <span><i class="bi bi-folder2-open me-2" style="color: var(--geo-main);"></i>${categoryName}</span>
+                            <i class="bi bi-chevron-down small text-muted toggle-arrow"></i>
+                        </button>
+                    </div>
+                    <div id="${folderId}" class="accordion-collapse collapse">
+                        <div class="accordion-body p-2 d-flex flex-column gap-1">
+                            ${categoryHtmlContent}
+                        </div>
+                    </div>
+                </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            }
         }
 
         bindDynamicLogic();

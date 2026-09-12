@@ -111,6 +111,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    // Бэкенд подставит сюда массив [324, 325, 380, 381] или строку "*" для админов
+    <script>  const userAllowedLayers = {{ allowed_layers | safe }}; </script>
+
 
     <!-- ПОДКЛЮЧАЕМ НАШ ВЫНЕСЕННЫЙ JS -->
     <script src="../static/js/map_logic.js"></script>
