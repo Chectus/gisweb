@@ -139,8 +139,22 @@ async function initDynamicLayers() {
                         hasAnyLayerInSub = true;
                         hasAnyLayerInCategory = true;
                         
-                        const isPointLayer = categoryName.includes('Полезные ископаемые') || categoryName.includes('Экстенсивность') || subName.includes('Населённые пункты');
-                        const delta = isPointLayer ? 5000 : 1000;
+                        // ПРОВЕРКА ПРАВ: Если "*", то можно всё. Иначе ищем ID в массиве.
+                        const isAllowed = userAllowedLayers === "*" || userAllowedLayers.includes(rasterId) || userAllowedLayers.includes(vectorId);
+
+                        // ЕСЛИ ДОСТУП ЕСТЬ — ГЕНЕРИМ СЛОЙ
+                        if (isAllowed) {
+                            hasAnyLayerInSub = true;
+                            hasAnyLayerInCategory = true;
+                            
+                            // ИСПРАВЛЕНИЕ 1: Ищем гибриды СТРОГО по названию слоя 
+                            const isPointLayer = layerName.includes('Населённые пункты') || 
+                                                layerName.includes('Месторождения') || 
+                                                layerName.includes('Рудопроявления') || 
+                                                layerName.includes('Пункты минерализации');
+                                                
+                            const delta = isPointLayer ? 5000 : 1000;
+
                         
                         dynamicQueryQueue.push({ chkId: chkId, vectorId: vectorId, delta: delta, name: layerName });
 
@@ -235,17 +249,6 @@ function bindDynamicLogic() {
         // Создаем растровый слой (картинка)
         const tmsLayer = L.tileLayer(`${nextgisBaseUrl}/api/component/render/tile?resource=${rasterId}&nd=204&z={z}&x={x}&y={y}`, {
             transparent: true, format: 'image/png', noWrap: true, zIndex: isHybrid ? 70 : 10
-        });
-
-        // ПЕРЕХВАТ 403 ДЛЯ КАРТЫ: Если тайл не загрузился из-за прав доступа
-        tmsLayer.on('tileerror', function() {
-            if (!chk.dataset.errorShown) {
-                showForbiddenToast(layerName);
-                chk.dataset.errorShown = "true"; 
-                setTimeout(() => chk.dataset.errorShown = "false", 10000); // Глушим спам тостов на 10 сек
-                chk.checked = false; // Отщелкиваем галочку
-                if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
-            }
         });
 
         // Логика для кластеров (если слой помечен как гибридный)
