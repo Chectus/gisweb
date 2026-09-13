@@ -1,5 +1,4 @@
 /* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Геологическая палитра) === */
-/* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Светлая тема - более яркая и сочная) === */
 :root {
     --geo-dark: #15324d;      /* Чуть более яркий темно-синий (Навигация, шапки) */
     --geo-main: #2170ad;      /* Более сочный синий (Кнопки, ховеры) */
@@ -15,7 +14,7 @@
     --geo-input-bg: #ffffff;
 }
 
-/* === ТЁМНАЯ ТЕМА (Глубокая и приглушенная) === */
+/* === ТЁМНАЯ ТЕМА  === */
 body.dark-theme {
     --geo-dark: #09121a;      /* Очень глубокий сине-черный (Навигация) */
     --geo-main: #143b5c;      /* Спокойный, приглушенный синий (Кнопки) */
@@ -30,11 +29,53 @@ body.dark-theme {
     --geo-input-bg: #0f172a;
 }
 
+/* === ШРИФТЫ  === */
+/* 1. Тонкий (Вес 300) - для мелких сносок, копирайтов и "текста для галочки" */
+@font-face {
+    font-family: 'Inter';
+    src: url('../fonts/Inter-Light.woff2') format('woff2');
+    font-weight: 300;
+    font-style: normal;
+}
+
+/* 2. Обычный (Вес 400) - базовый текст */
+@font-face {
+    font-family: 'Inter';
+    src: url('../fonts/Inter-Regular.woff2') format('woff2');
+    font-weight: 400; 
+    font-style: normal;
+}
+
+/* 3. Средний (Вес 500) - меню, кнопки */
+@font-face {
+    font-family: 'Inter';
+    src: url('../fonts/Inter-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+}
+
+/* 4. Жирный (Вес 700) - заголовки, теги <b> */
+@font-face {
+    font-family: 'Inter';
+    src: url('../fonts/Inter-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+}
+
+/* 5. Очень жирный (Вес 900) - массивные акценты */
+@font-face {
+    font-family: 'Inter';
+    src: url('../fonts/Inter-Black.woff2') format('woff2');
+    font-weight: 900;
+    font-style: normal;
+}
+
+
 /* === БАЗОВЫЕ СТИЛИ (Подключаем переменные текста) === */
 body {
     background-color: var(--geo-bg);
     color: var(--geo-text);
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease; /* Плавное переключение */
 }
 
