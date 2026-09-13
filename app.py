@@ -80,6 +80,71 @@ def send_2fa_email(to_email, code):
         print(f"[-] Ошибка отправки письма: {e}")
         return False
 
+def send_reset_email(to_email, reset_link):
+    """Отправка ссылки для сброса пароля (забыли пароль)"""
+    if not MAIL_USERNAME or not MAIL_PASSWORD:
+        return False
+        
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = 'Восстановление пароля Веб-ГИС'
+    msg['From'] = MAIL_USERNAME
+    msg['To'] = to_email
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #1a4d2e; text-align: center;">Восстановление доступа</h2>
+        <p>Здравствуйте! Поступил запрос на сброс пароля от вашей учетной записи.</p>
+        <p>Для создания нового пароля перейдите по ссылке ниже (ссылка действительна 15 минут):</p>
+        <div style="text-align: center; margin: 25px 0;">
+            <a href="{reset_link}" style="background-color: #1a4d2e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">Сбросить пароль</a>
+        </div>
+        <p style="font-size: 12px; color: #777;">Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
+            server.login(MAIL_USERNAME, MAIL_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[-] Ошибка отправки письма: {e}")
+        return False
+
+
+def send_profile_code_email(to_email, code):
+    """Отправка кода подтверждения при смене пароля из профиля"""
+    if not MAIL_USERNAME or not MAIL_PASSWORD:
+        return False
+        
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = 'Смена пароля в Веб-ГИС'
+    msg['From'] = MAIL_USERNAME
+    msg['To'] = to_email
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #1a4d2e; text-align: center;">Смена пароля</h2>
+        <p>Здравствуйте! Вы запросили изменение пароля в личном кабинете.</p>
+        <p>Ваш код подтверждения операции:</p>
+        <div style="text-align: center; margin: 25px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1a4d2e; background: #e8f5e9; padding: 10px 20px; border-radius: 6px;">{code}</span>
+        </div>
+        <p style="font-size: 12px; color: #777;">Если вы не инициировали смену пароля, срочно обратитесь к администратору.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
+            server.login(MAIL_USERNAME, MAIL_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[-] Ошибка отправки письма: {e}")
+        return False
+
 if not NEXTGIS_USER or not NEXTGIS_PASS:
     raise ValueError("Не заданы логин или пароль NextGIS в переменных окружения (.env)!")
 
@@ -410,7 +475,7 @@ def change_password_request():
     user.current_2fa_code = code
     db.session.commit()
     
-    send_2fa_email(user.email, code)
+    send_profile_code_email(user.email, code)
     
     # Временно сохраняем новый пароль в сессию, чтобы применить после ввода кода
     session['pending_new_password'] = new_password
