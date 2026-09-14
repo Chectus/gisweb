@@ -374,10 +374,18 @@ def login():
             return render_template('login.html', error='Слишком много попыток. Ваш IP заблокирован на 15 минут!'), 429
             
         # Если пробили лимит по Логину (заморозка аккаунта)
+        # ... (тут проверка failed_by_ip) ...
+            
+        # Если пробили лимит по Логину (заморозка аккаунта)
         if failed_by_user >= 5:
+            # Отправляем алерт ТОЛЬКО один раз - ровно на 5-ю попытку (чтобы не заспамить почту)
+            if failed_by_user == 5:
+                target_user = User.query.filter_by(username=username).first()
+                if target_user and target_user.email:
+                    send_bruteforce_alert_email(target_user.email, ip_address)
+            
             return render_template('login.html', error=f'Попытки входа для {username} временно заблокированы в целях безопасности.'), 429
-        # -----------------------------------
-        
+            
         # Если защиты не сработали, идем дальше по старому коду:
         user = User.query.filter_by(username=username).first()
         
