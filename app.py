@@ -741,6 +741,65 @@ def api_create_user():
         'temp_password': password # Возвращаем пароль, чтобы вывести админу на экран, если нужно
     })
 
+@app.route('/admin/api/edit_user/<int:user_id>', methods=['POST'])
+def api_edit_user(user_id):
+    """API-эндпоинт для редактирования существующего пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+        
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user.is_admin:
+        return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
+
+    # Ищем пользователя, которого хотим отредактировать
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        return jsonify({'status': 'error', 'message': 'Пользователь не найден'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
+
+    new_username = data.get('username')
+    
+    # Проверяем, не пытается ли админ задать логин, который уже занят кем-то другим
+    if new_username and new_username != target_user.username:
+        if User.query.filter_by(username=new_username).first():
+            return jsonify({'status': 'error', 'message': 'Логин уже занят другим пользователем'}), 400
+        target_user.username = new_username
+
+    # Обновляем базовые поля
+    email = data.get('email')
+    target_user.email = email if email and email.strip() != '' else None
+    
+    # Если прислали новый пароль - перезаписываем хэш. Если пусто - оставляем старый.
+    password = data.get('password')
+    if password and password.strip() != '':
+        target_user.password_hash = generate_password_hash(password)
+
+    # Обновляем права
+    if 'is_admin' in data:
+        target_user.is_admin = data.get('is_admin')
+    if 'allowed_layers' in data:
+        target_user.allowed_layers = data.get('allowed_layers')
+
+    # Логика таймера: если передали число дней - обнуляем и считаем от СЕЙЧАС
+    expire_days = data.get('expire_days')
+    if expire_days and str(expire_days).isdigit():
+        target_user.expires_at = datetime.now() + timedelta(days=int(expire_days))
+    elif expire_days == "": # Если передали пустую строку - делаем бессрочным
+        target_user.expires_at = None
+
+    db.session.commit()
+    
+    # Шпионим за админом
+    log_action(current_user.id, current_user.username, 'АДМИНКА', f'Отредактирован аккаунт: {target_user.username}')
+
+    return jsonify({
+        'status': 'success', 
+        'message': f'Аккаунт {target_user.username} успешно обновлен!'
+    })
+
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
     if not session.get('is_admin'):
