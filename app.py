@@ -311,9 +311,24 @@ def index():
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per 15 minute", methods=["POST"]) # НОВОЕ: Блокируем IP на 15 минут после 5 попыток входа
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        # --- УМНАЯ ЗАЩИТА ОТ БРУТФОРСА ---
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        time_limit = datetime.now() - timedelta(minutes=15)
+        
+        # Считаем в базе ActionLog ТОЛЬКО ошибки входа с этого IP за последние 15 минут
+        failed_count = ActionLog.query.filter(
+            ActionLog.ip_address == ip_address,
+            ActionLog.action_type == 'ОШИБКА_ВХОДА',
+            ActionLog.timestamp >= time_limit
+        ).count()
+        
+        if failed_count >= 5:
+            return render_template('login.html', error='Слишком много неудачных попыток входа. Ваш IP заблокирован на 15 минут!'), 429
+        # ---------------------------------
+        
         username = request.form.get('username')
         password = request.form.get('password')
         
