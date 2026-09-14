@@ -145,6 +145,38 @@ def send_profile_code_email(to_email, code):
         print(f"[-] Ошибка отправки письма: {e}")
         return False
 
+def send_bruteforce_alert_email(to_email, ip_address):
+    """Отправка алерта о попытке взлома аккаунта"""
+    if not MAIL_USERNAME or not MAIL_PASSWORD:
+        return False
+        
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = '⚠️ Внимание: Попытка взлома аккаунта!'
+    msg['From'] = MAIL_USERNAME
+    msg['To'] = to_email
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #1a4d2e; text-align: center;">Подозрительная активность</h2>
+        <p>Здравствуйте! Мы зафиксировали серию неудачных попыток входа в ваш аккаунт на портале Веб-ГИС.</p>
+        <p>В целях безопасности мы временно <b>заблокировали</b> возможность входа для вашего логина на 15 минут.</p>
+        <div style="text-align: center; margin: 25px 0;">
+            <span style="font-size: 16px; font-weight: bold; color: #1a4d2e; background: #e8f5e9; padding: 10px 20px; border-radius: 6px;">IP-адрес злоумышленника: {ip_address}</span>
+        </div>
+        <p style="font-size: 12px; color: #777;">Если это были вы и просто забыли пароль — воспользуйтесь функцией восстановления. Если нет — рекомендуем сменить пароль после разблокировки.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
+            server.login(MAIL_USERNAME, MAIL_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[-] Ошибка отправки письма: {e}")
+        return False
+
 if not NEXTGIS_USER or not NEXTGIS_PASS:
     raise ValueError("Не заданы логин или пароль NextGIS в переменных окружения (.env)!")
 
@@ -311,27 +343,42 @@ def index():
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
-@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # --- УМНАЯ ЗАЩИТА ОТ БРУТФОРСА ---
+        # Сначала получаем логин и пароль из формы
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # --- УМНАЯ ЗАЩИТА 2.0 (АНТИ-VPN) ---
         ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
         time_limit = datetime.now() - timedelta(minutes=15)
         
-        # Считаем в базе ActionLog ТОЛЬКО ошибки входа с этого IP за последние 15 минут
-        failed_count = ActionLog.query.filter(
+        # 1. Проверяем атаки с одного IP
+        failed_by_ip = ActionLog.query.filter(
             ActionLog.ip_address == ip_address,
             ActionLog.action_type == 'ОШИБКА_ВХОДА',
             ActionLog.timestamp >= time_limit
         ).count()
         
-        if failed_count >= 5:
-            return render_template('login.html', error='Слишком много неудачных попыток входа. Ваш IP заблокирован на 15 минут!'), 429
-        # ---------------------------------
+        # 2. Проверяем атаки на конкретный логин (защита от VPN-ротации)
+        failed_by_user = 0
+        if username:
+            failed_by_user = ActionLog.query.filter(
+                ActionLog.username == username,
+                ActionLog.action_type == 'ОШИБКА_ВХОДА',
+                ActionLog.timestamp >= time_limit
+            ).count()
         
-        username = request.form.get('username')
-        password = request.form.get('password')
+        # Если пробили лимит по IP
+        if failed_by_ip >= 5:
+            return render_template('login.html', error='Слишком много попыток. Ваш IP заблокирован на 15 минут!'), 429
+            
+        # Если пробили лимит по Логину (заморозка аккаунта)
+        if failed_by_user >= 5:
+            return render_template('login.html', error=f'Попытки входа для {username} временно заблокированы в целях безопасности.'), 429
+        # -----------------------------------
         
+        # Если защиты не сработали, идем дальше по старому коду:
         user = User.query.filter_by(username=username).first()
         
         if user and check_password_hash(user.password_hash, password):
