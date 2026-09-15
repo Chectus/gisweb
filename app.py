@@ -663,27 +663,23 @@ def logout():
 
 @app.route('/admin')
 def admin_panel():
-    # НОВОЕ: Защита маршрута через флаг сессии
+    # Защита маршрута через флаг сессии
     if not session.get('is_admin'):
         flash('Доступ запрещен. Требуются права администратора.', 'error')
         return redirect(url_for('index'))
     
     all_users = User.query.all()
-    return render_template('admin.html', users=all_users)
-
-@app.route('/admin/users')
-def admin_dashboard():
-    """Страница управления пользователями (только для админов)"""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    
+    # --- НОВОЕ: Достаем структуру слоев для модалки редактирования ---
+    config_path = os.path.join(app.root_path, 'layers_config.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            all_layers = json.load(f)
+    except Exception:
+        all_layers = [] # Если файла нет, отдаем пустой список, чтобы страница не падала
         
-    current_user = User.query.get(session['user_id'])
-    if not current_user.is_admin:
-        return "Доступ запрещен. Вы не администратор.", 403
-        
-    # Достаем всех юзеров, чтобы вывести их в таблицу
-    all_users = User.query.all()
-    return render_template('admin.html', users=all_users)
+    # Передаем и юзеров, и слои в шаблон
+    return render_template('admin.html', users=all_users, all_layers=all_layers)
 
 @app.route('/admin/api/create_user', methods=['POST'])
 def api_create_user():
