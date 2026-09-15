@@ -169,7 +169,7 @@
                                                 data-username="{{ u.username }}"
                                                 data-email="{{ u.email or '' }}"
                                                 data-isadmin="{{ 'true' if u.is_admin else 'false' }}"
-                                                data-layers="[{% for layer in u.allowed_layers %}{{ layer.id }}{% if not loop.last %},{% endif %}{% endfor %}]">
+                                                data-layers='{{ u.allowed_layers | default([]) | tojson }}'>
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
                                         
@@ -284,7 +284,7 @@
                             <label class="form-label small fw-bold text-secondary">Доступ к дата-румам (Слоям)</label>
                             <div class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
                                 <!-- ТУТ ДОЛЖЕН БЫТЬ ЦИКЛ ПО ВСЕМ СЛОЯМ -->
-                                {% for layer in all_layers %}
+                                {% for layer in all_layers | default([]) %}
                                 <div class="form-check">
                                     <input class="form-check-input edit-layer-cb" type="checkbox" value="{{ layer.id }}" id="editLayer{{ layer.id }}">
                                     <label class="form-check-label small" for="editLayer{{ layer.id }}">
