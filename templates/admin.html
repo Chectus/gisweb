@@ -283,15 +283,13 @@
                         <div class="mb-4">
                             <label class="form-label small fw-bold text-secondary">Доступ к дата-румам (Слоям)</label>
                             <div class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
-                                <!-- ТУТ ДОЛЖЕН БЫТЬ ЦИКЛ ПО ВСЕМ СЛОЯМ -->
-                                {% for layer in all_layers | default([]) %}
-                                <div class="form-check">
-                                    <input class="form-check-input edit-layer-cb" type="checkbox" value="{{ layer.id }}" id="editLayer{{ layer.id }}">
-                                    <label class="form-check-label small" for="editLayer{{ layer.id }}">
-                                        {{ layer.name }}
-                                    </label>
+                                <!-- Слои (чекбоксы генерируются через API) -->
+                                <div class="mb-4">
+                                    <label class="form-label small fw-bold text-secondary">Доступ к дата-румам (Слоям)</label>
+                                    <div id="editAdminLayersTree" class="border rounded p-3 bg-light shadow-sm" style="max-height: 200px; overflow-y: auto;">
+                                        <div class="text-center text-muted"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Загрузка структуры...</div>
+                                    </div>
                                 </div>
-                                {% endfor %}
                             </div>
                         </div>
 
@@ -439,7 +437,9 @@
                 // Расставляем галочки
                 const checkboxes = document.querySelectorAll('.edit-layer-cb');
                 checkboxes.forEach(cb => {
-                    cb.checked = layers.includes(parseInt(cb.value));
+                    const cbIds = JSON.parse(cb.value); // Получаем массив ID из галочки
+                    // Ставим галочку, если ID из группы есть в доступе пользователя
+                    cb.checked = cbIds.some(id => layers.includes(id));
                 });
             });
         });
@@ -450,18 +450,21 @@
             
             const userId = document.getElementById('editUserId').value;
             
-            // Собираем все отмеченные галочки в массив чисел
-            const checkedLayers = Array.from(document.querySelectorAll('.edit-layer-cb:checked'))
-                                    .map(cb => parseInt(cb.value));
+           // Собираем все отмеченные галочки в плоский массив чисел
+            let checkedLayers = [];
+            document.querySelectorAll('.edit-layer-cb:checked').forEach(chk => {
+                const ids = JSON.parse(chk.value);
+                checkedLayers.push(...ids);
+            });
 
             // Формируем строгий JSON по ТЗ бэкенда
             const payload = {
                 username: document.getElementById('editUserUsername').value.trim(),
                 email: document.getElementById('editUserEmail').value.trim(),
-                password: document.getElementById('editUserPassword').value, // Оставит пустым, если не меняли
+                password: document.getElementById('editUserPassword').value,
                 is_admin: document.getElementById('editUserRole').value === 'true',
-                expire_days: document.getElementById('editUserExpire').value, // Отправит пустую строку или число
-                allowed_layers: checkedLayers
+                expire_days: document.getElementById('editUserExpire').value,
+                allowed_layers: checkedLayers // Отправляем плоский массив
             };
 
             // Отправляем POST запрос
@@ -520,26 +523,47 @@
         try {
             const response = await fetch('/api/layers_config');
             const config = await response.json();
+            
             const treeContainer = document.getElementById('adminLayersTree');
+            const editTreeContainer = document.getElementById('editAdminLayersTree');
             treeContainer.innerHTML = '';
+            editTreeContainer.innerHTML = '';
 
             for (const [categoryName, subcategories] of Object.entries(config)) {
-                let catHtml = `<div class="mb-3"><h6 class="fw-bold text-primary mb-2">${categoryName}</h6><div class="ps-3 border-start">`;
+                // Заголовки категорий для обоих окон
+                let catHtmlCreate = `<div class="mb-3"><h6 class="fw-bold text-primary mb-2">${categoryName}</h6><div class="ps-3 border-start">`;
+                let catHtmlEdit = `<div class="mb-3"><h6 class="fw-bold text-primary mb-2">${categoryName}</h6><div class="ps-3 border-start">`;
+                
                 for (const [subName, layers] of Object.entries(subcategories)) {
-                    catHtml += `<div class="fw-bold small text-secondary mt-2 mb-1">${subName}</div>`;
+                    catHtmlCreate += `<div class="fw-bold small text-secondary mt-2 mb-1">${subName}</div>`;
+                    catHtmlEdit += `<div class="fw-bold small text-secondary mt-2 mb-1">${subName}</div>`;
+                    
                     for (const [layerName, ids] of Object.entries(layers)) {
-                        catHtml += `
+                        // Галочки для формы "Создать"
+                        catHtmlCreate += `
                         <div class="form-check mb-1">
                             <input class="form-check-input admin-layer-chk" type="checkbox" value='${JSON.stringify(ids)}' id="adm_${ids[0]}">
                             <label class="form-check-label small" for="adm_${ids[0]}">${layerName}</label>
                         </div>`;
+                        
+                        // Галочки для формы "Редактировать"
+                        catHtmlEdit += `
+                        <div class="form-check mb-1">
+                            <input class="form-check-input edit-layer-cb" type="checkbox" value='${JSON.stringify(ids)}' id="edit_adm_${ids[0]}">
+                            <label class="form-check-label small" for="edit_adm_${ids[0]}">${layerName}</label>
+                        </div>`;
                     }
                 }
-                catHtml += `</div></div>`;
-                treeContainer.insertAdjacentHTML('beforeend', catHtml);
+                catHtmlCreate += `</div></div>`;
+                catHtmlEdit += `</div></div>`;
+                
+                // Вставляем HTML в оба окна
+                treeContainer.insertAdjacentHTML('beforeend', catHtmlCreate);
+                editTreeContainer.insertAdjacentHTML('beforeend', catHtmlEdit);
             }
         } catch (e) {
             document.getElementById('adminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки слоев</div>';
+            document.getElementById('editAdminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки слоев</div>';
         }
 
         // 2. Сборка и отправка JSON
