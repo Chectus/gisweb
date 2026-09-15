@@ -144,26 +144,29 @@
                                     {% endif %}
                                 </td>
                                 
+                                <!-- КОЛОНКА СО СТАТУСОМ (ИСПРАВЛЕНО НА u.) -->
                                 <td>
-                                    {% if user.expires_at is none %}
+                                    {% if u.expires_at is none %}
                                         <span class="badge bg-warning text-dark"><i class="bi bi-infinity"></i> Бессрочный</span>
                                         
-                                    {% elif not user.is_active() %}
-                                        <span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Истёк: {{ user.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                    {% elif not u.is_active() %}
+                                        <span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Истёк: {{ u.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
                                         
                                     {% else %}
-                                        <span class="text-success fw-medium"><i class="bi bi-check-circle me-1"></i>До: {{ user.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                        <span class="text-success fw-medium"><i class="bi bi-check-circle me-1"></i>До: {{ u.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
                                     {% endif %}
                                 </td>
                                 
+                                <!-- КОЛОНКА С КНОПКАМИ (ИСПРАВЛЕНО НА u.) -->
                                 <td class="text-end pe-4">
                                     <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
 
+                                        <!-- Кнопка модалки с правильными data-атрибутами -->
                                         <button class="btn btn-sm btn-outline-primary edit-user-btn" 
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#editUserModal"
-                                                data-id="{{ user.id }}"
-                                                data-email="{{ user.email }}">
+                                                data-id="{{ u.id }}"
+                                                data-email="{{ u.email }}">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
                                         
