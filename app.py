@@ -80,6 +80,103 @@ def send_2fa_email(to_email, code):
         print(f"[-] Ошибка отправки письма: {e}")
         return False
 
+def send_reset_email(to_email, reset_link):
+    """Отправка ссылки для сброса пароля (забыли пароль)"""
+    if not MAIL_USERNAME or not MAIL_PASSWORD:
+        return False
+        
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = 'Восстановление пароля Веб-ГИС'
+    msg['From'] = MAIL_USERNAME
+    msg['To'] = to_email
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #1a4d2e; text-align: center;">Восстановление доступа</h2>
+        <p>Здравствуйте! Поступил запрос на сброс пароля от вашей учетной записи.</p>
+        <p>Для создания нового пароля перейдите по ссылке ниже (ссылка действительна 15 минут):</p>
+        <div style="text-align: center; margin: 25px 0;">
+            <a href="{reset_link}" style="background-color: #1a4d2e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">Сбросить пароль</a>
+        </div>
+        <p style="font-size: 12px; color: #777;">Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
+            server.login(MAIL_USERNAME, MAIL_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[-] Ошибка отправки письма: {e}")
+        return False
+
+
+def send_profile_code_email(to_email, code):
+    """Отправка кода подтверждения при смене пароля из профиля"""
+    if not MAIL_USERNAME or not MAIL_PASSWORD:
+        return False
+        
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = 'Смена пароля в Веб-ГИС'
+    msg['From'] = MAIL_USERNAME
+    msg['To'] = to_email
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #1a4d2e; text-align: center;">Смена пароля</h2>
+        <p>Здравствуйте! Вы запросили изменение пароля в личном кабинете.</p>
+        <p>Ваш код подтверждения операции:</p>
+        <div style="text-align: center; margin: 25px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1a4d2e; background: #e8f5e9; padding: 10px 20px; border-radius: 6px;">{code}</span>
+        </div>
+        <p style="font-size: 12px; color: #777;">Если вы не инициировали смену пароля, срочно обратитесь к администратору.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
+            server.login(MAIL_USERNAME, MAIL_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[-] Ошибка отправки письма: {e}")
+        return False
+
+def send_bruteforce_alert_email(to_email, ip_address):
+    """Отправка алерта о попытке взлома аккаунта"""
+    if not MAIL_USERNAME or not MAIL_PASSWORD:
+        return False
+        
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = '⚠️ Внимание: Попытка взлома аккаунта!'
+    msg['From'] = MAIL_USERNAME
+    msg['To'] = to_email
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #1a4d2e; text-align: center;">Подозрительная активность</h2>
+        <p>Здравствуйте! Мы зафиксировали серию неудачных попыток входа в ваш аккаунт на портале Веб-ГИС.</p>
+        <p>В целях безопасности мы временно <b>заблокировали</b> возможность входа для вашего логина на 15 минут.</p>
+        <div style="text-align: center; margin: 25px 0;">
+            <span style="font-size: 16px; font-weight: bold; color: #1a4d2e; background: #e8f5e9; padding: 10px 20px; border-radius: 6px;">IP-адрес злоумышленника: {ip_address}</span>
+        </div>
+        <p style="font-size: 12px; color: #777;">Если это были вы и просто забыли пароль — воспользуйтесь функцией восстановления. Если нет — рекомендуем сменить пароль после разблокировки.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        with smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT) as server:
+            server.login(MAIL_USERNAME, MAIL_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[-] Ошибка отправки письма: {e}")
+        return False
+
 if not NEXTGIS_USER or not NEXTGIS_PASS:
     raise ValueError("Не заданы логин или пароль NextGIS в переменных окружения (.env)!")
 
@@ -246,12 +343,50 @@ def index():
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per 15 minute", methods=["POST"]) # НОВОЕ: Блокируем IP на 15 минут после 5 попыток входа
 def login():
     if request.method == 'POST':
+        # Сначала получаем логин и пароль из формы
         username = request.form.get('username')
         password = request.form.get('password')
         
+        # --- УМНАЯ ЗАЩИТА 2.0 (АНТИ-VPN) ---
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        time_limit = datetime.now() - timedelta(minutes=15)
+        
+        # 1. Проверяем атаки с одного IP
+        failed_by_ip = ActionLog.query.filter(
+            ActionLog.ip_address == ip_address,
+            ActionLog.action_type == 'ОШИБКА_ВХОДА',
+            ActionLog.timestamp >= time_limit
+        ).count()
+        
+        # 2. Проверяем атаки на конкретный логин (защита от VPN-ротации)
+        failed_by_user = 0
+        if username:
+            failed_by_user = ActionLog.query.filter(
+                ActionLog.username == username,
+                ActionLog.action_type == 'ОШИБКА_ВХОДА',
+                ActionLog.timestamp >= time_limit
+            ).count()
+        
+        # Если пробили лимит по IP
+        if failed_by_ip >= 5:
+            return render_template('login.html', error='Слишком много попыток. Ваш IP заблокирован на 15 минут!'), 429
+            
+        # Если пробили лимит по Логину (заморозка аккаунта)
+        # ... (тут проверка failed_by_ip) ...
+            
+        # Если пробили лимит по Логину (заморозка аккаунта)
+        if failed_by_user >= 5:
+            # Отправляем алерт ТОЛЬКО один раз - ровно на 5-ю попытку (чтобы не заспамить почту)
+            if failed_by_user == 5:
+                target_user = User.query.filter_by(username=username).first()
+                if target_user and target_user.email:
+                    send_bruteforce_alert_email(target_user.email, ip_address)
+            
+            return render_template('login.html', error=f'Попытки входа для {username} временно заблокированы в целях безопасности.'), 429
+            
+        # Если защиты не сработали, идем дальше по старому коду:
         user = User.query.filter_by(username=username).first()
         
         if user and check_password_hash(user.password_hash, password):
@@ -410,7 +545,7 @@ def change_password_request():
     user.current_2fa_code = code
     db.session.commit()
     
-    send_2fa_email(user.email, code)
+    send_profile_code_email(user.email, code)
     
     # Временно сохраняем новый пароль в сессию, чтобы применить после ввода кода
     session['pending_new_password'] = new_password
@@ -604,6 +739,65 @@ def api_create_user():
         'status': 'success', 
         'message': f'Пользователь {username} успешно создан!',
         'temp_password': password # Возвращаем пароль, чтобы вывести админу на экран, если нужно
+    })
+
+@app.route('/admin/api/edit_user/<int:user_id>', methods=['POST'])
+def api_edit_user(user_id):
+    """API-эндпоинт для редактирования существующего пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+        
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user.is_admin:
+        return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
+
+    # Ищем пользователя, которого хотим отредактировать
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        return jsonify({'status': 'error', 'message': 'Пользователь не найден'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
+
+    new_username = data.get('username')
+    
+    # Проверяем, не пытается ли админ задать логин, который уже занят кем-то другим
+    if new_username and new_username != target_user.username:
+        if User.query.filter_by(username=new_username).first():
+            return jsonify({'status': 'error', 'message': 'Логин уже занят другим пользователем'}), 400
+        target_user.username = new_username
+
+    # Обновляем базовые поля
+    email = data.get('email')
+    target_user.email = email if email and email.strip() != '' else None
+    
+    # Если прислали новый пароль - перезаписываем хэш. Если пусто - оставляем старый.
+    password = data.get('password')
+    if password and password.strip() != '':
+        target_user.password_hash = generate_password_hash(password)
+
+    # Обновляем права
+    if 'is_admin' in data:
+        target_user.is_admin = data.get('is_admin')
+    if 'allowed_layers' in data:
+        target_user.allowed_layers = data.get('allowed_layers')
+
+    # Логика таймера: если передали число дней - обнуляем и считаем от СЕЙЧАС
+    expire_days = data.get('expire_days')
+    if expire_days and str(expire_days).isdigit():
+        target_user.expires_at = datetime.now() + timedelta(days=int(expire_days))
+    elif expire_days == "": # Если передали пустую строку - делаем бессрочным
+        target_user.expires_at = None
+
+    db.session.commit()
+    
+    # Шпионим за админом
+    log_action(current_user.id, current_user.username, 'АДМИНКА', f'Отредактирован аккаунт: {target_user.username}')
+
+    return jsonify({
+        'status': 'success', 
+        'message': f'Аккаунт {target_user.username} успешно обновлен!'
     })
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
