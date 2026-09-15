@@ -59,14 +59,14 @@ def send_2fa_email(to_email, code):
 
     # Красивое текстовое оформление письма
     html_content = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-        <h2 style="color: #1a4d2e; text-align: center;">Безопасный вход</h2>
-        <p>Здравствуйте! Зафиксирована попытка входа в систему геоинформационного хаба.</p>
-        <p>Ваш одноразовый код для подтверждения устройства:</p>
-        <div style="text-align: center; margin: 25px 0;">
-            <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1a4d2e; background: #e8f5e9; padding: 10px 20px; border-radius: 6px;">{code}</span>
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <h2 style="color: #0f172a; text-align: center; margin-bottom: 20px; font-weight: 700;">Авторизация в системе</h2>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6;">Уважаемый пользователь,</p>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6;">Зафиксирована попытка входа в закрытый контур Веб-ГИС «Недра Забайкальского края». Ваш одноразовый код для подтверждения сессии:</p>
+        <div style="text-align: center; margin: 35px 0;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1e3a8a; background: #f8fafc; padding: 15px 25px; border-radius: 8px; border-left: 4px solid #d97706;">{code}</span>
         </div>
-        <p style="font-size: 12px; color: #777;">Если вы не пытались войти в систему, срочно обратитесь к администратору.</p>
+        <p style="font-size: 13px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px;">Если вы не инициировали этот запрос, проигнорируйте письмо или обратитесь в службу безопасности лаборатории.</p>
     </div>
     """
     msg.attach(MIMEText(html_content, 'html'))
@@ -91,14 +91,15 @@ def send_reset_email(to_email, reset_link):
     msg['To'] = to_email
 
     html_content = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-        <h2 style="color: #1a4d2e; text-align: center;">Восстановление доступа</h2>
-        <p>Здравствуйте! Поступил запрос на сброс пароля от вашей учетной записи.</p>
-        <p>Для создания нового пароля перейдите по ссылке ниже (ссылка действительна 15 минут):</p>
-        <div style="text-align: center; margin: 25px 0;">
-            <a href="{reset_link}" style="background-color: #1a4d2e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">Сбросить пароль</a>
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <h2 style="color: #0f172a; text-align: center; margin-bottom: 20px; font-weight: 700;">Восстановление доступа</h2>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6;">Уважаемый пользователь,</p>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6;">Поступил автоматический запрос на сброс пароля от вашей учетной записи на портале Веб-ГИС. Для генерации нового пароля нажмите на кнопку ниже:</p>
+        <div style="text-align: center; margin: 35px 0;">
+            <a href="{reset_link}" style="background-color: #1e3a8a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; display: inline-block;">Сбросить пароль</a>
         </div>
-        <p style="font-size: 12px; color: #777;">Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.</p>
+        <p style="color: #dc2626; font-size: 13px; text-align: center; font-weight: 500;">Ссылка действительна в течение 15 минут.</p>
+        <p style="font-size: 13px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px;">Если запрос отправлен по ошибке, никаких действий не требуется.</p>
     </div>
     """
     msg.attach(MIMEText(html_content, 'html'))
@@ -124,14 +125,14 @@ def send_profile_code_email(to_email, code):
     msg['To'] = to_email
 
     html_content = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-        <h2 style="color: #1a4d2e; text-align: center;">Смена пароля</h2>
-        <p>Здравствуйте! Вы запросили изменение пароля в личном кабинете.</p>
-        <p>Ваш код подтверждения операции:</p>
-        <div style="text-align: center; margin: 25px 0;">
-            <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1a4d2e; background: #e8f5e9; padding: 10px 20px; border-radius: 6px;">{code}</span>
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <h2 style="color: #0f172a; text-align: center; margin-bottom: 20px; font-weight: 700;">Изменение учетных данных</h2>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6;">Уважаемый пользователь,</p>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6;">Вы запросили изменение пароля. Для подтверждения операции и внесения изменений в базу данных, пожалуйста, используйте следующий код:</p>
+        <div style="text-align: center; margin: 35px 0;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1e3a8a; background: #f8fafc; padding: 15px 25px; border-radius: 8px; border-left: 4px solid #d97706;">{code}</span>
         </div>
-        <p style="font-size: 12px; color: #777;">Если вы не инициировали смену пароля, срочно обратитесь к администратору.</p>
+        <p style="font-size: 13px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px;">Внимание: никому не передавайте этот код. Администраторы портала никогда не запрашивают пароли.</p>
     </div>
     """
     msg.attach(MIMEText(html_content, 'html'))
@@ -156,14 +157,17 @@ def send_bruteforce_alert_email(to_email, ip_address):
     msg['To'] = to_email
 
     html_content = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-        <h2 style="color: #1a4d2e; text-align: center;">Подозрительная активность</h2>
-        <p>Здравствуйте! Мы зафиксировали серию неудачных попыток входа в ваш аккаунт на портале Веб-ГИС.</p>
-        <p>В целях безопасности мы временно <b>заблокировали</b> возможность входа для вашего логина на 15 минут.</p>
-        <div style="text-align: center; margin: 25px 0;">
-            <span style="font-size: 16px; font-weight: bold; color: #1a4d2e; background: #e8f5e9; padding: 10px 20px; border-radius: 6px;">IP-адрес злоумышленника: {ip_address}</span>
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; border: 1px solid #fecaca; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.1);">
+        <div style="text-align: center; margin-bottom: 15px;">
+            <span style="background-color: #fee2e2; color: #991b1b; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Security Alert</span>
         </div>
-        <p style="font-size: 12px; color: #777;">Если это были вы и просто забыли пароль — воспользуйтесь функцией восстановления. Если нет — рекомендуем сменить пароль после разблокировки.</p>
+        <h2 style="color: #991b1b; text-align: center; margin-bottom: 20px; font-weight: 700;">Учетная запись заблокирована</h2>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6;">Зафиксирована серия неудачных попыток подбора пароля к вашему аккаунту.</p>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6;">В целях защиты геоданных алгоритмы безопасности <b>временно заблокировали</b> доступ к логину на 15 минут.</p>
+        <div style="text-align: center; margin: 30px 0;">
+            <span style="font-size: 14px; font-weight: 600; color: #991b1b; background: #f8fafc; padding: 12px 20px; border-radius: 6px; border: 1px solid #fecaca;">IP-адрес инициатора: {ip_address}</span>
+        </div>
+        <p style="font-size: 13px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px;">Рекомендуем воспользоваться функцией восстановления пароля после снятия блокировки.</p>
     </div>
     """
     msg.attach(MIMEText(html_content, 'html'))
