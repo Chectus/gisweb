@@ -145,15 +145,27 @@
                                 </td>
                                 
                                 <td>
-                                    {% if u.expires_at %}
-                                        <span class="text-secondary fw-medium"><i class="bi bi-calendar-event me-1"></i> {{ u.expires_at }}</span>
+                                    {% if user.expires_at is none %}
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-infinity"></i> Бессрочный</span>
+                                        
+                                    {% elif not user.is_active() %}
+                                        <span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Истёк: {{ user.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                        
                                     {% else %}
-                                        <span class="badge badge-gold rounded-pill"><i class="bi bi-infinity me-1"></i> Бессрочный</span>
+                                        <span class="text-success fw-medium"><i class="bi bi-check-circle me-1"></i>До: {{ user.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
                                     {% endif %}
                                 </td>
                                 
                                 <td class="text-end pe-4">
                                     <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+
+                                        <button class="btn btn-sm btn-outline-primary edit-user-btn" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#editUserModal"
+                                                data-id="{{ user.id }}"
+                                                data-email="{{ user.email }}">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
                                         
                                         <button class="btn btn-outline-info btn-sm px-3" onclick="openLogsModal('{{ u.username }}')" title="Журнал действий">
                                             <i class="bi bi-journal-text"></i>
@@ -208,6 +220,41 @@
         </div>
         </div>
     </div>
+    </div>
+
+    <!-- Модальное окно редактирования пользователя -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold" style="color: var(--geo-dark);">
+                        <i class="bi bi-pencil-square me-2 text-primary"></i>Редактирование профиля
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUserForm">
+                        <!-- Скрытое поле для ID пользователя -->
+                        <input type="hidden" id="editUserId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Почта (Email)</label>
+                            <input type="email" class="form-control bg-light" id="editUserEmail" required>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-secondary">Новый пароль</label>
+                            <input type="password" class="form-control" id="editUserPassword" placeholder="Оставьте пустым, чтобы не менять">
+                            <div class="form-text small">Если пароль менять не нужно, просто не заполняйте это поле.</div>
+                        </div>
+                        
+                        <button type="submit" class="btn w-100 text-white fw-medium" style="background-color: var(--geo-main);">
+                            Сохранить изменения
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
@@ -306,6 +353,66 @@
                 </div>`;
         }
     }
+    </script>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+    
+        // 1. При открытии модалки подтягиваем текущие данные юзера
+        const editButtons = document.querySelectorAll('.edit-user-btn');
+        editButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Берем данные из кнопки, на которую кликнули
+                const userId = this.getAttribute('data-id');
+                const userEmail = this.getAttribute('data-email');
+                
+                // Вставляем их в форму модального окна
+                document.getElementById('editUserId').value = userId;
+                document.getElementById('editUserEmail').value = userEmail;
+                document.getElementById('editUserPassword').value = ''; // Всегда очищаем пароль при открытии
+            });
+        });
+
+        // 2. Перехватываем отправку формы и шлем JSON на бэкенд
+        document.getElementById('editUserForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // Останавливаем стандартную перезагрузку страницы
+            
+            const userId = document.getElementById('editUserId').value;
+            const email = document.getElementById('editUserEmail').value;
+            const password = document.getElementById('editUserPassword').value;
+            
+            // Собираем данные в объект
+            const payload = {
+                email: email
+            };
+            // Если пароль ввели, добавляем его в JSON. Если нет — бэкенд его не получит (как и договаривались)
+            if (password.trim() !== '') {
+                payload.password = password;
+            }
+
+            // Отправляем POST запрос
+            fetch(`/admin/api/edit_user/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Если бэкенд ответил 200 OK, просто перезагружаем страницу, чтобы увидеть новые данные
+                    window.location.reload();
+                } else {
+                    alert('Произошла ошибка при сохранении данных.');
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Сетевая ошибка. Проверьте консоль.');
+            });
+        });
+    });
     </script>
 
     <script>
