@@ -18,7 +18,19 @@
         
         .doc-sidebar {
             position: sticky;
-            top: 20px;
+            top: 85px; /* Отступ сверху, чтобы не прилипало вплотную к краю экрана */
+            max-height: calc(100vh - 100px); /* Ограничиваем высоту по размеру экрана */
+            overflow-y: auto; /* Появится скролл внутри меню, если добавишь много пунктов */
+            z-index: 10;
+        }
+
+        /* Скрываем скроллбар в меню для красоты, но оставляем возможность прокрутки */
+        .doc-sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .doc-sidebar::-webkit-scrollbar-thumb {
+            background-color: rgba(27, 87, 140, 0.2);
+            border-radius: 4px;
         }
         
         .nav-pills .nav-link.active {
@@ -160,19 +172,103 @@
                     </div>
                 </section>
 
-                <!-- Раздел 4: Аудитория и доступ -->
+                <!-- Раздел 4: Управление данными -->
                 <section id="section4" class="mb-5">
-                    <h3 class="doc-section-title">4. Аудитория и разграничение уровней доступа</h3>
+                    <h3 class="doc-section-title">4. Управление геоданными и экспорт</h3>
                     <p class="text-secondary">
-                        Портал ориентирован на широкую аудиторию и предусматривает разграничение уровней доступа. Для всех пользователей доступен базовый набор слоёв и справочная информация о месторождениях, что делает ресурс полезным для студентов, преподавателей, краеведов, представителей органов власти и всех, кто интересуется геологией родного края. Для специалистов-геологов и недропользователей предусмотрены расширенные возможности: выгрузка данных в распространённых форматах, доступ к первичным материалам, возможность загрузки собственных слоёв.
+                        Платформа предоставляет расширенные возможности по работе с массивами пространственных данных, позволяя пользователям не только просматривать, но и управлять семантической информацией.
                     </p>
-                    <p class="text-secondary">
-                        <strong>Управление информационной безопасностью:</strong> Модуль администрирования позволяет управлять жизненным циклом учетных записей. Поддерживается создание бессрочных профилей для штатных сотрудников и генерация временных сессий с заданным сроком действия (в днях) для практикантов. Доступ к чувствительным дата-румам настраивается точечно через матрицу прав.
-                    </p>
+                    
+                    <div class="row g-4 mt-2">
+                        <!-- Блок: Атрибуты -->
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded h-100" style="background-color: var(--geo-light);">
+                                <h6 class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-table text-primary me-2"></i>Семантика и атрибуты</h6>
+                                <p class="text-secondary small mb-0">
+                                    У каждого слоя в панели управления есть иконка таблицы. Вызов этого инструмента открывает панель с полной атрибутивной информацией по объектам. Быстрый клик по геометрии на карте инициирует BBOX-запрос к серверу, выводя всплывающую карточку (Popup) с паспортом объекта.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Блок: Кластеры -->
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded h-100" style="background-color: var(--geo-light);">
+                                <h6 class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-bounding-box-circles text-primary me-2"></i>Динамическая кластеризация</h6>
+                                <p class="text-secondary small mb-0">
+                                    Для оптимизации рендеринга на мелких масштабах плотные группы точек автоматически объединяются в кластеры. При приближении к локальным участкам (зум 9 и выше) система распаковывает кластеры и отображает детальные векторные QML-значки из базы данных.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Блок: Импорт/Экспорт (Только для спецов) -->
+                        <div class="col-12">
+                            <div class="p-3 border rounded border-start border-4 border-warning bg-white">
+                                <h6 class="fw-bold mb-2"><i class="bi bi-cloud-arrow-down-fill text-warning me-2"></i>Экспорт и загрузка слоев (Pro-режим)</h6>
+                                <p class="text-secondary small mb-0">
+                                    Для авторизованных специалистов-геологов и недропользователей предусмотрена возможность выгрузки сырых данных из открытых реестров в форматах <strong>GeoJSON, Shapefile (SHP) и CSV</strong>. Администраторы дата-румов также имеют доступ к модулю загрузки собственных векторных геометрий для наложения на существующую картографическую базу.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
-                <!-- Раздел 5: Стек технологий -->
-                <section id="section5">
+                <!-- Раздел 5: Уровни доступа -->
+                <section id="section5" class="mb-5">
+                    <h3 class="doc-section-title">5. Разграничение уровней доступа</h3>
+                    <p class="text-secondary">
+                        В целях обеспечения информационной безопасности и защиты авторских прав на геологические материалы, портал предусматривает строгую ролевую модель доступа к данным и аналитическим инструментам.
+                    </p>
+
+                    <div class="row g-3 mt-3">
+                        <!-- Уровень 1: Открытый доступ -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow-sm h-100" style="background-color: var(--geo-light);">
+                                <div class="card-body p-4">
+                                    <h6 class="fw-bold" style="color: var(--geo-dark);">
+                                        <i class="bi bi-globe text-success me-2 fs-5 align-middle"></i>Открытый доступ
+                                    </h6>
+                                    <p class="text-secondary small mb-0 mt-3">
+                                        Базовый набор картографических подложек и справочная информация о месторождениях. Ресурс открыт для всех посетителей: студентов, краеведов и представителей органов власти.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Уровень 2: Специалисты -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow-sm h-100" style="background-color: var(--geo-light);">
+                                <div class="card-body p-4">
+                                    <h6 class="fw-bold" style="color: var(--geo-dark);">
+                                        <i class="bi bi-briefcase-fill text-primary me-2 fs-5 align-middle"></i>Специалисты
+                                    </h6>
+                                    <p class="text-secondary small mb-0 mt-3">
+                                        Расширенные возможности для геологов и инвесторов. Включает доступ к первичным материалам геологоразведки, ИИ-прогнозам и закрытым тематическим дата-румам.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Уровень 3: Администрирование -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="background-color: #fff8e6;">
+                                <!-- Декоративная полоска сверху для акцента -->
+                                <div class="position-absolute top-0 start-0 w-100" style="height: 4px; background-color: #f59e0b;"></div>
+                                
+                                <div class="card-body p-4">
+                                    <h6 class="fw-bold text-dark">
+                                        <i class="bi bi-shield-lock-fill text-warning me-2 fs-5 align-middle"></i>Администрирование
+                                    </h6>
+                                    <p class="text-secondary small mb-0 mt-3">
+                                        Управление жизненным циклом учетных записей. Генерация бессрочных профилей для штатных сотрудников лаборатории и выдача временных сессий (в днях) для практикантов.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Раздел 6: Стек технологий -->
+                <section id="section6">
                     <h3 class="doc-section-title">5. Технологический стек и архитектура</h3>
                     <p class="text-secondary">
                         Портал полностью импортонезависим: он базируется на открытом программном обеспечении (Open Source) и отечественных алгоритмах, что гарантирует его устойчивую работу, масштабируемость и безопасность размещённых данных.
@@ -220,8 +316,34 @@
 
     </div>
 </div>
+<!-- Кнопка Наверх -->
+<button class="btn border-0 shadow-lg d-none d-flex align-items-center justify-content-center" id="btn-back-to-top" style="position: fixed; bottom: 40px; right: 40px; width: 50px; height: 50px; background-color: var(--geo-main); color: white; border-radius: 50%; z-index: 1000; transition: opacity 0.3s;">
+    <i class="bi bi-chevron-up fs-5"></i>
+</button>
     <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
     <script src="../static/js/theme.js"></script>
+
+    <script>
+        // Логика кнопки "Наверх"
+    const mybutton = document.getElementById("btn-back-to-top");
+
+    window.addEventListener('scroll', function() {
+        // Показываем кнопку, если проскроллили больше 300 пикселей
+        if (window.scrollY > 300) {
+            mybutton.classList.remove("d-none");
+        } else {
+            mybutton.classList.add("d-none");
+        }
+    });
+
+    mybutton.addEventListener("click", function () {
+        // Плавная прокрутка наверх
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+    });
+    </script>
 
 </body>
 </html>

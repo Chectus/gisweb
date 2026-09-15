@@ -18,13 +18,13 @@
             <div class="col-md-5 col-lg-4">
                 
                 <div class="card login-card mt-5">
-                    <div class="login-icon-wrapper">
-                        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Лого" style="height: 120px; width: 120px;" class="d-block mx-auto mb-3 mt-2">
-                    </div>
+                    
+                    <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Лого" style="height: 120px; width: 120px;" class="d-block mx-auto mb-3 mt-2">
+                    
                     
                     <div class="card-body p-4 pt-2">
                         <h4 class="card-title text-center mb-1 fw-bold" style="color: var(--geo-dark);">Веб-ГИС</h4>
-                        <p class="text-center text-muted small mb-4">Авторизация сотрудника</p>
+                        <p class="text-center text-muted small mb-4">Авторизация</p>
                         
                         {% if error %}
                             <div class="alert alert-danger text-center small py-2 fw-medium" role="alert">
