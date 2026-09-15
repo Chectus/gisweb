@@ -166,7 +166,10 @@
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#editUserModal"
                                                 data-id="{{ u.id }}"
-                                                data-email="{{ u.email }}">
+                                                data-username="{{ u.username }}"
+                                                data-email="{{ u.email or '' }}"
+                                                data-isadmin="{{ 'true' if u.is_admin else 'false' }}"
+                                                data-layers="[{% for layer in u.allowed_layers %}{{ layer.id }}{% if not loop.last %},{% endif %}{% endfor %}]">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
                                         
@@ -227,35 +230,77 @@
 
     <!-- Модальное окно редактирования пользователя -->
     <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg"> <!-- modal-lg чтобы окно было пошире -->
             <div class="modal-content border-0 shadow">
+                
                 <div class="modal-header border-bottom-0 pb-0">
                     <h5 class="modal-title fw-bold" style="color: var(--geo-dark);">
                         <i class="bi bi-pencil-square me-2 text-primary"></i>Редактирование профиля
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
-                <div class="modal-body">
+                
+                <div class="modal-body p-4 pt-3">
+                    <!-- Блок для алертов (спрятан по умолчанию) -->
+                    <div id="editUserAlert" class="alert d-none small py-2 fw-medium mb-3" role="alert"></div>
+
                     <form id="editUserForm">
-                        <!-- Скрытое поле для ID пользователя -->
                         <input type="hidden" id="editUserId">
-                        
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">Почта (Email)</label>
-                            <input type="email" class="form-control bg-light" id="editUserEmail" required>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Логин</label>
+                                <input type="text" class="form-control bg-light" id="editUserUsername" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Почта (Email)</label>
+                                <input type="email" class="form-control bg-light" id="editUserEmail">
+                            </div>
                         </div>
-                        
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Новый пароль</label>
+                                <input type="password" class="form-control" id="editUserPassword" placeholder="Оставьте пустым, чтобы не менять">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Роль доступа</label>
+                                <select class="form-select bg-light" id="editUserRole">
+                                    <option value="false">Пользователь</option>
+                                    <option value="true">Администратор</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Срок действия -->
                         <div class="mb-4">
-                            <label class="form-label small fw-bold text-secondary">Новый пароль</label>
-                            <input type="password" class="form-control" id="editUserPassword" placeholder="Оставьте пустым, чтобы не менять">
-                            <div class="form-text small">Если пароль менять не нужно, просто не заполняйте это поле.</div>
+                            <label class="form-label small fw-bold text-secondary">Таймер доступа (в днях)</label>
+                            <input type="number" class="form-control" id="editUserExpire" placeholder="Укажите цифру. Оставьте пустым, чтобы сделать бессрочным" min="1">
+                            <div class="form-text small">Ввод цифры установит новый таймер с текущего момента. Пустое поле обнулит таймер.</div>
                         </div>
-                        
-                        <button type="submit" class="btn w-100 text-white fw-medium" style="background-color: var(--geo-main);">
+
+                        <!-- Слои (чекбоксы генерируются из базы) -->
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-secondary">Доступ к дата-румам (Слоям)</label>
+                            <div class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
+                                <!-- ТУТ ДОЛЖЕН БЫТЬ ЦИКЛ ПО ВСЕМ СЛОЯМ -->
+                                {% for layer in all_layers %}
+                                <div class="form-check">
+                                    <input class="form-check-input edit-layer-cb" type="checkbox" value="{{ layer.id }}" id="editLayer{{ layer.id }}">
+                                    <label class="form-check-label small" for="editLayer{{ layer.id }}">
+                                        {{ layer.name }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn w-100 text-white fw-medium py-2" style="background-color: var(--geo-main);">
                             Сохранить изменения
                         </button>
                     </form>
                 </div>
+
             </div>
         </div>
     </div>
@@ -361,38 +406,63 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-    
-        // 1. При открытии модалки подтягиваем текущие данные юзера
+        const alertBox = document.getElementById('editUserAlert');
+
+        // 1. ОТКРЫТИЕ МОДАЛКИ: Чтение data-атрибутов и заполнение полей
         const editButtons = document.querySelectorAll('.edit-user-btn');
         editButtons.forEach(button => {
             button.addEventListener('click', function() {
-                // Берем данные из кнопки, на которую кликнули
-                const userId = this.getAttribute('data-id');
-                const userEmail = this.getAttribute('data-email');
+                // Прячем старые алерты
+                alertBox.classList.add('d-none');
                 
-                // Вставляем их в форму модального окна
+                // Забираем данные
+                const userId = this.getAttribute('data-id');
+                const username = this.getAttribute('data-username');
+                const email = this.getAttribute('data-email');
+                const isAdmin = this.getAttribute('data-isadmin');
+                
+                // Парсим массив слоев. Оборачиваем в try-catch для безопасности
+                let layers = [];
+                try { layers = JSON.parse(this.getAttribute('data-layers')); } 
+                catch(e) { console.error('Ошибка парсинга ID слоев'); }
+
+                // Вставляем текст
                 document.getElementById('editUserId').value = userId;
-                document.getElementById('editUserEmail').value = userEmail;
-                document.getElementById('editUserPassword').value = ''; // Всегда очищаем пароль при открытии
+                document.getElementById('editUserUsername').value = username;
+                document.getElementById('editUserEmail').value = email;
+                document.getElementById('editUserRole').value = isAdmin;
+                
+                // Пароль и таймер всегда пустые при открытии (согласно ТЗ)
+                document.getElementById('editUserPassword').value = '';
+                document.getElementById('editUserExpire').value = ''; 
+
+                // Расставляем галочки
+                const checkboxes = document.querySelectorAll('.edit-layer-cb');
+                checkboxes.forEach(cb => {
+                    cb.checked = layers.includes(parseInt(cb.value));
+                });
             });
         });
 
-        // 2. Перехватываем отправку формы и шлем JSON на бэкенд
+        // 2. ОТПРАВКА ДАННЫХ: Формирование JSON и fetch
         document.getElementById('editUserForm').addEventListener('submit', function(e) {
-            e.preventDefault(); // Останавливаем стандартную перезагрузку страницы
+            e.preventDefault(); 
             
             const userId = document.getElementById('editUserId').value;
-            const email = document.getElementById('editUserEmail').value;
-            const password = document.getElementById('editUserPassword').value;
             
-            // Собираем данные в объект
+            // Собираем все отмеченные галочки в массив чисел
+            const checkedLayers = Array.from(document.querySelectorAll('.edit-layer-cb:checked'))
+                                    .map(cb => parseInt(cb.value));
+
+            // Формируем строгий JSON по ТЗ бэкенда
             const payload = {
-                email: email
+                username: document.getElementById('editUserUsername').value.trim(),
+                email: document.getElementById('editUserEmail').value.trim(),
+                password: document.getElementById('editUserPassword').value, // Оставит пустым, если не меняли
+                is_admin: document.getElementById('editUserRole').value === 'true',
+                expire_days: document.getElementById('editUserExpire').value, // Отправит пустую строку или число
+                allowed_layers: checkedLayers
             };
-            // Если пароль ввели, добавляем его в JSON. Если нет — бэкенд его не получит (как и договаривались)
-            if (password.trim() !== '') {
-                payload.password = password;
-            }
 
             // Отправляем POST запрос
             fetch(`/admin/api/edit_user/${userId}`, {
@@ -402,17 +472,28 @@
                 },
                 body: JSON.stringify(payload)
             })
-            .then(response => {
-                if (response.ok) {
-                    // Если бэкенд ответил 200 OK, просто перезагружаем страницу, чтобы увидеть новые данные
-                    window.location.reload();
+            // Читаем HTTP статус и тело ответа
+            .then(response => response.json().then(data => ({ status: response.status, body: data })))
+            .then(result => {
+                if (result.status === 200) {
+                    // УСПЕХ: Зеленый алерт и перезагрузка
+                    alertBox.classList.remove('d-none', 'alert-danger');
+                    alertBox.classList.add('alert-success');
+                    alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${result.body.message}`;
+                    setTimeout(() => window.location.reload(), 1000);
                 } else {
-                    alert('Произошла ошибка при сохранении данных.');
+                    // ОШИБКА БЭКЕНДА (400+): Красный алерт, модалку не закрываем
+                    alertBox.classList.remove('d-none', 'alert-success');
+                    alertBox.classList.add('alert-danger');
+                    alertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${result.body.message}`;
                 }
             })
             .catch(error => {
-                console.error('Ошибка:', error);
-                alert('Сетевая ошибка. Проверьте консоль.');
+                // СЕТЕВАЯ ОШИБКА
+                alertBox.classList.remove('d-none', 'alert-success');
+                alertBox.classList.add('alert-danger');
+                alertBox.innerHTML = `<i class="bi bi-wifi-off me-1"></i> Ошибка соединения с сервером`;
+                console.error('Fetch error:', error);
             });
         });
     });
