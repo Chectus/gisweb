@@ -11,6 +11,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
 
+    <!-- Парсер для KML (Leaflet Omnivore) -->
+    <script src="https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js"></script>
+    <!-- Парсер для Shapefile ZIP-архивов (shpjs) -->
+    <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
     
     <!-- ПОДКЛЮЧАЕМ НАШ ВЫНЕСЕННЫЙ CSS -->
@@ -49,6 +54,23 @@
 
         <div class="sidebar-content overflow-auto">
           <div class="mb-4">
+            <div class="card border-0 shadow-sm mt-3" style="background-color: var(--geo-light);">
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-3" style="color: var(--geo-dark);">
+                        <i class="bi bi-cloud-arrow-up-fill text-primary me-2"></i>Загрузка слоев (Локально)
+                    </h6>
+                    
+                    <!-- Поле загрузки файла (Input) -->
+                    <input class="form-control form-control-sm mb-3 border-primary border-opacity-25" type="file" id="localGeoInput" accept=".zip,.kml,.geojson,.json">
+                    <div class="form-text small text-muted mb-3" style="font-size: 0.7rem;">
+                        Поддерживаются: GeoJSON, KML и Shapefile (только в ZIP-архиве с файлами .shp, .shx, .dbf).
+                    </div>
+
+                    <!-- Контейнер, куда JS будет добавлять настройки для каждого загруженного слоя -->
+                    <div id="localLayersContainer" class="d-flex flex-column gap-2"></div>
+                </div>
+            </div>
+
             <label class="form-label text-muted small text-uppercase fw-bold mb-2">Подложка</label>
             <div class="d-flex flex-column gap-2">
               <div class="form-check layer-item">
@@ -106,6 +128,43 @@
               <option value="15">1:10 000</option>
           </select>
       </div>
+    </div>
+
+    <!-- Плавающая кнопка корзины -->
+    <button class="btn shadow-lg position-fixed bottom-0 end-0 m-4 rounded-circle d-flex align-items-center justify-content-center" 
+            style="width: 65px; height: 65px; z-index: 1050; background-color: var(--geo-main); border: none;" 
+            data-bs-toggle="offcanvas" data-bs-target="#compareOffcanvas">
+        <i class="bi bi-layout-split fs-3 text-white"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" id="compareBadge" style="font-size: 0.8rem;">0</span>
+    </button>
+
+    <!-- Боковая панель (Offcanvas) -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="compareOffcanvas" aria-labelledby="compareOffcanvasLabel">
+        <div class="offcanvas-header bg-light border-bottom">
+            <h5 class="offcanvas-title fw-bold" id="compareOffcanvasLabel" style="color: var(--geo-dark);">
+                <i class="bi bi-intersect me-2 text-primary"></i>Сравнение объектов
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Закрыть"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column">
+            
+            <p class="text-muted small mb-3">Добавьте объекты с карты для сравнения их атрибутов.</p>
+            
+            <!-- Список объектов -->
+            <ul class="list-group mb-4 flex-grow-1 overflow-auto" id="compareList">
+                <li class="list-group-item text-center text-muted border-dashed py-4" id="emptyCompareMsg">
+                    Список пуст
+                </li>
+            </ul>
+
+            <!-- Кнопка генерации -->
+            <button class="btn btn-danger w-100 py-2 fw-bold d-none" id="btnGenerateCompare" onclick="downloadReport('compare')">
+                <i class="bi bi-file-earmark-pdf-fill me-2"></i>Сгенерировать PDF-сравнение
+            </button>
+            <button class="btn btn-outline-secondary w-100 mt-2 d-none" id="btnClearCompare" onclick="clearCompareCart()">
+                Очистить список
+            </button>
+        </div>
     </div>
 
     <!-- БАЗОВЫЕ СКРИПТЫ (Теперь строго в одном экземпляре!) -->

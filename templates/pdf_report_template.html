@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Отчет | Недра Забайкальского края</title>
+    <!-- Прямая ссылка на Bootstrap для PDF-конвертера -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #ffffff; color: #212529; font-size: 14px; }
+        .geo-header { border-bottom: 3px solid #1b578c; padding-bottom: 12px; margin-bottom: 24px; }
+        .geo-brand { color: #1b578c; font-weight: 800; font-size: 22px; text-transform: uppercase; letter-spacing: 1px; }
+        .table th { background-color: #f8f9fa !important; color: #495057; font-weight: 600; }
+        .page-break { page-break-inside: avoid; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid pt-4">
+        
+        <!-- Шапка отчета -->
+        <div class="geo-header d-flex justify-content-between align-items-end">
+            <div class="geo-brand">Веб-ГИС «Недра Забайкальского края»</div>
+            <div class="text-muted small">Официальная выгрузка из базы геоданных</div>
+        </div>
+
+        {% if objects|length == 1 %}
+            <!-- ВАРИАНТ 1: СОЛО-ОТЧЕТ (Вертикальная таблица) -->
+            <h4 class="mb-4 fw-bold">Паспорт объекта: {{ objects[0].get('Название', 'Без названия') }}</h4>
+            <div class="table-responsive page-break">
+                <table class="table table-bordered table-striped border-secondary align-middle">
+                    <tbody>
+                        {% for key, value in objects[0].items() %}
+                        <tr>
+                            <th class="w-50">{{ key }}</th>
+                            <td>{{ value if value != None else '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        {% else %}
+            <!-- ВАРИАНТ 2: СРАВНЕНИЕ НЕСКОЛЬКИХ ОБЪЕКТОВ (Горизонтальная таблица) -->
+            <h4 class="mb-4 fw-bold">Сравнительный анализ объектов ({{ objects|length }} шт.)</h4>
+            <div class="table-responsive page-break">
+                <table class="table table-bordered table-striped border-secondary align-middle">
+                    <thead>
+                        <tr>
+                            <th style="background-color: #e9ecef !important;">Характеристика</th>
+                            {% for obj in objects %}
+                            <th class="text-center">{{ obj.get('Название', 'Объект ' ~ loop.index) }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Берем ключи из первого объекта и прогоняем по всем -->
+                        {% for key in objects[0].keys() %}
+                        <tr>
+                            <th class="text-nowrap">{{ key }}</th>
+                            {% for obj in objects %}
+                            <td class="text-center">{{ obj.get(key, '—') if obj.get(key) != None else '—' }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+    </div>
+</body>
+</html>
