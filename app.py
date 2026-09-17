@@ -1,9 +1,11 @@
 import os
 import re
+import io
 import json
+import pdfkit
 import requests
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, make_response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, make_response, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -180,6 +182,35 @@ def send_bruteforce_alert_email(to_email, ip_address):
     except Exception as e:
         print(f"[-] Ошибка отправки письма: {e}")
         return False
+
+def get_nextgis_objects_data(layer_id, object_ids):
+    """
+    Функция стучится в локальный NextGIS и достает атрибуты конкретных объектов
+    """
+    objects_data = []
+    
+    # Пробегаемся по всем ID, которые прислал фронтенд
+    for obj_id in object_ids:
+        # Стандартный эндпоинт NextGIS для получения конкретного объекта (feature)
+        url = f"{NEXTGIS_LOCAL_URL}/api/resource/{layer_id}/feature/{obj_id}"
+        
+        try:
+            # Делаем запрос к NextGIS, используя твою учетку из .env
+            response = requests.get(url, auth=NEXTGIS_AUTH)
+            
+            if response.status_code == 200:
+                data = response.json()
+                # NextGIS возвращает много служебной инфы, но сами атрибуты (колонки из таблицы) 
+                # всегда лежат внутри ключа 'fields'. Берем только их!
+                fields = data.get('fields', {})
+                objects_data.append(fields)
+            else:
+                print(f"[-] Ошибка NextGIS при запросе объекта {obj_id}: статус {response.status_code}")
+                
+        except Exception as e:
+            print(f"[-] Ошибка связи с локальным NextGIS: {e}")
+            
+    return objects_data
 
 if not NEXTGIS_USER or not NEXTGIS_PASS:
     raise ValueError("Не заданы логин или пароль NextGIS в переменных окружения (.env)!")
@@ -645,6 +676,59 @@ def docs():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('docs.html')
+
+@app.route('/api/report/generate', methods=['POST'])
+def generate_pdf_report():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+        
+    data = request.get_json()
+    layer_id = data.get('layer_id')
+    object_ids = data.get('object_ids', []) # Это массив, например [45] или [45, 48]
+    
+    if not layer_id or not object_ids:
+        return jsonify({'error': 'Нет данных для отчета'}), 400
+        
+    # --- ЗЛОЙ ОХРАННИК ---
+    # Проверяем, есть ли у юзера доступ к этому слою (твоя защита из proxy_nextgis)
+    user = db.session.get(User, session['user_id'])
+    if user.allowed_layers != "*":
+        if not user.allowed_layers or int(layer_id) not in user.allowed_layers:
+            return jsonify({'error': 'Нет доступа к слою'}), 403
+
+    # 1. Идем в NextGIS (или твою БД) и достаем атрибуты по этим object_ids
+    # (Здесь будет твой код запроса к слою, я напишу заглушку)
+    objects_data = get_nextgis_objects_data(layer_id, object_ids) 
+    
+    # 2. Рендерим HTML-шаблон, передавая туда данные
+    # Если len(object_ids) == 1, Светин шаблон нарисует соло-таблицу.
+    # Если len(object_ids) > 1, шаблон нарисует таблицу сравнения колонка к колонке.
+    html_content = render_template('pdf_report_template.html', 
+                                   objects=objects_data, 
+                                   layer_id=layer_id)
+                                   
+    # 3. Настройки для PDF (А4, без отступов, UTF-8)
+    options = {
+        'page-size': 'A4',
+        'margin-top': '10mm',
+        'margin-right': '10mm',
+        'margin-bottom': '10mm',
+        'margin-left': '10mm',
+        'encoding': "UTF-8",
+        'enable-local-file-access': None # Чтобы картинки/css грузились
+    }
+    
+    # 4. Конвертируем HTML в PDF прямо в оперативной памяти (без сохранения на диск SSD)
+    pdf_bytes = pdfkit.from_string(html_content, False, options=options)
+    
+    # 5. Отдаем файл юзеру на скачивание
+    filename = f"report_layer_{layer_id}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        download_name=filename,
+        as_attachment=True,
+        mimetype='application/pdf'
+    )
 
 @app.route('/logout')
 def logout():
