@@ -130,12 +130,14 @@
       </div>
     </div>
 
-    <!-- Плавающая кнопка корзины -->
-    <button class="btn shadow-lg position-fixed bottom-0 end-0 m-4 rounded-circle d-flex align-items-center justify-content-center" 
-            style="width: 65px; height: 65px; z-index: 1050; background-color: var(--geo-main); border: none;" 
-            data-bs-toggle="offcanvas" data-bs-target="#compareOffcanvas">
-        <i class="bi bi-layout-split fs-3 text-white"></i>
-        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" id="compareBadge" style="font-size: 0.8rem;">0</span>
+    <!-- Компактная плавающая кнопка отчетов (над масштабной линейкой) -->
+    <button class="btn shadow position-fixed rounded-circle d-flex align-items-center justify-content-center" 
+            id="btnCompareCart"
+            style="width: 48px; height: 48px; bottom: 75px; right: 20px; z-index: 1050; background-color: var(--geo-main); border: none;" 
+            data-bs-toggle="offcanvas" data-bs-target="#compareOffcanvas"
+            title="Выбранные объекты для отчета">
+        <i class="bi bi-file-earmark-text text-white fs-5"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" id="compareBadge" style="font-size: 0.7rem;">0</span>
     </button>
 
     <!-- Боковая панель (Offcanvas) -->

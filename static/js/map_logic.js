@@ -345,19 +345,30 @@ map.on('click', async function(e) {
             const data = await response.json();
 
             if (data && data.length > 0) {
-                const props = data[0].fields;
-                let popupContent = `<div style="min-width: 200px;">
+                const featureItem = data[0];
+                const props = featureItem.fields;
+                
+                // Универсальное определение ID и Названия (без привязки к fid или name)
+                const objectId = featureItem.id || props.id || props.fid || 1;
+                const objectName = props.name || props['Название'] || props.title || props.fclass || `Объект #${objectId}`;
+
+                let popupContent = `<div style="min-width: 230px;">
                                       <h6 class="fw-bold mb-2 border-bottom pb-1" style="color: var(--geo-main);">
                                         <i class="bi bi-info-circle me-1" style="color: var(--geo-accent);"></i> Информация об объекте
                                       </h6>
-                                      <table class="table table-sm table-bordered table-striped mb-0" style="font-size: 0.8rem;"><tbody>`;
+                                      <table class="table table-sm table-bordered table-striped mb-2" style="font-size: 0.8rem;"><tbody>`;
                 
                 for (const key in props) {
                     if (props[key] !== null && props[key] !== '') {
                         popupContent += `<tr><td class="text-muted fw-bold w-50">${key}</td><td>${props[key]}</td></tr>`;
                     }
                 }
-                popupContent += `</tbody></table></div>`;
+                popupContent += `</tbody></table>`;
+                
+                // Вставляем универсальные кнопки для отчетов
+                popupContent += getPopupButtonsHTML(layer.vectorId, objectId, objectName);
+                popupContent += `</div>`;
+
                 L.popup({ maxWidth: 400 }).setLatLng(e.latlng).setContent(popupContent).openOn(map);
                 break; 
             }
@@ -395,8 +406,23 @@ async function loadAttributeTable(vectorId, layerName) {
     }
 
     const firstProps = data[0].fields;
-    let tableHTML = `<h6 class="text-secondary mb-2 fw-bold">${layerName} (Записей: ${data.length})</h6>
-                     <table class="table table-sm table-bordered table-striped" style="font-size: 0.75rem;"><thead class="table-light"><tr>`;
+    
+    // Собираем все ID объектов для возможности выгрузки всей таблицы целиком
+    const allObjectIds = data.map(item => item.id || (item.fields && item.fields.id) || (item.fields && item.fields.fid));
+
+    let tableHTML = `
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h6 class="text-secondary mb-0 fw-bold">${layerName}</h6>
+          <small class="text-muted">Всего записей: ${data.length}</small>
+        </div>
+        <button class="btn btn-sm btn-outline-danger fw-medium" id="btnExportFullTable">
+          <i class="bi bi-file-earmark-pdf-fill me-1"></i> Экспорт всей таблицы (PDF)
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered table-striped" style="font-size: 0.75rem;">
+          <thead class="table-light"><tr>`;
     
     for (const key in firstProps) tableHTML += `<th>${key}</th>`;
     tableHTML += `</tr></thead><tbody>`;
@@ -410,9 +436,17 @@ async function loadAttributeTable(vectorId, layerName) {
       }
       tableHTML += `</tr>`;
     }
-    tableHTML += `</tbody></table>`;
-    if (data.length > 500) tableHTML += `<div class="text-muted small mt-2">* Показаны только первые 500 записей.</div>`;
-    if(attrContainer) attrContainer.innerHTML = tableHTML;
+    tableHTML += `</tbody></table></div>`;
+    if (data.length > 500) tableHTML += `<div class="text-muted small mt-2">* В предпросмотре показаны первые 500 записей. PDF сформирует полный отчет.</div>`;
+    
+    if(attrContainer) {
+      attrContainer.innerHTML = tableHTML;
+      
+      // Вешаем обработчик на экспорт всей таблицы
+      document.getElementById('btnExportFullTable').addEventListener('click', () => {
+        downloadBulkLayerReport(vectorId, allObjectIds, layerName);
+      });
+    }
   } catch(err) {
     if(attrContainer) attrContainer.innerHTML = `<div class="alert alert-danger mt-3">Ошибка загрузки данных.</div>`;
   }
@@ -591,6 +625,47 @@ async function downloadReport(mode, layerId = null, objectId = null) {
             const btn = document.getElementById('btnGenerateCompare');
             btn.innerHTML = '<i class="bi bi-file-earmark-pdf-fill me-2"></i>Сгенерировать PDF-сравнение';
             btn.disabled = false;
+        }
+    }
+}
+
+// Выгрузка всей таблицы слоя в один клик
+async function downloadBulkLayerReport(layerId, objectIds, layerName) {
+    const btn = document.getElementById('btnExportFullTable');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Генерация PDF...';
+    }
+
+    try {
+        const response = await fetch('/api/report/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                layer_id: parseInt(layerId), 
+                object_ids: objectIds 
+            })
+        });
+
+        if (!response.ok) throw new Error('Ошибка генерации');
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = downloadUrl;
+        a.download = `Таблица_${layerName}_${new Date().toISOString().slice(0,10)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+    } catch (e) {
+        alert('Не удалось сформировать отчет по таблице.');
+        console.error(e);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-file-earmark-pdf-fill me-1"></i> Экспорт всей таблицы (PDF)';
         }
     }
 }

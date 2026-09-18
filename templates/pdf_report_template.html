@@ -23,15 +23,17 @@
         </div>
 
         {% if objects|length == 1 %}
-            <!-- ВАРИАНТ 1: СОЛО-ОТЧЕТ (Вертикальная таблица) -->
-            <h4 class="mb-4 fw-bold">Паспорт объекта: {{ objects[0].get('Название', 'Без названия') }}</h4>
+            <!-- СОЛО-ОТЧЕТ ПО ОДНОМУ ОБЪЕКТУ -->
+            {% set obj = objects[0] %}
+            {% set title = obj.get('Название') or obj.get('name') or obj.get('title') or 'Паспорт объекта' %}
+            <h4 class="mb-4 fw-bold">{{ title }}</h4>
             <div class="table-responsive page-break">
                 <table class="table table-bordered table-striped border-secondary align-middle">
                     <tbody>
-                        {% for key, value in objects[0].items() %}
+                        {% for key, value in obj.items() %}
                         <tr>
                             <th class="w-50">{{ key }}</th>
-                            <td>{{ value if value != None else '—' }}</td>
+                            <td>{{ value if value != None and value != '' else '—' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -39,25 +41,25 @@
             </div>
 
         {% else %}
-            <!-- ВАРИАНТ 2: СРАВНЕНИЕ НЕСКОЛЬКИХ ОБЪЕКТОВ (Горизонтальная таблица) -->
-            <h4 class="mb-4 fw-bold">Сравнительный анализ объектов ({{ objects|length }} шт.)</h4>
+            <!-- ВЫБОРКА / СВОДНАЯ ТАБЛИЦА ОБЪЕКТОВ -->
+            <h4 class="mb-4 fw-bold">Сводный отчет по объектам (Записей: {{ objects|length }})</h4>
             <div class="table-responsive page-break">
                 <table class="table table-bordered table-striped border-secondary align-middle">
                     <thead>
                         <tr>
                             <th style="background-color: #e9ecef !important;">Характеристика</th>
                             {% for obj in objects %}
-                            <th class="text-center">{{ obj.get('Название', 'Объект ' ~ loop.index) }}</th>
+                            {% set col_title = obj.get('Название') or obj.get('name') or obj.get('title') or ('Объект ' ~ loop.index) %}
+                            <th class="text-center">{{ col_title }}</th>
                             {% endfor %}
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Берем ключи из первого объекта и прогоняем по всем -->
                         {% for key in objects[0].keys() %}
                         <tr>
                             <th class="text-nowrap">{{ key }}</th>
                             {% for obj in objects %}
-                            <td class="text-center">{{ obj.get(key, '—') if obj.get(key) != None else '—' }}</td>
+                            <td class="text-center">{{ obj.get(key, '—') if obj.get(key) != None and obj.get(key) != '' else '—' }}</td>
                             {% endfor %}
                         </tr>
                         {% endfor %}
