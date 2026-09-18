@@ -1,25 +1,33 @@
+<!-- 
+  Файл: admin.html
+  Описание: Панель администратора веб-ГИС портала. 
+  Обеспечивает функционал управления доступом: регистрация новых пользователей, 
+  редактирование существующих учетных записей, распределение ролей и прав на слои (дата-румы), 
+  а также аудит системных действий пользователей (просмотр логов).
+-->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель администратора | Недра Забайкальского края</title>
+    
+    <!-- Подключение внешних библиотек и стилей -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
-    
-    <!-- ПОДКЛЮЧАЕМ ЕДИНЫЙ CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    
+    <!-- Синхронная инициализация цветовой темы (предотвращение мерцания) -->
     <script>
-        // Срабатывает мгновенно, до отрисовки карточек и текстов
         if (localStorage.getItem('app-theme') === 'dark') {
             document.body.classList.add('dark-theme');
         }
     </script>
 
+    <!-- Верхняя навигационная панель -->
     <nav class="navbar navbar-expand-lg navbar-custom py-3">
         <div class="container-fluid px-4">
             <a class="btn btn-outline-light btn-sm fw-medium me-3 border-opacity-50" href="/hub">
@@ -35,24 +43,27 @@
         </div>
     </nav>
 
+    <!-- Основной контейнер панели администратора -->
     <div class="container admin-container">
         
+        <!-- Секция 1: Форма регистрации нового пользователя -->
         <div class="admin-card mb-4">
             <div class="admin-card-header">
                 <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-person-plus-fill me-2" style="color: var(--geo-main);"></i>Новый доступ</h5>
             </div>
             <div class="card-body p-4" style="background-color: #fafbfc; border-radius: 0 0 12px 12px;">
                 
+                <!-- Контейнер для системных уведомлений (API) -->
                 <div id="adminAlertContainer"></div>
 
+                <!-- Форма создания аккаунта -->
                 <form id="apiCreateUserForm" class="row g-3 align-items-end">
-                    <!-- Логин -->
+                    
                     <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Логин</label>
                         <input type="text" class="form-control" id="newUsername" required placeholder="geo_worker">
                     </div>
                     
-                    <!-- Пароль с глазиком -->
                     <div class="col-md-3">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Пароль</label>
                         <div class="input-group">
@@ -63,7 +74,6 @@
                         </div>
                     </div>
 
-                    <!-- Роль (1 или 0) -->
                     <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Роль</label>
                         <select class="form-select" id="newRole" style="border-color: rgba(27, 87, 140, 0.2);">
@@ -72,19 +82,17 @@
                         </select>
                     </div>
 
-                    <!-- Email -->
                     <div class="col-md-3">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Email (2FA)</label>
                         <input type="email" class="form-control" id="newEmail" placeholder="Опционально">
                     </div>
                     
-                    <!-- Срок действия -->
                     <div class="col-md-2">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней</label>
                         <input type="number" class="form-control" id="newExpire" placeholder="Навсегда">
                     </div>
                     
-                    <!-- Дерево слоев -->
+                    <!-- Контейнер динамического дерева слоев для настройки прав доступа -->
                     <div class="col-12 mt-4">
                         <h6 class="fw-bold mb-3" style="color: var(--geo-dark);"><i class="bi bi-layers text-secondary me-2"></i>Доступ к слоям</h6>
                         <div id="adminLayersTree" class="border rounded bg-white p-3 shadow-sm" style="max-height: 250px; overflow-y: auto;">
@@ -92,7 +100,6 @@
                         </div>
                     </div>
 
-                    <!-- Кнопка -->
                     <div class="col-12 mt-4 text-end">
                         <button type="submit" class="btn btn-geo px-5 fw-bold" id="btnCreateUser">
                             Создать пользователя <i class="bi bi-arrow-right ms-2"></i>
@@ -102,7 +109,7 @@
             </div>
         </div>
 
-        <!-- БЛОК 2: Список пользователей -->
+        <!-- Секция 2: Реестр активных учетных записей -->
         <div class="admin-card mb-5">
             <div class="admin-card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-people-fill me-2" style="color: var(--geo-main);"></i>Активные учетные записи</h5>
@@ -119,6 +126,7 @@
                             </tr>
                         </thead>
                         <tbody>
+                            <!-- Серверный рендеринг списка пользователей -->
                             {% for u in users %}
                             <tr>
                                 <td class="ps-4">
@@ -135,7 +143,6 @@
                                     </div>
                                 </td>
                                 
-                                <!-- КОЛОНКА С ПОЧТОЙ -->
                                 <td>
                                     {% if u.email %}
                                         <span class="text-secondary small fw-medium"><i class="bi bi-envelope me-1"></i> {{ u.email }}</span>
@@ -144,24 +151,20 @@
                                     {% endif %}
                                 </td>
                                 
-                                <!-- КОЛОНКА СО СТАТУСОМ (ИСПРАВЛЕНО НА u.) -->
                                 <td>
                                     {% if u.expires_at is none %}
                                         <span class="badge bg-warning text-dark"><i class="bi bi-infinity"></i> Бессрочный</span>
-                                        
                                     {% elif not u.is_active() %}
                                         <span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Истёк: {{ u.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
-                                        
                                     {% else %}
                                         <span class="text-success fw-medium"><i class="bi bi-check-circle me-1"></i>До: {{ u.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
                                     {% endif %}
                                 </td>
                                 
-                                <!-- КОЛОНКА С КНОПКАМИ (ИСПРАВЛЕНО НА u.) -->
+                                <!-- Элементы управления учетной записью -->
                                 <td class="text-end pe-4">
                                     <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
 
-                                        <!-- Кнопка модалки с правильными data-атрибутами -->
                                         <button class="btn btn-sm btn-outline-primary edit-user-btn" 
                                                 title="Редактировать"
                                                 data-bs-toggle="modal" 
@@ -192,6 +195,7 @@
                     </table>
                 </div>
                 
+                <!-- Заглушка для пустой базы пользователей -->
                 {% if not users %}
                 <div class="text-center py-5">
                     <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 80px; height: 80px; background-color: var(--geo-light);">
@@ -204,34 +208,33 @@
 
             </div>
         </div>
-
-        
     </div>
-    <!-- Модальное окно для логов -->
+
+    <!-- Модальное окно: Аудит системных логов пользователя -->
     <div class="modal fade" id="logsModal" tabindex="-1" aria-labelledby="logsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable modal-lg">
-        <div class="modal-content border-0 shadow-lg">
-        <div class="modal-header bg-light border-bottom-0">
-            <h5 class="modal-title fw-bold" id="logsModalLabel" style="color: var(--geo-dark, #212529);">
-                <i class="bi bi-activity text-primary me-2"></i>История действий: 
-                <span id="logsModalUsername" class="text-primary"></span>
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-        </div>
-        <div class="modal-body bg-light" id="logsContainer">
-            <!-- Сюда JS будет генерировать плашки с логами -->
-            <div class="text-center text-muted mt-4 mb-4">
-                <i class="bi bi-hourglass-split fs-2 opacity-50"></i>
-                <p class="mt-2">Ожидание данных...</p>
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-light border-bottom-0">
+                    <h5 class="modal-title fw-bold" id="logsModalLabel" style="color: var(--geo-dark, #212529);">
+                        <i class="bi bi-activity text-primary me-2"></i>История действий: 
+                        <span id="logsModalUsername" class="text-primary"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body bg-light" id="logsContainer">
+                    <!-- Контейнер для динамического рендеринга записей журнала -->
+                    <div class="text-center text-muted mt-4 mb-4">
+                        <i class="bi bi-hourglass-split fs-2 opacity-50"></i>
+                        <p class="mt-2">Ожидание данных...</p>
+                    </div>
+                </div>
             </div>
         </div>
-        </div>
-    </div>
     </div>
 
-    <!-- Модальное окно редактирования пользователя -->
+    <!-- Модальное окно: Редактирование параметров пользователя -->
     <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg"> <!-- modal-lg чтобы окно было пошире -->
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow">
                 
                 <div class="modal-header border-bottom-0 pb-0">
@@ -242,7 +245,8 @@
                 </div>
                 
                 <div class="modal-body p-4 pt-3">
-                    <!-- Блок для алертов (спрятан по умолчанию) -->
+                    
+                    <!-- Контейнер для обратной связи от API -->
                     <div id="editUserAlert" class="alert d-none small py-2 fw-medium mb-3" role="alert"></div>
 
                     <form id="editUserForm">
@@ -273,18 +277,16 @@
                             </div>
                         </div>
 
-                        <!-- Срок действия -->
                         <div class="mb-4">
                             <label class="form-label small fw-bold text-secondary">Таймер доступа (в днях)</label>
                             <input type="number" class="form-control" id="editUserExpire" placeholder="Укажите цифру. Оставьте пустым, чтобы сделать бессрочным" min="1">
                             <div class="form-text small">Ввод цифры установит новый таймер с текущего момента. Пустое поле обнулит таймер.</div>
                         </div>
 
-                        <!-- Слои (чекбоксы генерируются из базы) -->
+                        <!-- Контейнер настройки конфигурации слоев пользователя -->
                         <div class="mb-4">
                             <label class="form-label small fw-bold text-secondary">Доступ к дата-румам (Слоям)</label>
                             <div class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
-                                <!-- Слои (чекбоксы генерируются через API) -->
                                 <div class="mb-4">
                                     <label class="form-label small fw-bold text-secondary">Доступ к дата-румам (Слоям)</label>
                                     <div id="editAdminLayersTree" class="border rounded p-3 bg-light shadow-sm" style="max-height: 200px; overflow-y: auto;">
@@ -303,172 +305,169 @@
             </div>
         </div>
     </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
     <script src="../static/js/theme.js"></script>
+    
+    <!-- Скрипт: Управление поведением интерфейса (видимость пароля и модальное окно логов) -->
     <script>
         const toggleAdminPassword = document.getElementById('toggleAdminPassword');
         const adminPasswordInput = document.getElementById('adminPassword');
         const toggleAdminIcon = document.getElementById('toggleAdminIcon');
 
-        toggleAdminPassword.addEventListener('click', function () {
-            const type = adminPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            adminPasswordInput.setAttribute('type', type);
-            toggleAdminIcon.classList.toggle('bi-eye');
-            toggleAdminIcon.classList.toggle('bi-eye-slash');
-        });
+        // Обработка скрытия/отображения символов пароля
+        if (toggleAdminPassword) {
+            toggleAdminPassword.addEventListener('click', function () {
+                const type = adminPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                adminPasswordInput.setAttribute('type', type);
+                toggleAdminIcon.classList.toggle('bi-eye');
+                toggleAdminIcon.classList.toggle('bi-eye-slash');
+            });
+        }
 
+        // Асинхронная загрузка и рендеринг истории действий (логов)
         async function openLogsModal(username) {
-        // 1. Показываем модалку и ставим загрузочный текст
-        const modal = new bootstrap.Modal(document.getElementById('logsModal'));
-        document.getElementById('logsModalUsername').innerText = username;
-        const container = document.getElementById('logsContainer');
-        
-        // Красивый лоадер
-        container.innerHTML = `
-            <div class="text-center mt-5 mb-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-3 text-muted small fw-bold text-uppercase">Связь с сервером...</p>
-            </div>`;
-        
-        modal.show();
+            const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+            document.getElementById('logsModalUsername').innerText = username;
+            const container = document.getElementById('logsContainer');
+            
+            // Инициализация интерфейса загрузки
+            container.innerHTML = `
+                <div class="text-center mt-5 mb-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted small fw-bold text-uppercase">Связь с сервером...</p>
+                </div>`;
+            
+            modal.show();
 
-        try {
-            // 2. Стучимся на бэкенд
-            const response = await fetch(`/admin/api/logs/${username}`);
-            const logs = await response.json();
+            try {
+                // Выполнение запроса к API
+                const response = await fetch(`/admin/api/logs/${username}`);
+                const logs = await response.json();
 
-            // 3. Обработка ошибок доступа
-            if (logs.error) {
-                container.innerHTML = `
-                    <div class="alert alert-danger d-flex align-items-center m-3" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        <div>${logs.error}</div>
-                    </div>`;
-                return;
-            }
+                // Обработка серверных ошибок валидации или прав
+                if (logs.error) {
+                    container.innerHTML = `
+                        <div class="alert alert-danger d-flex align-items-center m-3" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <div>${logs.error}</div>
+                        </div>`;
+                    return;
+                }
 
-            // 4. Если логов нет
-            if (logs.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center text-muted mt-5 mb-5">
-                        <i class="bi bi-clipboard-x fs-1 opacity-25"></i>
-                        <p class="mt-2">У этого пользователя пока нет истории действий.</p>
-                    </div>`;
-                return;
-            }
+                // Обработка пустого набора данных
+                if (logs.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-muted mt-5 mb-5">
+                            <i class="bi bi-clipboard-x fs-1 opacity-25"></i>
+                            <p class="mt-2">У этого пользователя пока нет истории действий.</p>
+                        </div>`;
+                    return;
+                }
 
-            // 5. Отрисовка данных
-            container.innerHTML = '';
-            logs.forEach(log => {
-                // Раскрашиваем бейджи
-                let badgeClass = 'bg-secondary';
-                if (log.action_type.includes('ВХОД')) badgeClass = 'bg-success';
-                if (log.action_type.includes('ВЫХОД')) badgeClass = 'bg-dark';
-                if (log.action_type.includes('ОШИБКА')) badgeClass = 'bg-danger';
-                if (log.action_type === 'КАРТА') badgeClass = 'bg-primary';
-                if (log.action_type === 'АДМИНКА') badgeClass = 'bg-warning text-dark';
+                // Рендеринг карточек логов с применением цветового кодирования статусов
+                container.innerHTML = '';
+                logs.forEach(log => {
+                    let badgeClass = 'bg-secondary';
+                    if (log.action_type.includes('ВХОД')) badgeClass = 'bg-success';
+                    if (log.action_type.includes('ВЫХОД')) badgeClass = 'bg-dark';
+                    if (log.action_type.includes('ОШИБКА')) badgeClass = 'bg-danger';
+                    if (log.action_type === 'КАРТА') badgeClass = 'bg-primary';
+                    if (log.action_type === 'АДМИНКА') badgeClass = 'bg-warning text-dark';
 
-                // Генерируем карточку лога
-                const logHTML = `
-                    <div class="card mb-3 border-0 shadow-sm rounded-3">
-                        <div class="card-body p-3">
-                            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
-                                <span class="badge ${badgeClass} px-3 py-2 rounded-pill fw-bold">${log.action_type}</span>
-                                <small class="text-muted fw-bold"><i class="bi bi-clock me-1"></i> ${log.timestamp}</small>
-                            </div>
-                            <p class="card-text mb-3 font-monospace text-dark" style="font-size: 0.95rem;">
-                                ${log.details}
-                            </p>
-                            <div class="d-flex flex-wrap gap-4 px-2 py-2 bg-light rounded text-muted" style="font-size: 0.75rem;">
-                                <span><i class="bi bi-globe me-1"></i> <strong>IP:</strong> ${log.ip_address}</span>
-                                <span class="text-truncate" style="max-width: 250px;" title="${log.user_agent}">
-                                    <i class="bi bi-laptop me-1"></i> ${log.user_agent}
-                                </span>
+                    const logHTML = `
+                        <div class="card mb-3 border-0 shadow-sm rounded-3">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                                    <span class="badge ${badgeClass} px-3 py-2 rounded-pill fw-bold">${log.action_type}</span>
+                                    <small class="text-muted fw-bold"><i class="bi bi-clock me-1"></i> ${log.timestamp}</small>
+                                </div>
+                                <p class="card-text mb-3 font-monospace text-dark" style="font-size: 0.95rem;">
+                                    ${log.details}
+                                </p>
+                                <div class="d-flex flex-wrap gap-4 px-2 py-2 bg-light rounded text-muted" style="font-size: 0.75rem;">
+                                    <span><i class="bi bi-globe me-1"></i> <strong>IP:</strong> ${log.ip_address}</span>
+                                    <span class="text-truncate" style="max-width: 250px;" title="${log.user_agent}">
+                                        <i class="bi bi-laptop me-1"></i> ${log.user_agent}
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
-                container.insertAdjacentHTML('beforeend', logHTML);
-            });
+                    `;
+                    container.insertAdjacentHTML('beforeend', logHTML);
+                });
 
-        } catch (error) {
-            console.error("Ошибка загрузки логов:", error);
-            container.innerHTML = `
-                <div class="alert alert-danger m-3">
-                    <i class="bi bi-x-circle-fill me-2"></i> Произошла ошибка при загрузке логов. Проверьте консоль браузера.
-                </div>`;
+            } catch (error) {
+                console.error("Ошибка загрузки логов:", error);
+                container.innerHTML = `
+                    <div class="alert alert-danger m-3">
+                        <i class="bi bi-x-circle-fill me-2"></i> Произошла ошибка при загрузке логов. Проверьте консоль браузера.
+                    </div>`;
+            }
         }
-    }
     </script>
 
-
+    <!-- Скрипт: Логика работы модального окна редактирования пользователя -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const alertBox = document.getElementById('editUserAlert');
 
-        // 1. ОТКРЫТИЕ МОДАЛКИ: Чтение data-атрибутов и заполнение полей
+        // Чтение атрибутов дата-сета и предзаполнение формы редактирования
         const editButtons = document.querySelectorAll('.edit-user-btn');
         editButtons.forEach(button => {
             button.addEventListener('click', function() {
-                // Прячем старые алерты
                 alertBox.classList.add('d-none');
                 
-                // Забираем данные
                 const userId = this.getAttribute('data-id');
                 const username = this.getAttribute('data-username');
                 const email = this.getAttribute('data-email');
                 const isAdmin = this.getAttribute('data-isadmin');
                 
-                // Парсим массив слоев. Оборачиваем в try-catch для безопасности
+                // Безопасный парсинг массива доступных слоев пользователя
                 let layers = [];
                 try { layers = JSON.parse(this.getAttribute('data-layers')); } 
                 catch(e) { console.error('Ошибка парсинга ID слоев'); }
 
-                // Вставляем текст
                 document.getElementById('editUserId').value = userId;
                 document.getElementById('editUserUsername').value = username;
                 document.getElementById('editUserEmail').value = email;
                 document.getElementById('editUserRole').value = isAdmin;
                 
-                // Пароль и таймер всегда пустые при открытии (согласно ТЗ)
                 document.getElementById('editUserPassword').value = '';
                 document.getElementById('editUserExpire').value = ''; 
 
-                // Расставляем галочки
+                // Синхронизация состояния чекбоксов дата-румов
                 const checkboxes = document.querySelectorAll('.edit-layer-cb');
                 checkboxes.forEach(cb => {
-                    const cbIds = JSON.parse(cb.value); // Получаем массив ID из галочки
-                    // Ставим галочку, если ID из группы есть в доступе пользователя
+                    const cbIds = JSON.parse(cb.value);
                     cb.checked = cbIds.some(id => layers.includes(id));
                 });
             });
         });
 
-        // 2. ОТПРАВКА ДАННЫХ: Формирование JSON и fetch
+        // Формирование полезной нагрузки (payload) и отправка данных в API
         document.getElementById('editUserForm').addEventListener('submit', function(e) {
             e.preventDefault(); 
             
             const userId = document.getElementById('editUserId').value;
             
-           // Собираем все отмеченные галочки в плоский массив чисел
+            // Трансформация структур слоев в плоский массив идентификаторов
             let checkedLayers = [];
             document.querySelectorAll('.edit-layer-cb:checked').forEach(chk => {
                 const ids = JSON.parse(chk.value);
                 checkedLayers.push(...ids);
             });
 
-            // Формируем строгий JSON по ТЗ бэкенда
             const payload = {
                 username: document.getElementById('editUserUsername').value.trim(),
                 email: document.getElementById('editUserEmail').value.trim(),
                 password: document.getElementById('editUserPassword').value,
                 is_admin: document.getElementById('editUserRole').value === 'true',
                 expire_days: document.getElementById('editUserExpire').value,
-                allowed_layers: checkedLayers // Отправляем плоский массив
+                allowed_layers: checkedLayers 
             };
 
-            // Отправляем POST запрос
+            // Передача обновленных данных профиля
             fetch(`/admin/api/edit_user/${userId}`, {
                 method: 'POST',
                 headers: {
@@ -476,24 +475,20 @@
                 },
                 body: JSON.stringify(payload)
             })
-            // Читаем HTTP статус и тело ответа
             .then(response => response.json().then(data => ({ status: response.status, body: data })))
             .then(result => {
                 if (result.status === 200) {
-                    // УСПЕХ: Зеленый алерт и перезагрузка
                     alertBox.classList.remove('d-none', 'alert-danger');
                     alertBox.classList.add('alert-success');
                     alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${result.body.message}`;
                     setTimeout(() => window.location.reload(), 1000);
                 } else {
-                    // ОШИБКА БЭКЕНДА (400+): Красный алерт, модалку не закрываем
                     alertBox.classList.remove('d-none', 'alert-success');
                     alertBox.classList.add('alert-danger');
                     alertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${result.body.message}`;
                 }
             })
             .catch(error => {
-                // СЕТЕВАЯ ОШИБКА
                 alertBox.classList.remove('d-none', 'alert-success');
                 alertBox.classList.add('alert-danger');
                 alertBox.innerHTML = `<i class="bi bi-wifi-off me-1"></i> Ошибка соединения с сервером`;
@@ -503,10 +498,11 @@
     });
     </script>
 
+    <!-- Скрипт: Инициализация деревьев слоев и логика создания нового пользователя -->
     <script>
     document.addEventListener("DOMContentLoaded", async () => {
         
-        // Глазик для нового пароля
+        // Управление видимостью поля пароля при создании пользователя
         const toggleNewPassword = document.getElementById('toggleNewPassword');
         const newPasswordInput = document.getElementById('newPassword');
         const toggleNewIcon = document.getElementById('toggleNewIcon');
@@ -520,7 +516,7 @@
             });
         }
 
-        // 1. Отрисовка дерева слоев
+        // Асинхронная загрузка конфигурации слоев и рендеринг структуры дата-румов
         try {
             const response = await fetch('/api/layers_config');
             const config = await response.json();
@@ -531,7 +527,8 @@
             editTreeContainer.innerHTML = '';
 
             for (const [categoryName, subcategories] of Object.entries(config)) {
-                // Заголовки категорий для обоих окон
+                
+                // Генерация разметки категорий для модальных окон (Создание и Редактирование)
                 let catHtmlCreate = `<div class="mb-3"><h6 class="fw-bold text-primary mb-2">${categoryName}</h6><div class="ps-3 border-start">`;
                 let catHtmlEdit = `<div class="mb-3"><h6 class="fw-bold text-primary mb-2">${categoryName}</h6><div class="ps-3 border-start">`;
                 
@@ -540,14 +537,13 @@
                     catHtmlEdit += `<div class="fw-bold small text-secondary mt-2 mb-1">${subName}</div>`;
                     
                     for (const [layerName, ids] of Object.entries(layers)) {
-                        // Галочки для формы "Создать"
+                        
                         catHtmlCreate += `
                         <div class="form-check mb-1">
                             <input class="form-check-input admin-layer-chk" type="checkbox" value='${JSON.stringify(ids)}' id="adm_${ids[0]}">
                             <label class="form-check-label small" for="adm_${ids[0]}">${layerName}</label>
                         </div>`;
                         
-                        // Галочки для формы "Редактировать"
                         catHtmlEdit += `
                         <div class="form-check mb-1">
                             <input class="form-check-input edit-layer-cb" type="checkbox" value='${JSON.stringify(ids)}' id="edit_adm_${ids[0]}">
@@ -558,16 +554,15 @@
                 catHtmlCreate += `</div></div>`;
                 catHtmlEdit += `</div></div>`;
                 
-                // Вставляем HTML в оба окна
                 treeContainer.insertAdjacentHTML('beforeend', catHtmlCreate);
                 editTreeContainer.insertAdjacentHTML('beforeend', catHtmlEdit);
             }
         } catch (e) {
-            document.getElementById('adminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки слоев</div>';
-            document.getElementById('editAdminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки слоев</div>';
+            document.getElementById('adminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки конфигурации слоев</div>';
+            document.getElementById('editAdminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки конфигурации слоев</div>';
         }
 
-        // 2. Сборка и отправка JSON
+        // Обработка отправки формы создания профиля пользователя
         document.getElementById('apiCreateUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btnCreateUser');
@@ -577,17 +572,16 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Создание...';
             alertBox.innerHTML = '';
 
-            // Собираем ID из галочек в плоский массив
+            // Конвертация вложенных массивов ID слоев
             let allowed_layers = [];
             document.querySelectorAll('.admin-layer-chk:checked').forEach(chk => {
                 const ids = JSON.parse(chk.value);
                 allowed_layers.push(...ids);
             });
 
-            // Переводим текстовое значение селектора ('1' или '0') в настоящий boolean (true/false)
+            // Трансформация строкового флага селектора в логический тип
             const isAdminValue = document.getElementById('newRole').value === '1';
 
-            // Формируем полный payload строго по ТЗ
             const payload = {
                 username: document.getElementById('newUsername').value,
                 password: document.getElementById('newPassword').value,
@@ -606,7 +600,7 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    // Если пароль сгенерирован сервером (был пустым), выводим его админу
+                    // Вывод сгенерированного пароля при условии серверной генерации
                     const pwdInfo = result.temp_password && !payload.password 
                         ? `<div class="font-monospace bg-white border p-2 rounded mt-2 text-dark">Сгенерированный пароль: <strong>${result.temp_password}</strong></div>` 
                         : '';

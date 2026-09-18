@@ -1,46 +1,51 @@
+<!-- 
+  Файл: hub.html
+  Описание: Главная страница (хаб) портала. 
+  Обеспечивает маршрутизацию пользователя к основным рабочим модулям системы (Интерактивная карта, Документация, Панель администратора) после успешной авторизации.
+-->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Хаб | Недра Забайкальского края</title>
+    
+    <!-- Подключение внешних библиотек и стилей -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
-    
-    <!-- ПОДКЛЮЧАЕМ НАШ ВЫНЕСЕННЫЙ CSS -->
     <link rel="stylesheet" href="../static/css/style.css">
-    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"> -->
 </head>
 <body class="hub-page">
+    
+    <!-- Предварительная инициализация цветовой темы (предотвращение мерцания) -->
     <script>
-        // Срабатывает мгновенно, до отрисовки карточек и текстов
         if (localStorage.getItem('app-theme') === 'dark') {
             document.body.classList.add('dark-theme');
         }
     </script>
 
+    <!-- Навигационная панель -->
     <nav class="navbar navbar-expand-lg navbar-custom py-3">
         <div class="container">
+            
+            <!-- Логотип и заголовок -->
             <a class="navbar-brand d-flex align-items-center text-decoration-none" href="/hub">
-                <!-- Сам векторный логотип -->
                 <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Лого" style="height: 75px; width: 75px;" class="me-3">
-
-                <!-- Оранжевый разделитель (делаем стандартным бордером) -->
                 <div class="border-start border-2 h-100 me-3" style="border-color: #d97706 !important; min-height: 60px;"></div>
-
-                <!-- Текстовый блок, разбитый на две строки -->
                 <div class="d-flex flex-column justify-content-center text-white">
                     <span class="text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px; opacity: 0.9;">Веб-гис портал</span>
                     <span class="fw-bold" style="font-size: 1.3rem; line-height: 1.1;">Недра Забайкальского края</span>
                 </div>
             </a>
+            
+            <!-- Кнопка переключения темы -->
             <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
                 <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
             </button>
+            
+            <!-- Блок профиля пользователя и управления сессией -->
             <div class="d-flex align-items-center">
-                <!-- Кликабельный бейджик с переходом в профиль -->
                 <a href="/profile" class="d-flex align-items-center rounded px-3 py-1 me-3 text-decoration-none" style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.05)'">
                     <i class="bi bi-person-badge text-white opacity-75 me-2"></i>
                     <span class="text-white fw-medium">{{ username }}</span>
@@ -49,9 +54,11 @@
                     <i class="bi bi-door-closed me-1"></i> Выход
                 </a>
             </div>
+            
         </div>
     </nav>
 
+    <!-- Приветственный информационный блок -->
     <div class="hero-section">
         <div class="container text-center position-relative" style="z-index: 2;">
             <h1 class="display-5 fw-bold mb-3">Веб-ГИС «Недра Забайкальского края»</h1>
@@ -61,9 +68,11 @@
         </div>
     </div>
 
+    <!-- Модульная сетка навигации -->
     <div class="container position-relative" style="z-index: 10;">
         <div class="row g-4 justify-content-center">
             
+            <!-- Модуль: Интерактивная карта -->
             <div class="col-md-4">
                 <div class="card service-card p-4">
                     <div class="card-icon-wrapper">
@@ -79,6 +88,7 @@
                 </div>
             </div>
 
+            <!-- Модуль: Документация -->
             <div class="col-md-4">
                 <div class="card service-card p-4">
                     <div class="card-icon-wrapper">
@@ -94,7 +104,7 @@
                 </div>
             </div>
 
-            <!-- Карточка 3: Админка (Скрыта от обычных геологов) -->
+            <!-- Модуль: Панель администратора (Требует проверки прав доступа) -->
             {% if is_admin %}
             <div class="col-md-4">
                 <div class="card service-card p-4">
@@ -115,6 +125,7 @@
         </div>
     </div>
 
+    <!-- Подвал страницы -->
     <footer class="container text-center mt-5 pt-5 pb-3">
         <hr class="mb-4 opacity-25">
         <p class="text-muted small mb-0">
@@ -122,13 +133,13 @@
             Разработано в лаборатории "Цифровых методов прогноза и мониторинга полезных ископаемых"<br>
             Забайкальского государственного университета в рамках региональной программы <br>
             "Приоритет 2030. Дальний Восток" национального проекта "Молодёжь и дети".<br>
-             
         </p>
         <p>
             Контакты: stevesa@mail.ru
         </p>
     </footer>
-    <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
+
+    <!-- Скрипт управления логикой цветовой темы -->
     <script src="../static/js/theme.js"></script>
 </body>
 </html>

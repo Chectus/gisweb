@@ -1,10 +1,19 @@
+<!-- 
+  Файл: pdf_report_template.html
+  Описание: Шаблон генерации PDF-отчетов. 
+  Обрабатывает переданный массив геоданных (objects). 
+  Формирует индивидуальный паспорт при передаче одного объекта или сравнительную сводную таблицу при передаче массива.
+-->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>Отчет | Недра Забайкальского края</title>
-    <!-- Прямая ссылка на Bootstrap для PDF-конвертера -->
+    
+    <!-- Абсолютная ссылка на стили (требование PDF-конвертера для корректного рендеринга) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Изолированные CSS-правила для печатной версии документа -->
     <style>
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #ffffff; color: #212529; font-size: 14px; }
         .geo-header { border-bottom: 3px solid #1b578c; padding-bottom: 12px; margin-bottom: 24px; }
@@ -16,20 +25,26 @@
 <body>
     <div class="container-fluid pt-4">
         
-        <!-- Шапка отчета -->
+        <!-- Заголовок документа -->
         <div class="geo-header d-flex justify-content-between align-items-end">
             <div class="geo-brand">Веб-ГИС «Недра Забайкальского края»</div>
             <div class="text-muted small">Официальная выгрузка из базы геоданных</div>
         </div>
 
+        <!-- Условная маршрутизация рендеринга на основе длины массива -->
         {% if objects|length == 1 %}
-            <!-- СОЛО-ОТЧЕТ ПО ОДНОМУ ОБЪЕКТУ -->
+            
+            <!-- Сценарий А: Паспорт одиночного объекта (вертикальная структура) -->
             {% set obj = objects[0] %}
+            
+            <!-- Определение заголовка с перебором стандартных ключей и дефолтным значением -->
             {% set title = obj.get('Название') or obj.get('name') or obj.get('title') or 'Паспорт объекта' %}
             <h4 class="mb-4 fw-bold">{{ title }}</h4>
+            
             <div class="table-responsive page-break">
                 <table class="table table-bordered table-striped border-secondary align-middle">
                     <tbody>
+                        <!-- Построчная генерация пар "Атрибут - Значение" -->
                         {% for key, value in obj.items() %}
                         <tr>
                             <th class="w-50">{{ key }}</th>
@@ -41,13 +56,17 @@
             </div>
 
         {% else %}
-            <!-- ВЫБОРКА / СВОДНАЯ ТАБЛИЦА ОБЪЕКТОВ -->
+            
+            <!-- Сценарий Б: Сводная таблица сравнения (горизонтальная структура) -->
             <h4 class="mb-4 fw-bold">Сводный отчет по объектам (Записей: {{ objects|length }})</h4>
+            
             <div class="table-responsive page-break">
                 <table class="table table-bordered table-striped border-secondary align-middle">
                     <thead>
                         <tr>
                             <th style="background-color: #e9ecef !important;">Характеристика</th>
+                            
+                            <!-- Динамическая генерация колонок на основе количества объектов -->
                             {% for obj in objects %}
                             {% set col_title = obj.get('Название') or obj.get('name') or obj.get('title') or ('Объект ' ~ loop.index) %}
                             <th class="text-center">{{ col_title }}</th>
@@ -55,9 +74,12 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- Итерация по ключам первого объекта для формирования строк сравнения -->
                         {% for key in objects[0].keys() %}
                         <tr>
                             <th class="text-nowrap">{{ key }}</th>
+                            
+                            <!-- Извлечение значений текущего ключа для всех объектов массива -->
                             {% for obj in objects %}
                             <td class="text-center">{{ obj.get(key, '—') if obj.get(key) != None and obj.get(key) != '' else '—' }}</td>
                             {% endfor %}

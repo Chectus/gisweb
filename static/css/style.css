@@ -1,12 +1,17 @@
-/* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Геологическая палитра) === */
+/* 
+  Файл: style.css
+  Описание: Глобальная таблица стилей портала. 
+  Определяет CSS-переменные для цветовых схем, типографику, сетку компонентов (навигация, карточки, интерактивная карта) и правила адаптивной верстки для мобильных устройств.
+*/
+
+/* Базовая цветовая палитра (Светлая тема) */
 :root {
-    --geo-dark: #15324d;      /* Чуть более яркий темно-синий (Навигация, шапки) */
-    --geo-main: #2170ad;      /* Более сочный синий (Кнопки, ховеры) */
-    --geo-accent: #d97706;    /* Золото/медь (Акценты оставляем яркими) */
-    --geo-light: #e8eef3;     /* Светло-синий для подложек */
-    --geo-bg: #f4f7fa;        /* Общий фон страниц */
+    --geo-dark: #15324d;      /* Основной темный цвет (навигация, заголовки) */
+    --geo-main: #2170ad;      /* Главный акцентный цвет (кнопки, интерактивные элементы) */
+    --geo-accent: #d97706;    /* Вторичный акцентный цвет (выделения, бейджи) */
+    --geo-light: #e8eef3;     /* Фоновый цвет элементов (подложки, панели) */
+    --geo-bg: #f4f7fa;        /* Глобальный фон документа */
     
-    /* Базовые цвета элементов (чтобы легко переключать в тёмной теме) */
     --geo-card-bg: #ffffff;
     --geo-text: #212529;
     --geo-text-muted: #6c757d;
@@ -14,13 +19,13 @@
     --geo-input-bg: #ffffff;
 }
 
-/* === ТЁМНАЯ ТЕМА  === */
+/* Переопределение цветовой палитры (Темная тема) */
 body.dark-theme {
-    --geo-dark: #09121a;      /* Очень глубокий сине-черный (Навигация) */
-    --geo-main: #143b5c;      /* Спокойный, приглушенный синий (Кнопки) */
-    --geo-accent: #b45f06;    /* Приглушенная медь, чтобы не била по глазам */
-    --geo-light: #16212b;     /* Темно-сине-серый для плашек и панелей */
-    --geo-bg: #0f151b;        /* Почти черный фон с синим отливом */
+    --geo-dark: #09121a;      
+    --geo-main: #143b5c;      
+    --geo-accent: #b45f06;    
+    --geo-light: #16212b;     
+    --geo-bg: #0f151b;        
     
     --geo-card-bg: #1a232c;
     --geo-text: #e2e8f0;
@@ -29,8 +34,8 @@ body.dark-theme {
     --geo-input-bg: #0f172a;
 }
 
-/* === ШРИФТЫ  === */
-/* 1. Тонкий (Вес 300) - для мелких сносок, копирайтов и "текста для галочки" */
+/* Подключение локальных шрифтов (Inter) */
+/* Начертание: Light (300) */
 @font-face {
     font-family: 'Inter';
     src: url('../fonts/Inter-Light.woff2') format('woff2');
@@ -38,7 +43,7 @@ body.dark-theme {
     font-style: normal;
 }
 
-/* 2. Обычный (Вес 400) - базовый текст */
+/* Начертание: Regular (400) */
 @font-face {
     font-family: 'Inter';
     src: url('../fonts/Inter-Regular.woff2') format('woff2');
@@ -46,7 +51,7 @@ body.dark-theme {
     font-style: normal;
 }
 
-/* 3. Средний (Вес 500) - меню, кнопки */
+/* Начертание: Medium (500) */
 @font-face {
     font-family: 'Inter';
     src: url('../fonts/Inter-Medium.woff2') format('woff2');
@@ -54,7 +59,7 @@ body.dark-theme {
     font-style: normal;
 }
 
-/* 4. Жирный (Вес 700) - заголовки, теги <b> */
+/* Начертание: Bold (700) */
 @font-face {
     font-family: 'Inter';
     src: url('../fonts/Inter-Bold.woff2') format('woff2');
@@ -62,7 +67,7 @@ body.dark-theme {
     font-style: normal;
 }
 
-/* 5. Очень жирный (Вес 900) - массивные акценты */
+/* Начертание: Black (900) */
 @font-face {
     font-family: 'Inter';
     src: url('../fonts/Inter-Black.woff2') format('woff2');
@@ -71,28 +76,28 @@ body.dark-theme {
 }
 
 
-/* === БАЗОВЫЕ СТИЛИ (Подключаем переменные текста) === */
+/* Глобальные стили документа */
 body {
     background-color: var(--geo-bg);
     color: var(--geo-text);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    transition: background-color 0.3s ease, color 0.3s ease; /* Плавное переключение */
+    transition: background-color 0.3s ease, color 0.3s ease; 
 }
 
-/* Сетка на фоне только для Хаба */
+/* Специфичный фон целевой страницы (Хаб) */
 body.hub-page {
     background-image: radial-gradient(rgba(27, 87, 140, 0.15) 1px, transparent 1px);
     background-size: 20px 20px;
 }
 
-/* === НАВИГАЦИЯ (Общая для всех страниц) === */
+/* Стилизация основной навигационной панели */
 .navbar-custom {
     background-color: var(--geo-dark);
     border-bottom: 3px solid var(--geo-main);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-/* === СТИЛИ ХАБА === */
+/* Компоненты страницы хаба */
 .hero-section {
     background-color: var(--geo-dark);
     background-image: 
@@ -116,6 +121,7 @@ body.hub-page {
     display: flex;
     flex-direction: column;
 }
+
 .service-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 12px 25px rgba(27, 87, 140, 0.15);
@@ -136,12 +142,13 @@ body.hub-page {
     border: 1px solid rgba(27, 87, 140, 0.2);
     transition: all 0.3s ease;
 }
+
 .service-card:hover .card-icon-wrapper {
     background-color: var(--geo-main);
     color: var(--geo-accent); 
 }
 
-/* Кнопки */
+/* Базовые стили кнопок */
 .btn-geo {
     background-color: var(--geo-main);
     color: white;
@@ -150,6 +157,7 @@ body.hub-page {
     padding: 0.6rem 1.5rem;
     transition: background-color 0.2s;
 }
+
 .btn-geo:hover {
     background-color: var(--geo-dark);
     color: var(--geo-accent);
@@ -160,12 +168,14 @@ body.hub-page {
     color: var(--geo-dark);
     font-weight: 600;
 }
+
 .btn-outline-geo:hover {
     background-color: var(--geo-dark);
     color: var(--geo-accent);
 }
 
-/* === СТИЛИ ИНТЕРФЕЙСА КАРТЫ === */
+
+/* Макет и панели интерактивной карты */
 html.map-html, body.map-body { 
     height: 100%; 
     margin: 0; 
@@ -174,11 +184,12 @@ html.map-html, body.map-body {
 
 .map-wrapper { 
     display: flex; 
-    height: calc(100vh - 62px); /* Высота под новую навигацию */
+    height: calc(100vh - 62px);
     width: 100vw; 
     position: relative; 
 }
 
+/* Боковая панель управления слоями */
 #layersSidebar {
     width: 350px; 
     min-width: 350px; 
@@ -191,8 +202,12 @@ html.map-html, body.map-body {
     flex-direction: column;
     border-right: 1px solid var(--geo-light);
 }
-#layersSidebar.collapsed { margin-left: -350px; }
 
+#layersSidebar.collapsed { 
+    margin-left: -350px; 
+}
+
+/* Кнопка переключения видимости боковой панели слоев */
 #layersSidebarCollapse {
     position: absolute; 
     top: 20px; 
@@ -204,13 +219,24 @@ html.map-html, body.map-body {
     color: var(--geo-main);
     border: 1px solid var(--geo-light);
 }
+
 #layersSidebarCollapse:hover {
     background-color: var(--geo-light);
 }
-#layersSidebar.collapsed + #layersSidebarCollapse { left: 20px; }
 
-#map { flex-grow: 1; height: 100%; width: 100%; z-index: 1; }
+#layersSidebar.collapsed + #layersSidebarCollapse { 
+    left: 20px; 
+}
 
+/* Контейнер рендеринга Leaflet */
+#map { 
+    flex-grow: 1; 
+    height: 100%; 
+    width: 100%; 
+    z-index: 1; 
+}
+
+/* Элементы списка слоев */
 .layer-item {
     padding: 8px 14px 8px 40px !important; 
     border-radius: 8px;
@@ -218,24 +244,30 @@ html.map-html, body.map-body {
     cursor: pointer; 
     transition: background-color 0.2s, border-color 0.2s;
 }
+
 .layer-item:hover { 
     background-color: var(--geo-light); 
     border-color: rgba(27, 87, 140, 0.2);
 }
+
 .layer-item .form-check-input { 
     cursor: pointer; 
     margin-left: -26px; 
     margin-top: 4px; 
 }
 
-/* Перекрашиваем стандартные синие чекбоксы Bootstrap в наш синий */
+/* Кастомизация чекбоксов */
 .form-check-input:checked {
     background-color: var(--geo-main);
     border-color: var(--geo-main);
 }
 
-.leaflet-attribution-flag { display: none !important; }
+/* Скрытие водяного знака Leaflet */
+.leaflet-attribution-flag { 
+    display: none !important; 
+}
 
+/* Панель атрибутивной информации */
 #attributeSidebar {
     width: 450px; 
     min-width: 450px; 
@@ -251,17 +283,19 @@ html.map-html, body.map-body {
     right: -450px; 
     border-left: 3px solid var(--geo-main);
 }
-#attributeSidebar.open { right: 0; }
 
-/* Кастомизация скроллбара, чтобы было красиво */
+#attributeSidebar.open { 
+    right: 0; 
+}
+
+/* Стилизация полосы прокрутки внутри панелей */
 .overflow-auto::-webkit-scrollbar { width: 6px; }
 .overflow-auto::-webkit-scrollbar-track { background: #f1f1f1; }
 .overflow-auto::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
 .overflow-auto::-webkit-scrollbar-thumb:hover { background: var(--geo-main); }
 
-/* ==========================================
-   СТИЛИ СТРАНИЦЫ АВТОРИЗАЦИИ (login.html)
-   ========================================== */
+
+/* Стилизация модулей авторизации и восстановления пароля */
 body.login-page {
     background-color: var(--geo-dark);
     background-image: linear-gradient(135deg, rgba(17, 38, 56, 0.95) 0%, rgba(27, 87, 140, 0.85) 100%);
@@ -300,7 +334,10 @@ body.login-page {
     color: var(--geo-main);
 }
 
-.form-control { border-color: rgba(27, 87, 140, 0.2); }
+.form-control { 
+    border-color: rgba(27, 87, 140, 0.2); 
+}
+
 .form-control:focus { 
     border-color: var(--geo-main); 
     box-shadow: none; 
@@ -311,10 +348,12 @@ body.login-page {
     border-color: var(--geo-main);
 }
 
-/* ==========================================
-   СТИЛИ ПАНЕЛИ АДМИНИСТРАТОРА (admin.html)
-   ========================================== */
-.admin-container { max-width: 900px; margin-top: 40px; }
+
+/* Компоненты панели администратора (таблицы, карточки управления) */
+.admin-container { 
+    max-width: 900px; 
+    margin-top: 40px; 
+}
 
 .admin-card {
     border: 1px solid rgba(27, 87, 140, 0.1);
@@ -330,6 +369,7 @@ body.login-page {
     padding: 1.25rem 1.5rem;
 }
 
+/* Стилизация административной таблицы реестра пользователей */
 .table-geo thead {
     background-color: var(--geo-light);
     color: var(--geo-dark);
@@ -337,8 +377,18 @@ body.login-page {
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-.table-geo th { border-bottom: none; font-weight: 700; padding: 1rem; }
-.table-geo td { padding: 1rem; vertical-align: middle; border-bottom: 1px solid var(--geo-light); }
+
+.table-geo th { 
+    border-bottom: none; 
+    font-weight: 700; 
+    padding: 1rem; 
+}
+
+.table-geo td { 
+    padding: 1rem; 
+    vertical-align: middle; 
+    border-bottom: 1px solid var(--geo-light); 
+}
 
 .badge-gold {
     background-color: rgba(217, 119, 6, 0.1);
@@ -348,85 +398,94 @@ body.login-page {
     font-weight: 600;
 }
 
-.form-control, .btn-eye-admin { border-color: rgba(27, 87, 140, 0.2); background-color: #ffffff; }
-.form-control:focus { box-shadow: none; border-color: var(--geo-main); }
+.form-control, .btn-eye-admin { 
+    border-color: rgba(27, 87, 140, 0.2); 
+    background-color: #ffffff; 
+}
+
+.form-control:focus { 
+    box-shadow: none; 
+    border-color: var(--geo-main); 
+}
+
 .input-group:focus-within .btn-eye-admin,
 .input-group:focus-within .form-control {
     border-color: var(--geo-main);
 }
 
-/* ==========================================
-   МОБИЛЬНАЯ АДАПТАЦИЯ (СМАРТФОНЫ)
-   ========================================== */
+
+/* Адаптивная верстка (мобильные устройства) */
 @media (max-width: 768px) {
-    /* Боковое меню со слоями */
+    
+    /* Переопределение поведения боковой панели слоев для мобильных разрешений */
     #layersSidebar {
-        position: absolute; /* Отрываем от верстки, чтобы висело поверх карты */
-        z-index: 1000;      /* Поднимаем над картой */
+        position: absolute; 
+        z-index: 1000;      
         height: 100%;
-        width: 85% !important; /* Занимаем 85% экрана, чтобы сбоку торчала карта */
+        width: 85% !important; 
         max-width: 320px;
-        box-shadow: 4px 0 15px rgba(0,0,0,0.2); /* Красивая тень */
+        box-shadow: 4px 0 15px rgba(0,0,0,0.2); 
         transition: transform 0.3s ease;
     }
 
-    /* Когда меню свернуто - прячем его за левый край экрана */
+    /* Скрытое состояние боковой панели (сдвиг за пределы экрана) */
     #layersSidebar.collapsed {
         transform: translateX(-100%);
     }
 
-    /* Кнопка-стрелочка для открытия/закрытия */
+    /* Позиционирование переключателя видимости боковой панели */
     #layersSidebarCollapse {
         position: absolute;
         z-index: 1001;
-        left: 85%; /* Кнопка прилипает к правому краю открытого меню */
+        left: 85%; 
         transition: left 0.3s ease;
     }
 
-    /* Если меню свернуто - кнопка возвращается к левому краю экрана */
+    /* Возврат переключателя к левому краю при скрытой панели */
     #layersSidebar.collapsed + #layersSidebarCollapse {
         left: 0;
     }
 
-    /* Правая панель с таблицей атрибутов (выводим снизу, как шторку) */
+    /* Трансформация боковой панели атрибутов в нижнюю "шторку" */
     #attributeSidebar {
         position: absolute;
         z-index: 1005;
         left: 0 !important;
         right: 0 !important;
-        width: 100vw !important; /* Строго 100% ширины экрана */
-        box-sizing: border-box;  /* Отступы не увеличивают ширину */
+        width: 100vw !important; 
+        box-sizing: border-box;  
         padding: 15px !important;
-        height: 60% !important; /* На пол-экрана */
+        height: 60% !important; 
         bottom: 0;
         top: auto;
         box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
-        transform: translateY(100%); /* Прячем вниз */
+        transform: translateY(100%); 
         transition: transform 0.3s ease;
     }
     
     #attributeSidebar.open {
-        transform: translateY(0); /* Выезжает снизу */
+        transform: translateY(0); 
     }
 
+    /* Адаптация центрирования логотипа в навигации */
     .navbar-custom .container-fluid {
-    position: relative; 
+        position: relative; 
     }
+
     .navbar-brand {
         position: absolute;
         left: 50%;
         transform: translateX(-50%);
         margin: 0;
-        font-size: 1.1rem; /* Чуть мельче для мобилок */
+        font-size: 1.1rem; 
         white-space: nowrap;
     }
 }
 
-/* ==============================================================
-                    ПРАВИЛА ДЛЯ ТЁМНОЙ ТЕМЫ:
-   ============================================================== */
 
-/* Тёмная тема: Карточки (Хаб, Профиль, Админка, Документация) */
+/* Интеграция темной темы для специфичных компонентов */
+
+/* Переопределение стилей карточек в темной теме */
 body.dark-theme .card,
 body.dark-theme .service-card,
 body.dark-theme .admin-card,
@@ -437,57 +496,65 @@ body.dark-theme .login-card {
     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
 }
 
-/* Тёмная тема: Тексты и заголовки */
+/* Переопределение типографики в темной теме */
 body.dark-theme .text-dark, 
 body.dark-theme h1, body.dark-theme h2, 
 body.dark-theme h3, body.dark-theme h4, 
 body.dark-theme h5, body.dark-theme h6 {
     color: var(--geo-text) !important;
 }
+
 body.dark-theme .text-muted {
     color: var(--geo-text-muted) !important;
 }
+
 body.dark-theme .bg-light {
     background-color: var(--geo-light) !important;
 }
 
-/* Тёмная тема: Инпуты и формы */
+/* Переопределение элементов управления формами в темной теме */
 body.dark-theme .form-control,
 body.dark-theme .form-select {
     background-color: var(--geo-input-bg);
     border-color: var(--geo-border);
     color: var(--geo-text);
 }
+
 body.dark-theme .form-control:focus,
 body.dark-theme .form-select:focus {
     border-color: var(--geo-main);
     background-color: var(--geo-input-bg);
     color: white;
 }
+
 body.dark-theme .input-group-text {
     background-color: var(--geo-light);
     border-color: var(--geo-border);
     color: var(--geo-text-muted);
 }
 
-/* Тёмная тема: Списки и таблицы (Админка, Документация) */
+/* Переопределение таблиц и списков в темной теме */
 body.dark-theme .list-group-item,
 body.dark-theme .table {
     background-color: transparent;
     border-color: var(--geo-border);
     color: var(--geo-text);
 }
-body.dark-theme .table-light, body.dark-theme thead, body.dark-theme .table-geo thead {
+
+body.dark-theme .table-light, 
+body.dark-theme  thead, 
+body.dark-theme .table-geo thead {
     background-color: var(--geo-light);
     color: var(--geo-text);
 }
 
-/* Тёмная тема: Уведомления */
+/* Переопределение системных уведомлений в темной теме */
 body.dark-theme .alert-success {
     background-color: rgba(25, 135, 84, 0.15);
     color: #4ade80;
     border-color: rgba(74, 222, 128, 0.2);
 }
+
 body.dark-theme .alert-danger {
     background-color: rgba(220, 53, 69, 0.15);
     color: #f87171;

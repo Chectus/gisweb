@@ -1,12 +1,21 @@
+/**
+ * Файл: theme.js (JavaScript)
+ * Описание: Клиентский контроллер цветовой темы приложения.
+ * Управляет переключением между светлой и темной темами, синхронизацией иконок 
+ * и сохранением пользовательских предпочтений в браузере (localStorage).
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
-    // Ищем кнопку переключения темы (если она есть на текущей странице)
+    
+    // Инициализация элементов управления темой
     const themeToggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
     const body = document.body;
 
-    // Функция применения иконки
+    // Синхронизация графического индикатора с активным состоянием интерфейса
     function updateIcon() {
         if (!themeIcon) return;
+        
         if (body.classList.contains('dark-theme')) {
             themeIcon.classList.remove('bi-moon-stars-fill');
             themeIcon.classList.add('bi-sun-fill');
@@ -16,16 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Если кнопка есть на странице, вешаем на нее клик
+    // Регистрация обработчиков событий (выполняется только при наличии интерфейса управления)
     if (themeToggleBtn) {
-        // При загрузке страницы ставим правильную иконку
+        
         updateIcon();
 
         themeToggleBtn.addEventListener('click', () => {
             body.classList.toggle('dark-theme');
             updateIcon();
             
-            // Сохраняем выбор
+            // Персистентное сохранение выбранного режима
             if (body.classList.contains('dark-theme')) {
                 localStorage.setItem('app-theme', 'dark');
             } else {

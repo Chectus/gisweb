@@ -1,33 +1,38 @@
+<!-- 
+  Файл: docs.html
+  Описание: Модуль базы знаний и технической документации. 
+  Содержит паспорт проекта, регламенты работы с интерактивной картой, описание уровней доступа и архитектурного стека технологий. 
+  Использует адаптивную боковую навигацию (ScrollSpy/Sticky) для удобной навигации по разделам.
+-->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Документация | Недра Забайкальского края</title>
+    
+    <!-- Подключение внешних библиотек и глобальных стилей -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
-    
-    <!-- ПОДКЛЮЧАЕМ ЕДИНЫЙ CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     
+    <!-- Изолированные стили модуля документации -->
     <style>
-        /* Специфичные стили для документации */
-        body { scroll-behavior: smooth; } /* Плавный скролл при клике на оглавление */
+        body { scroll-behavior: smooth; }
         
         .doc-sidebar {
             position: sticky;
-            top: 85px; /* Отступ сверху, чтобы не прилипало вплотную к краю экрана */
-            max-height: calc(100vh - 100px); /* Ограничиваем высоту по размеру экрана */
-            overflow-y: auto; /* Появится скролл внутри меню, если добавишь много пунктов */
+            top: 85px; 
+            max-height: calc(100vh - 100px); 
+            overflow-y: auto; 
             z-index: 10;
         }
 
-        /* Скрываем скроллбар в меню для красоты, но оставляем возможность прокрутки */
         .doc-sidebar::-webkit-scrollbar {
             width: 4px;
         }
+        
         .doc-sidebar::-webkit-scrollbar-thumb {
             background-color: rgba(27, 87, 140, 0.2);
             border-radius: 4px;
@@ -38,11 +43,13 @@
             color: white;
             font-weight: 600;
         }
+        
         .nav-pills .nav-link {
             color: var(--geo-dark);
             border-radius: 8px;
             transition: all 0.2s;
         }
+        
         .nav-pills .nav-link:hover {
             background-color: var(--geo-light);
             color: var(--geo-main);
@@ -65,13 +72,15 @@
     </style>
 </head>
 <body>
+    
+    <!-- Синхронная инициализация цветовой темы (предотвращение мерцания интерфейса) -->
     <script>
-        // Срабатывает мгновенно, до отрисовки карточек и текстов
         if (localStorage.getItem('app-theme') === 'dark') {
             document.body.classList.add('dark-theme');
         }
     </script>
-    <!-- Навигация -->
+    
+    <!-- Верхняя навигационная панель -->
     <nav class="navbar navbar-expand-lg navbar-custom py-3">
         <div class="container-fluid px-4">
             <a class="btn btn-outline-light btn-sm fw-medium me-3 border-opacity-50" href="/hub">
@@ -87,262 +96,257 @@
         </div>
     </nav>
 
+    <!-- Основной контейнер сетки -->
     <div class="container my-4">
-    <div class="row">
-        
-        <!-- Левая колонка: Навигация -->
-        <div class="col-md-3 mb-4">
+        <div class="row">
             
-            <div class="d-md-none mb-2">
-                <button class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#tocCollapse" aria-expanded="false" aria-controls="tocCollapse">
-                    <span class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-list-nested me-2" style="color: var(--geo-main);"></i>Содержание</span>
-                    <i class="bi bi-chevron-down"></i>
-                </button>
-            </div>
+            <!-- Боковая навигационная панель (Оглавление) -->
+            <div class="col-md-3 mb-4">
+                
+                <!-- Адаптивный переключатель навигации для мобильных устройств -->
+                <div class="d-md-none mb-2">
+                    <button class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#tocCollapse" aria-expanded="false" aria-controls="tocCollapse">
+                        <span class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-list-nested me-2" style="color: var(--geo-main);"></i>Содержание</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                </div>
 
-            <div class="collapse d-md-block" id="tocCollapse">
-                <div class="doc-sidebar doc-card p-3">
-                    <h6 class="text-uppercase small fw-bold text-muted mb-3 px-2 d-none d-md-block">Содержание</h6>
-                    
-                    <nav class="nav nav-pills flex-column gap-1">
-                        <a class="nav-link active py-2 small" href="#section1"><i class="bi bi-bank me-2"></i>1. Паспорт проекта</a>
-                        <a class="nav-link py-2 small" href="#section2"><i class="bi bi-map me-2"></i>2. Картографическая база</a>
-                        <a class="nav-link py-2 small" href="#section3"><i class="bi bi-cpu me-2"></i>3. ИИ и прогнозирование</a>
-                        <a class="nav-link py-2 small" href="#section4"><i class="bi bi-table me-2"></i>4. Работа с данными</a>
-                        <a class="nav-link py-2 small" href="#section5"><i class="bi bi-shield-lock me-2"></i>5. Уровни доступа</a>
-                        <a class="nav-link py-2 small" href="#section6"><i class="bi bi-code-square me-2"></i>6. Стек технологий</a>
-                    </nav>
+                <!-- Блок якорных ссылок оглавления -->
+                <div class="collapse d-md-block" id="tocCollapse">
+                    <div class="doc-sidebar doc-card p-3">
+                        <h6 class="text-uppercase small fw-bold text-muted mb-3 px-2 d-none d-md-block">Содержание</h6>
+                        
+                        <nav class="nav nav-pills flex-column gap-1">
+                            <a class="nav-link active py-2 small" href="#section1"><i class="bi bi-bank me-2"></i>1. Паспорт проекта</a>
+                            <a class="nav-link py-2 small" href="#section2"><i class="bi bi-map me-2"></i>2. Картографическая база</a>
+                            <a class="nav-link py-2 small" href="#section3"><i class="bi bi-cpu me-2"></i>3. ИИ и прогнозирование</a>
+                            <a class="nav-link py-2 small" href="#section4"><i class="bi bi-table me-2"></i>4. Работа с данными</a>
+                            <a class="nav-link py-2 small" href="#section5"><i class="bi bi-shield-lock me-2"></i>5. Уровни доступа</a>
+                            <a class="nav-link py-2 small" href="#section6"><i class="bi bi-code-square me-2"></i>6. Стек технологий</a>
+                        </nav>
+                    </div>
                 </div>
             </div>
-        </div>
 
-
-        <!-- Правая колонка: Текст документации -->
-        <div class="col-md-9">
-            <div class="doc-card p-4 p-md-5 mb-4">
-                
-                <!-- Раздел 1: Паспорт проекта -->
-                <section id="section1" class="mb-5">
-                    <h3 class="doc-section-title">1. Паспорт проекта и общие сведения</h3>
-                    <p class="text-secondary fw-medium lead" style="font-size: 1.1rem;">
-                        Веб-ГИС портал «Недра Забайкальского края» представляет собой цифровой геоинформационный ресурс, созданный совместной лабораторией «Цифровых методов прогноза и мониторинга полезных ископаемых» Забайкальского государственного университета (ЗабГУ, г. Чита) и Института геологии рудных месторождений, петрографии, минералогии и геохимии Российской академии наук (ИГЕМ РАН) в рамках программы «Приоритет 2030. Дальний Восток».
-                    </p>
-                    <p class="text-secondary">
-                        Портал аккумулирует в единой среде весь массив пространственных данных о геологическом строении, минерально-сырьевых ресурсах и инфраструктуре Забайкальского края, накопленный за десятилетия геологоразведочных работ, и предоставляет к нему доступ для широкого круга пользователей.
-                    </p>
-                    <p class="text-secondary">
-                        Веб-ГИС «Недра Забайкальского края» выполняет одновременно несколько функций: информационную, обеспечивая систематизированное представление данных о недрах региона; аналитическую, предоставляя инструменты для пространственного анализа и прогноза; образовательную, служа основой для подготовки специалистов в области геологии, геоинформатики и недропользования; и управленческую, поддерживая принятие решений органами власти и инвесторами на основе достоверной и актуальной информации.
-                    </p>
-                    <p class="text-secondary">
-                        Создание портала является важным шагом к цифровой трансформации геологической отрасли Забайкальского края и формированию единого информационного пространства, объединяющего науку, образование, государственное управление и бизнес. В перспективе накопленный опыт и разработанные технологии могут быть тиражированы на другие регионы Дальневосточного федерального округа с созданием аналогичных порталов, объединённых в единый веб-ГИС портал «Недра Дальнего Востока».
-                    </p>
-                </section>
-
-                <!-- Раздел 2: Картографическая база -->
-                <section id="section2" class="mb-5">
-                    <h3 class="doc-section-title">2. Картографическая база и структура данных</h3>
-                    <p class="text-secondary">
-                        Основу портала составляет многослойная интерактивная карта, объединяющая физико-географическую основу территории — рельеф, гидрографическую сеть, дороги, населённые пункты, административные границы — с тематическими геологическими слоями. 
-                    </p>
-                    <p class="text-secondary">
-                        Пользователь может последовательно или одновременно отображать геологическую карту, полезные ископаемые, разломную тектонику, геофизические и геохимические поля, а также данные дистанционного зондирования Земли, включая мультиспектральные спутниковые снимки и цифровые модели рельефа. Все слои приведены к единой системе координат, снабжены подробными метаданными и сопровождаются легендами, что обеспечивает корректность их совместного анализа и интерпретации.
-                    </p>
+            <!-- Основной блок контента документации -->
+            <div class="col-md-9">
+                <div class="doc-card p-4 p-md-5 mb-4">
                     
-                    <div class="mt-4 p-3 rounded" style="background-color: var(--geo-light);">
-                        <h6 class="fw-bold mb-3" style="color: var(--geo-dark);">Регламент работы с интерактивной картой:</h6>
-                        <ul class="text-secondary mb-0">
-                            <li class="mb-2"><strong>Управление интерфейсом:</strong> Рабочая область включает интерактивное окно карты и выдвижную панель управления слоями с возможностью скрытия для полноэкранного анализа.</li>
-                            <li class="mb-2"><strong>Масштабирование и подложки:</strong> Доступно переключение между базовой векторной схемой (2GIS) и спутниковыми снимками высокого разрешения (Esri) в зависимости от геологической задачи.</li>
-                            <li class="mb-2"><strong>Динамическая кластеризация:</strong> При масштабировании плотные скопления точечных объектов (месторождений) автоматически группируются в кластеры. На детальных масштабах (зум 9 и выше) система рендерит высокоточные векторные объекты на основе QML-стилей.</li>
-                            <li><strong>Атрибутивные данные:</strong> Каждый тематический слой интегрирован с реляционными таблицами. Доступен вывод карточек объектов по клику (BBOX-запросы) и просмотр полных реестров с помощью кнопки атрибутов.</li>
-                        </ul>
-                    </div>
-                </section>
-
-                <!-- Раздел 3: ИИ и прогнозирование -->
-                <section id="section3" class="mb-5">
-                    <h3 class="doc-section-title">3. Прогнозно-поисковое моделирование (ИИ)</h3>
-                    <p class="text-secondary">
-                        Отличительной особенностью портала является интеграция в него результатов прогнозно-поискового моделирования, выполненного с использованием технологий искусственного интеллекта.
-                    </p>
-                    <div class="border-start border-4 border-warning ps-3 py-2 my-3">
-                        <p class="text-secondary mb-0">
-                            Помимо констатации уже известных месторождений и рудопроявлений, веб-ГИС отображает прогнозные карты перспективных площадей, ранжированные по степени вероятности обнаружения разнотипного оруденения. Это позволяет пользователю не только ознакомиться с текущим состоянием минерально-сырьевой базы региона, но и увидеть новые, ранее не обозначенные на картах территории, которые могут стать объектами первоочередных поисковых работ.
+                    <!-- Блок 1: Паспорт проекта и общие сведения -->
+                    <section id="section1" class="mb-5">
+                        <h3 class="doc-section-title">1. Паспорт проекта и общие сведения</h3>
+                        <p class="text-secondary fw-medium lead" style="font-size: 1.1rem;">
+                            Веб-ГИС портал «Недра Забайкальского края» представляет собой цифровой геоинформационный ресурс, созданный совместной лабораторией «Цифровых методов прогноза и мониторинга полезных ископаемых» Забайкальского государственного университета (ЗабГУ, г. Чита) и Института геологии рудных месторождений, петрографии, минералогии и геохимии Российской академии наук (ИГЕМ РАН) в рамках программы «Приоритет 2030. Дальний Восток».
                         </p>
-                    </div>
-                </section>
+                        <p class="text-secondary">
+                            Портал аккумулирует в единой среде весь массив пространственных данных о геологическом строении, минерально-сырьевых ресурсах и инфраструктуре Забайкальского края, накопленный за десятилетия геологоразведочных работ, и предоставляет к нему доступ для широкого круга пользователей.
+                        </p>
+                        <p class="text-secondary">
+                            Веб-ГИС «Недра Забайкальского края» выполняет одновременно несколько функций: информационную, обеспечивая систематизированное представление данных о недрах региона; аналитическую, предоставляя инструменты для пространственного анализа и прогноза; образовательную, служа основой для подготовки специалистов в области геологии, геоинформатики и недропользования; и управленческую, поддерживая принятие решений органами власти и инвесторами на основе достоверной и актуальной информации.
+                        </p>
+                        <p class="text-secondary">
+                            Создание портала является важным шагом к цифровой трансформации геологической отрасли Забайкальского края и формированию единого информационного пространства, объединяющего науку, образование, государственное управление и бизнес. В перспективе накопленный опыт и разработанные технологии могут быть тиражированы на другие регионы Дальневосточного федерального округа с созданием аналогичных порталов, объединённых в единый веб-ГИС портал «Недра Дальнего Востока».
+                        </p>
+                    </section>
 
-                <!-- Раздел 4: Управление данными -->
-                <section id="section4" class="mb-5">
-                    <h3 class="doc-section-title">4. Управление геоданными и экспорт</h3>
-                    <p class="text-secondary">
-                        Платформа предоставляет расширенные возможности по работе с массивами пространственных данных, позволяя пользователям не только просматривать, но и управлять семантической информацией.
-                    </p>
-                    
-                    <div class="row g-4 mt-2">
-                        <!-- Блок: Атрибуты -->
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded h-100" style="background-color: var(--geo-light);">
-                                <h6 class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-table text-primary me-2"></i>Семантика и атрибуты</h6>
-                                <p class="text-secondary small mb-0">
-                                    У каждого слоя в панели управления есть иконка таблицы. Вызов этого инструмента открывает панель с полной атрибутивной информацией по объектам. Быстрый клик по геометрии на карте инициирует BBOX-запрос к серверу, выводя всплывающую карточку (Popup) с паспортом объекта.
-                                </p>
-                            </div>
-                        </div>
+                    <!-- Блок 2: Картографическая база -->
+                    <section id="section2" class="mb-5">
+                        <h3 class="doc-section-title">2. Картографическая база и структура данных</h3>
+                        <p class="text-secondary">
+                            Основу портала составляет многослойная интерактивная карта, объединяющая физико-географическую основу территории — рельеф, гидрографическую сеть, дороги, населённые пункты, административные границы — с тематическими геологическими слоями. 
+                        </p>
+                        <p class="text-secondary">
+                            Пользователь может последовательно или одновременно отображать геологическую карту, полезные ископаемые, разломную тектонику, геофизические и геохимические поля, а также данные дистанционного зондирования Земли, включая мультиспектральные спутниковые снимки и цифровые модели рельефа. Все слои приведены к единой системе координат, снабжены подробными метаданными и сопровождаются легендами, что обеспечивает корректность их совместного анализа и интерпретации.
+                        </p>
                         
-                        <!-- Блок: Кластеры -->
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded h-100" style="background-color: var(--geo-light);">
-                                <h6 class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-bounding-box-circles text-primary me-2"></i>Динамическая кластеризация</h6>
-                                <p class="text-secondary small mb-0">
-                                    Для оптимизации рендеринга на мелких масштабах плотные группы точек автоматически объединяются в кластеры. При приближении к локальным участкам (зум 9 и выше) система распаковывает кластеры и отображает детальные векторные QML-значки из базы данных.
-                                </p>
-                            </div>
+                        <div class="mt-4 p-3 rounded" style="background-color: var(--geo-light);">
+                            <h6 class="fw-bold mb-3" style="color: var(--geo-dark);">Регламент работы с интерактивной картой:</h6>
+                            <ul class="text-secondary mb-0">
+                                <li class="mb-2"><strong>Управление интерфейсом:</strong> Рабочая область включает интерактивное окно карты и выдвижную панель управления слоями с возможностью скрытия для полноэкранного анализа.</li>
+                                <li class="mb-2"><strong>Масштабирование и подложки:</strong> Доступно переключение между базовой векторной схемой (2GIS) и спутниковыми снимками высокого разрешения (Esri) в зависимости от геологической задачи.</li>
+                                <li class="mb-2"><strong>Динамическая кластеризация:</strong> При масштабировании плотные скопления точечных объектов (месторождений) автоматически группируются в кластеры. На детальных масштабах (зум 9 и выше) система рендерит высокоточные векторные объекты на основе QML-стилей.</li>
+                                <li><strong>Атрибутивные данные:</strong> Каждый тематический слой интегрирован с реляционными таблицами. Доступен вывод карточек объектов по клику (BBOX-запросы) и просмотр полных реестров с помощью кнопки атрибутов.</li>
+                            </ul>
                         </div>
+                    </section>
+
+                    <!-- Блок 3: ИИ и прогнозирование -->
+                    <section id="section3" class="mb-5">
+                        <h3 class="doc-section-title">3. Прогнобно-поисковое моделирование (ИИ)</h3>
+                        <p class="text-secondary">
+                            Отличительной особенностью портала является интеграция в него результатов прогнозно-поискового моделирования, выполненного с использованием технологий искусственного интеллекта.
+                        </p>
+                        <div class="border-start border-4 border-warning ps-3 py-2 my-3">
+                            <p class="text-secondary mb-0">
+                                Помимо констатации уже известных месторождений и рудопроявлений, веб-ГИС отображает прогнозные карты перспективных площадей, ранжированные по степени вероятности обнаружения разнотипного оруденения. Это позволяет пользователю не только ознакомиться с текущим состоянием минерально-сырьевой базы региона, но и увидеть новые, ранее не обозначенные на картах территории, которые могут стать объектами первоочередных поисковых работ.
+                            </p>
+                        </div>
+                    </section>
+
+                    <!-- Блок 4: Управление данными -->
+                    <section id="section4" class="mb-5">
+                        <h3 class="doc-section-title">4. Управление геоданными и экспорт</h3>
+                        <p class="text-secondary">
+                            Платформа предоставляет расширенные возможности по работе с массивами пространственных данных, позволяя пользователям не только просматривать, но и управлять семантической информацией.
+                        </p>
                         
-                        <!-- Блок: Импорт/Экспорт (Только для спецов) -->
-                        <div class="col-12">
-                            <div class="p-3 border rounded border-start border-4 border-warning bg-white">
-                                <h6 class="fw-bold mb-2"><i class="bi bi-cloud-arrow-down-fill text-warning me-2"></i>Экспорт и загрузка слоев (Pro-режим)</h6>
-                                <p class="text-secondary small mb-0">
-                                    Для авторизованных специалистов-геологов и недропользователей предусмотрена возможность выгрузки сырых данных из открытых реестров в форматах <strong>GeoJSON, Shapefile (SHP) и CSV</strong>. Администраторы дата-румов также имеют доступ к модулю загрузки собственных векторных геометрий для наложения на существующую картографическую базу.
-                                </p>
+                        <div class="row g-4 mt-2">
+                            <div class="col-md-6">
+                                <div class="p-3 border rounded h-100" style="background-color: var(--geo-light);">
+                                    <h6 class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-table text-primary me-2"></i>Семантика и атрибуты</h6>
+                                    <p class="text-secondary small mb-0">
+                                        У каждого слоя в панели управления есть иконка таблицы. Вызов этого инструмента открывает панель с полной атрибутивной информацией по объектам. Быстрый клик по геометрии на карте инициирует BBOX-запрос к серверу, выводя всплывающую карточку (Popup) с паспортом объекта.
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Раздел 5: Уровни доступа -->
-                <section id="section5" class="mb-5">
-                    <h3 class="doc-section-title">5. Разграничение уровней доступа</h3>
-                    <p class="text-secondary">
-                        В целях обеспечения информационной безопасности и защиты авторских прав на геологические материалы, портал предусматривает строгую ролевую модель доступа к данным и аналитическим инструментам.
-                    </p>
-
-                    <div class="row g-3 mt-3">
-                        <!-- Уровень 1: Открытый доступ -->
-                        <div class="col-md-4">
-                            <div class="card border-0 shadow-sm h-100" style="background-color: var(--geo-light);">
-                                <div class="card-body p-4">
-                                    <h6 class="fw-bold" style="color: var(--geo-dark);">
-                                        <i class="bi bi-globe text-success me-2 fs-5 align-middle"></i>Открытый доступ
-                                    </h6>
-                                    <p class="text-secondary small mb-0 mt-3">
-                                        Базовый набор картографических подложек и справочная информация о месторождениях. Ресурс открыт для всех посетителей: студентов, краеведов и представителей органов власти.
+                            
+                            <div class="col-md-6">
+                                <div class="p-3 border rounded h-100" style="background-color: var(--geo-light);">
+                                    <h6 class="fw-bold" style="color: var(--geo-dark);"><i class="bi bi-bounding-box-circles text-primary me-2"></i>Динамическая кластеризация</h6>
+                                    <p class="text-secondary small mb-0">
+                                        Для оптимизации рендеринга на мелких масштабах плотные группы точек автоматически объединяются в кластеры. При приближении к локальным участкам (зум 9 и выше) система распаковывает кластеры и отображает детальные векторные QML-значки из базы данных.
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Модуль импорта/экспорта геоданных для профильных специалистов -->
+                            <div class="col-12">
+                                <div class="p-3 border rounded border-start border-4 border-warning bg-white">
+                                    <h6 class="fw-bold mb-2"><i class="bi bi-cloud-arrow-down-fill text-warning me-2"></i>Экспорт и загрузка слоев (Pro-режим)</h6>
+                                    <p class="text-secondary small mb-0">
+                                        Для авторизованных специалистов-геологов и недропользователей предусмотрена возможность выгрузки сырых данных из открытых реестров в форматах <strong>GeoJSON, Shapefile (SHP) и CSV</strong>. Администраторы дата-румов также имеют доступ к модулю загрузки собственных векторных геометрий для наложения на существующую картографическую базу.
                                     </p>
                                 </div>
                             </div>
                         </div>
+                    </section>
 
-                        <!-- Уровень 2: Специалисты -->
-                        <div class="col-md-4">
-                            <div class="card border-0 shadow-sm h-100" style="background-color: var(--geo-light);">
-                                <div class="card-body p-4">
-                                    <h6 class="fw-bold" style="color: var(--geo-dark);">
-                                        <i class="bi bi-briefcase-fill text-primary me-2 fs-5 align-middle"></i>Специалисты
-                                    </h6>
-                                    <p class="text-secondary small mb-0 mt-3">
-                                        Расширенные возможности для геологов и инвесторов. Включает доступ к первичным материалам геологоразведки, ИИ-прогнозам и закрытым тематическим дата-румам.
-                                    </p>
+                    <!-- Блок 5: Уровни доступа -->
+                    <section id="section5" class="mb-5">
+                        <h3 class="doc-section-title">5. Разграничение уровней доступа</h3>
+                        <p class="text-secondary">
+                            В целях обеспечения информационной безопасности и защиты авторских прав на геологические материалы, портал предусматривает строгую ролевую модель доступа к данным и аналитическим инструментам.
+                        </p>
+
+                        <div class="row g-3 mt-3">
+                            <div class="col-md-4">
+                                <div class="card border-0 shadow-sm h-100" style="background-color: var(--geo-light);">
+                                    <div class="card-body p-4">
+                                        <h6 class="fw-bold" style="color: var(--geo-dark);">
+                                            <i class="bi bi-globe text-success me-2 fs-5 align-middle"></i>Открытый доступ
+                                        </h6>
+                                        <p class="text-secondary small mb-0 mt-3">
+                                            Базовый набор картографических подложек и справочная информация о месторождениях. Ресурс открыт для всех посетителей: студентов, краеведов и представителей органов власти.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="card border-0 shadow-sm h-100" style="background-color: var(--geo-light);">
+                                    <div class="card-body p-4">
+                                        <h6 class="fw-bold" style="color: var(--geo-dark);">
+                                            <i class="bi bi-briefcase-fill text-primary me-2 fs-5 align-middle"></i>Специалисты
+                                        </h6>
+                                        <p class="text-secondary small mb-0 mt-3">
+                                            Расширенные возможности для геологов и инвесторов. Включает доступ к первичным материалам геологоразведки, ИИ-прогнозам и закрытым тематическим дата-румам.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="background-color: #fff8e6;">
+                                    <div class="position-absolute top-0 start-0 w-100" style="height: 4px; background-color: #f59e0b;"></div>
+                                    <div class="card-body p-4">
+                                        <h6 class="fw-bold text-dark">
+                                            <i class="bi bi-shield-lock-fill text-warning me-2 fs-5 align-middle"></i>Администрирование
+                                        </h6>
+                                        <p class="text-secondary small mb-0 mt-3">
+                                            Управление жизненным циклом учетных записей. Генерация бессрочных профилей для штатных сотрудников лаборатории и выдача временных сессий (в днях) для практикантов.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </section>
 
-                        <!-- Уровень 3: Администрирование -->
-                        <div class="col-md-4">
-                            <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="background-color: #fff8e6;">
-                                <!-- Декоративная полоска сверху для акцента -->
-                                <div class="position-absolute top-0 start-0 w-100" style="height: 4px; background-color: #f59e0b;"></div>
-                                
-                                <div class="card-body p-4">
-                                    <h6 class="fw-bold text-dark">
-                                        <i class="bi bi-shield-lock-fill text-warning me-2 fs-5 align-middle"></i>Администрирование
-                                    </h6>
-                                    <p class="text-secondary small mb-0 mt-3">
-                                        Управление жизненным циклом учетных записей. Генерация бессрочных профилей для штатных сотрудников лаборатории и выдача временных сессий (в днях) для практикантов.
-                                    </p>
+                    <!-- Блок 6: Стек технологий -->
+                    <section id="section6">
+                        <h3 class="doc-section-title">6. Технологический стек и архитектура</h3>
+                        <p class="text-secondary">
+                            Портал полностью импортонезависим: он базируется на открытом программном обеспечении (Open Source) и отечественных алгоритмах, что гарантирует его устойчивую работу, масштабируемость и безопасность размещённых данных.
+                        </p>
+                        
+                        <div class="row g-3 mt-3">
+                            <div class="col-md-6">
+                                <div class="p-3 border rounded bg-light h-100">
+                                    <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-display me-2"></i>Клиентская часть (Фронтенд)</h6>
+                                    <ul class="text-secondary small mb-0 ps-3">
+                                        <li class="mb-1"><strong>HTML5, CSS3, JS (ES6):</strong> Ядро пользовательского интерфейса, асинхронный обмен данными через Fetch API.</li>
+                                        <li class="mb-1"><strong>Bootstrap 5:</strong> Адаптивная компонентная база и сеточная архитектура.</li>
+                                        <li class="mb-1"><strong>Leaflet.js:</strong> Клиентский картографический движок.</li>
+                                        <li><strong>MarkerCluster:</strong> Модуль динамической агрегации геоданных.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 border rounded bg-light h-100">
+                                    <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-server me-2"></i>Серверная логика и ГИС (Бэкенд)</h6>
+                                    <ul class="text-secondary small mb-0 ps-3">
+                                        <li class="mb-1"><strong>Python (Flask):</strong> Основной фреймворк маршрутизации и серверной бизнес-логики.</li>
+                                        <li class="mb-1"><strong>SQLAlchemy & SQLite:</strong> ORM-система и управление реляционными базами данных.</li>
+                                        <li class="mb-1"><strong>Jinja2:</strong> Шаблонизатор для безопасного рендеринга данных.</li>
+                                        <li><strong>NextGIS Web/Server:</strong> Проксирование тайлов, геометрий и хранение QML-стилей.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="p-3 border rounded bg-light">
+                                    <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-shield-check me-2"></i>Информационная безопасность</h6>
+                                    <ul class="text-secondary small mb-0 ps-3">
+                                        <li class="mb-1"><strong>Werkzeug Security:</strong> Криптографическое хеширование паролей пользователей.</li>
+                                        <li class="mb-1"><strong>Flask-Limiter (Memory Storage):</strong> Защита конечных точек API от брутфорс-атак и DDoS.</li>
+                                        <li class="mb-1"><strong>URLSafeTimedSerializer:</strong> Генерация безопасных временных токенов для сброса паролей.</li>
+                                        <li><strong>SMTP Auth (MIMEMultipart):</strong> Модуль двухфакторной аутентификации (2FA) с подтверждением доверенных устройств через email-шлюз.</li>
+                                    </ul>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </section>
+                    </section>
 
-                <!-- Раздел 6: Стек технологий -->
-                <section id="section6">
-                    <h3 class="doc-section-title">6. Технологический стек и архитектура</h3>
-                    <p class="text-secondary">
-                        Портал полностью импортонезависим: он базируется на открытом программном обеспечении (Open Source) и отечественных алгоритмах, что гарантирует его устойчивую работу, масштабируемость и безопасность размещённых данных.
-                    </p>
-                    
-                    <div class="row g-3 mt-3">
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded bg-light h-100">
-                                <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-display me-2"></i>Клиентская часть (Фронтенд)</h6>
-                                <ul class="text-secondary small mb-0 ps-3">
-                                    <li class="mb-1"><strong>HTML5, CSS3, JS (ES6):</strong> Ядро пользовательского интерфейса, асинхронный обмен данными через Fetch API.</li>
-                                    <li class="mb-1"><strong>Bootstrap 5:</strong> Адаптивная компонентная база и сеточная архитектура.</li>
-                                    <li class="mb-1"><strong>Leaflet.js:</strong> Клиентский картографический движок.</li>
-                                    <li><strong>MarkerCluster:</strong> Модуль динамической агрегации геоданных.</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded bg-light h-100">
-                                <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-server me-2"></i>Серверная логика и ГИС (Бэкенд)</h6>
-                                <ul class="text-secondary small mb-0 ps-3">
-                                    <li class="mb-1"><strong>Python (Flask):</strong> Основной фреймворк маршрутизации и серверной бизнес-логики.</li>
-                                    <li class="mb-1"><strong>SQLAlchemy & SQLite:</strong> ORM-система и управление реляционными базами данных.</li>
-                                    <li class="mb-1"><strong>Jinja2:</strong> Шаблонизатор для безопасного рендеринга данных.</li>
-                                    <li><strong>NextGIS Web/Server:</strong> Проксирование тайлов, геометрий и хранение QML-стилей.</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <div class="p-3 border rounded bg-light">
-                                <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-shield-check me-2"></i>Информационная безопасность</h6>
-                                <ul class="text-secondary small mb-0 ps-3">
-                                    <li class="mb-1"><strong>Werkzeug Security:</strong> Криптографическое хеширование паролей пользователей.</li>
-                                    <li class="mb-1"><strong>Flask-Limiter (Memory Storage):</strong> Защита конечных точек API от брутфорс-атак и DDoS.</li>
-                                    <li class="mb-1"><strong>URLSafeTimedSerializer:</strong> Генерация безопасных временных токенов для сброса паролей.</li>
-                                    <li><strong>SMTP Auth (MIMEMultipart):</strong> Модуль двухфакторной аутентификации (2FA) с подтверждением доверенных устройств через email-шлюз.</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
+                </div>
             </div>
-        </div>
 
+        </div>
     </div>
-</div>
-<!-- Кнопка Наверх -->
-<button class="btn border-0 shadow-lg d-none d-flex align-items-center justify-content-center" id="btn-back-to-top" style="position: fixed; bottom: 40px; right: 40px; width: 50px; height: 50px; background-color: var(--geo-main); color: white; border-radius: 50%; z-index: 1000; transition: opacity 0.3s;">
-    <i class="bi bi-chevron-up fs-5"></i>
-</button>
-    <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
+
+    <!-- Компонент возврата к началу страницы (Scroll-to-top) -->
+    <button class="btn border-0 shadow-lg d-none d-flex align-items-center justify-content-center" id="btn-back-to-top" style="position: fixed; bottom: 40px; right: 40px; width: 50px; height: 50px; background-color: var(--geo-main); color: white; border-radius: 50%; z-index: 1000; transition: opacity 0.3s;">
+        <i class="bi bi-chevron-up fs-5"></i>
+    </button>
+    
+    <!-- Скрипт управления логикой цветовой темы -->
     <script src="../static/js/theme.js"></script>
 
+    <!-- Контроллер видимости и плавного скролла для кнопки возврата к началу -->
     <script>
-        // Логика кнопки "Наверх"
-    const mybutton = document.getElementById("btn-back-to-top");
+        const mybutton = document.getElementById("btn-back-to-top");
 
-    window.addEventListener('scroll', function() {
-        // Показываем кнопку, если проскроллили больше 300 пикселей
-        if (window.scrollY > 300) {
-            mybutton.classList.remove("d-none");
-        } else {
-            mybutton.classList.add("d-none");
-        }
-    });
-
-    mybutton.addEventListener("click", function () {
-        // Плавная прокрутка наверх
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
+        window.addEventListener('scroll', function() {
+            if (window.scrollY > 300) {
+                mybutton.classList.remove("d-none");
+            } else {
+                mybutton.classList.add("d-none");
+            }
         });
-    });
+
+        mybutton.addEventListener("click", function () {
+            window.scrollTo({
+                top: 0,
+                behavior: "smooth"
+            });
+        });
     </script>
 
 </body>

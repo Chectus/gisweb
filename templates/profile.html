@@ -1,3 +1,8 @@
+<!-- 
+  Файл: profile.html
+  Описание: Личный кабинет пользователя. 
+  Отображает информацию об учетной записи (статус, роль, email) и предоставляет функционал для управления безопасностью: принудительное завершение сторонних сеансов и двухэтапную смену пароля.
+-->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -5,24 +10,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Личный кабинет | Недра Забайкальского края</title>
     
-    <!-- Подключаем Bootstrap и иконки -->
+    <!-- Подключение внешних библиотек и локальных стилей -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
-    
-    <!-- Твой основной CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
 </head>
 <body>
+    
+    <!-- Синхронная инициализация цветовой темы -->
     <script>
-        // Срабатывает мгновенно, до отрисовки карточек и текстов
         if (localStorage.getItem('app-theme') === 'dark') {
             document.body.classList.add('dark-theme');
         }
     </script>
-    <!-- НАВИГАЦИЯ -->
+    
+    <!-- Верхняя навигационная панель -->
     <nav class="navbar navbar-expand-lg navbar-custom py-3">
         <div class="container">
             <a class="btn btn-outline-light btn-sm fw-medium me-3 border-opacity-50" href="/hub">
@@ -38,15 +41,18 @@
         </div>
     </nav>
 
+    <!-- Основной контейнер сетки профиля -->
     <div class="container my-5">
         <div class="row justify-content-center g-4">
             
-            <!-- ЛЕВАЯ КОЛОНКА (Инфа и Сессии) -->
+            <!-- Левая колонка: Информационные блоки и управление сессиями -->
             <div class="col-md-5">
                 
-                <!-- БЛОК 1: Информация об аккаунте -->
+                <!-- Карточка профиля пользователя -->
                 <div class="card border-0 shadow-sm rounded-4 mb-4">
                     <div class="card-body p-4">
+                        
+                        <!-- Заголовок карточки с аватаром и системной ролью -->
                         <div class="d-flex align-items-center mb-4 pb-3 border-bottom border-opacity-25">
                             <div class="rounded-circle d-flex justify-content-center align-items-center bg-light me-3" style="width: 60px; height: 60px;">
                                 <i class="bi bi-person-fill fs-2" style="color: var(--geo-main);"></i>
@@ -61,6 +67,7 @@
                             </div>
                         </div>
 
+                        <!-- Детальная информация об учетной записи -->
                         <ul class="list-group list-group-flush mb-3">
                             <li class="list-group-item px-0 py-3 d-flex align-items-center">
                                 <i class="bi bi-envelope text-muted me-3"></i>
@@ -84,7 +91,7 @@
                     </div>
                 </div>
 
-                <!-- БЛОК 2: Управление сессиями -->
+                <!-- Карточка управления безопасностью сторонних сеансов -->
                 <div class="card border-0 shadow-sm rounded-4 border-start border-danger border-4">
                     <div class="card-body p-4">
                         <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock-fill text-danger me-2"></i>Безопасность сеансов</h5>
@@ -92,6 +99,7 @@
                             Если вы заходили в систему с чужого компьютера и забыли выйти, вы можете принудительно завершить все сеансы (кроме текущего).
                         </p>
 
+                        <!-- Вывод подтверждения успешного завершения сеансов -->
                         {% if message %}
                             <div class="alert alert-success small py-2 d-flex align-items-center" role="alert">
                                 <i class="bi bi-check-circle-fill me-2"></i>{{ message }}
@@ -108,15 +116,14 @@
 
             </div>
 
-            <!-- ПРАВАЯ КОЛОНКА (Смена пароля) -->
+            <!-- Правая колонка: Форма изменения пароля -->
             <div class="col-md-7">
                 
-                <!-- БЛОК 3: Умная смена пароля -->
                 <div class="card border-0 shadow-sm rounded-4 h-100">
                     <div class="card-body p-4 p-md-5">
                         <h4 class="fw-bold mb-4" style="color: var(--geo-dark);">Смена пароля</h4>
                         
-                        <!-- Вывод ошибок и успехов -->
+                        <!-- Блок вывода информационных сообщений и ошибок смены пароля -->
                         {% if error_pwd %} 
                             <div class="alert alert-danger small py-2 d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error_pwd }}</div> 
                         {% endif %}
@@ -125,8 +132,10 @@
                             <div class="alert alert-success small py-2 d-flex align-items-center"><i class="bi bi-check-circle-fill me-2"></i>{{ msg_pwd }}</div> 
                         {% endif %}
 
+                        <!-- Маршрутизация состояния формы: Ожидание 2FA или первоначальный ввод -->
                         {% if show_pwd_2fa %}
-                            <!-- ШАГ 2: ВВОД КОДА 2FA -->
+                            
+                            <!-- Форма подтверждения смены пароля (ввод 2FA кода) -->
                             <div class="text-center mb-4">
                                 <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle mb-3" style="width: 70px; height: 70px;">
                                     <i class="bi bi-envelope-paper fs-1"></i>
@@ -142,9 +151,12 @@
                                 </div>
                                 <button type="submit" class="btn btn-geo w-100 py-2">Подтвердить смену пароля</button>
                             </form>
+                            
                         {% else %}
-                            <!-- ШАГ 1: ВВОД ПАРОЛЕЙ -->
+                            
+                            <!-- Форма запроса на смену пароля -->
                             <form action="{{ url_for('change_password_request') }}" method="POST" id="pwdForm">
+                                
                                 <div class="mb-3">
                                     <label class="form-label small fw-bold text-muted">Текущий пароль</label>
                                     <div class="input-group">
@@ -176,11 +188,13 @@
                                             <i class="bi bi-eye text-muted"></i>
                                         </button>
                                     </div>
+                                    <!-- Скрытый контейнер клиентской ошибки валидации -->
                                     <div id="pwdError" class="text-danger small mt-2 d-none"><i class="bi bi-x-circle me-1"></i> Пароли не совпадают!</div>
                                 </div>
                                 
                                 <button type="submit" class="btn btn-geo w-100 py-2">Запросить смену</button>
                             </form>
+                            
                         {% endif %}
 
                     </div>
@@ -189,30 +203,27 @@
             </div>
         </div>
     </div>
-    <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
+    
     <script src="../static/js/theme.js"></script>
 
-    <!-- СКРИПТЫ ДЛЯ ЛОГИКИ ФРОНТЕНДА -->
+    <!-- Инициализация клиентской логики страницы -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
-            // --- БЛОК 4: ЛОГИКА ТЁМНОЙ ТЕМЫ ---
+            // Инициализация логики переключения цветовой темы
             const themeToggleBtn = document.getElementById('theme-toggle');
             const themeIcon = document.getElementById('theme-icon');
             const body = document.body;
 
-            // 1. Проверяем сохраненную тему
             const savedTheme = localStorage.getItem('app-theme');
             if (savedTheme === 'dark') {
                 body.classList.add('dark-theme');
                 themeIcon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
             }
 
-            // 2. Клик по переключателю
             themeToggleBtn.addEventListener('click', () => {
                 body.classList.toggle('dark-theme');
                 
-                // 3. Сохранение и смена иконки
                 if (body.classList.contains('dark-theme')) {
                     localStorage.setItem('app-theme', 'dark');
                     themeIcon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
@@ -222,7 +233,7 @@
                 }
             });
 
-            // --- БЛОК 3: ВАЛИДАЦИЯ ПАРОЛЕЙ ---
+            // Клиентская валидация совпадения новых паролей перед отправкой
             const pwdForm = document.getElementById('pwdForm');
             if (pwdForm) {
                 pwdForm.addEventListener('submit', function(e) {
@@ -231,32 +242,28 @@
                     const errorDiv = document.getElementById('pwdError');
 
                     if (newPwd !== repeatPwd) {
-                        e.preventDefault(); // Останавливаем отправку формы на бэкенд
-                        errorDiv.classList.remove('d-none'); // Показываем текст ошибки
+                        e.preventDefault(); 
+                        errorDiv.classList.remove('d-none'); 
                     } else {
                         errorDiv.classList.add('d-none');
                     }
                 });
             }
-
         });
     </script>
+    
+    <!-- Универсальный обработчик переключения видимости символов пароля -->
     <script>
-        // Находим ВСЕ кнопки-глазики на странице
         const toggleButtons = document.querySelectorAll('.toggle-password-btn');
 
         toggleButtons.forEach(button => {
             button.addEventListener('click', function () {
-                // Находим input, который стоит в коде прямо перед нажатой кнопкой
                 const passwordInput = this.previousElementSibling;
-                // Находим иконку <i> внутри именно этой нажатой кнопки
                 const toggleIcon = this.querySelector('i');
 
-                // Переключаем тип поля
                 const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
                 passwordInput.setAttribute('type', type);
 
-                // Переключаем иконку
                 toggleIcon.classList.toggle('bi-eye');
                 toggleIcon.classList.toggle('bi-eye-slash');
             });

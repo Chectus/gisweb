@@ -1,35 +1,44 @@
-<!doctype html>
+<!-- 
+  Файл: map.html
+  Описание: Основной интерфейс интерактивной карты. 
+  Включает контейнер геоинформационного движка (Leaflet), боковые панели управления слоями и атрибутами, 
+  а также модули локальной загрузки данных и формирования PDF-отчетов.
+-->
+<!DOCTYPE html>
 <html lang="ru" class="map-html">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Интерактивная карта | Недра Забайкальского края</title>
 
+    <!-- Базовые стили и иконки интерфейса -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    
+    <!-- Стили картографического движка и плагинов кластеризации -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
 
-    <!-- Парсер для KML (Leaflet Omnivore) -->
+    <!-- Клиентские парсеры пространственных данных (KML, Shapefile) -->
     <script src="https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js"></script>
-    <!-- Парсер для Shapefile ZIP-архивов (shpjs) -->
     <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
+    <!-- Пользовательские стили и фавикон -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
-    
-    <!-- ПОДКЛЮЧАЕМ НАШ ВЫНЕСЕННЫЙ CSS -->
     <link rel="stylesheet" href="../static/css/style.css">
   </head>
+  
   <body class="map-body">
+    
+    <!-- Синхронная инициализация цветовой темы (предотвращение визуального мерцания) -->
     <script>
-        // Срабатывает мгновенно, до отрисовки карточек и текстов
         if (localStorage.getItem('app-theme') === 'dark') {
             document.body.classList.add('dark-theme');
         }
     </script>
     
-    <!-- ОБНОВЛЕННАЯ СИНЯЯ НАВИГАЦИЯ -->
+    <!-- Верхняя навигационная панель -->
     <nav class="navbar navbar-expand-lg navbar-custom py-2">
       <div class="container-fluid">
           <a class="btn btn-outline-light btn-sm fw-medium me-3 border-opacity-50" href="/hub">
@@ -45,32 +54,33 @@
       </div>
     </nav>
 
+    <!-- Основная рабочая область карты -->
     <div class="map-wrapper">
+      
+      <!-- Левая панель: Управление слоями -->
       <nav id="layersSidebar" class="p-3 bg-white">
-        <!-- Шапка бокового меню -->
         <h5 class="fw-bold mb-4 border-bottom pb-2" style="color: var(--geo-dark);">
           <i class="bi bi-layers me-2" style="color: var(--geo-main);"></i>Слои карты
         </h5>
 
         <div class="sidebar-content overflow-auto">
+          
+          <!-- Модуль локальной загрузки пользовательских файлов -->
           <div class="mb-4">
             <div class="card border-0 shadow-sm mt-3" style="background-color: var(--geo-light);">
                 <div class="card-body p-3">
                     <h6 class="fw-bold mb-3" style="color: var(--geo-dark);">
                         <i class="bi bi-cloud-arrow-up-fill text-primary me-2"></i>Загрузка слоев (Локально)
                     </h6>
-                    
-                    <!-- Поле загрузки файла (Input) -->
                     <input class="form-control form-control-sm mb-3 border-primary border-opacity-25" type="file" id="localGeoInput" accept=".zip,.kml,.geojson,.json">
                     <div class="form-text small text-muted mb-3" style="font-size: 0.7rem;">
                         Поддерживаются: GeoJSON, KML и Shapefile (только в ZIP-архиве с файлами .shp, .shx, .dbf).
                     </div>
-
-                    <!-- Контейнер, куда JS будет добавлять настройки для каждого загруженного слоя -->
                     <div id="localLayersContainer" class="d-flex flex-column gap-2"></div>
                 </div>
             </div>
 
+            <!-- Селектор базовой подложки карты -->
             <label class="form-label text-muted small text-uppercase fw-bold mb-2">Подложка</label>
             <div class="d-flex flex-column gap-2">
               <div class="form-check layer-item">
@@ -83,26 +93,22 @@
               </div>
           </div>
 
-          <div class="mb-3">
+          <!-- Контейнер серверных векторных и растровых слоев (заполняется через JS) -->
+          <div class="mb-3 mt-4">
             <label class="form-label text-muted small text-uppercase fw-bold mb-2">Данные</label>
-            <!-- Это пустой контейнер. Вся магия теперь происходит внутри него -->
-            <div class="d-flex flex-column gap-2" id="layersAccordion">
-                
-                <!-- ПУСТОТА. ВЕСЬ ХАРДКОД УДАЛЁН -->
-                <!-- Сюда наш новый скрипт initDynamicLayers() сам нарисует все папки и чекбоксы, скачав их из JSON -->
-                
-            </div>
+            <div class="d-flex flex-column gap-2" id="layersAccordion"></div>
           </div>
         </div>
       </nav>
 
+      <!-- Кнопка скрытия/раскрытия левой панели -->
       <button type="button" id="layersSidebarCollapse" class="btn border text-center">
         <i class="bi bi-chevron-left" id="layerToggleIcon"></i>
       </button>
 
+      <!-- Правая панель: Таблица атрибутов -->
       <nav id="attributeSidebar" class="p-3 bg-white">
         <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-          <!-- Шапка таблицы атрибутов -->
           <h5 class="fw-bold mb-0" style="color: var(--geo-dark);"><i class="bi bi-table me-2" style="color: var(--geo-main);"></i>Таблица слоя</h5>
           <button type="button" class="btn-close" id="closeAttributeSidebar" aria-label="Close"></button>
         </div>
@@ -111,8 +117,10 @@
         </div>
       </nav>
 
+      <!-- Контейнер рендеринга Leaflet -->
       <div id="map"></div>
-      <!-- QGIS-подобный переключатель масштаба -->
+      
+      <!-- Контроллер выбора масштаба (стилизация под QGIS) -->
       <div class="qgis-scale-control shadow-sm border rounded bg-white px-2 py-1 d-flex align-items-center" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000;">
           <i class="bi bi-search text-muted me-2 small"></i>
           <span class="text-muted small fw-bold me-2">Масштаб</span>
@@ -130,7 +138,7 @@
       </div>
     </div>
 
-    <!-- Компактная плавающая кнопка отчетов (над масштабной линейкой) -->
+    <!-- Плавающая кнопка вызова корзины PDF-отчетов -->
     <button class="btn shadow position-fixed rounded-circle d-flex align-items-center justify-content-center" 
             id="btnCompareCart"
             style="width: 48px; height: 48px; bottom: 75px; right: 20px; z-index: 1050; background-color: var(--geo-main); border: none;" 
@@ -140,7 +148,7 @@
         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" id="compareBadge" style="font-size: 0.7rem;">0</span>
     </button>
 
-    <!-- Боковая панель (Offcanvas) -->
+    <!-- Выдвижная панель (Offcanvas) со списком объектов для сравнения -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="compareOffcanvas" aria-labelledby="compareOffcanvasLabel">
         <div class="offcanvas-header bg-light border-bottom">
             <h5 class="offcanvas-title fw-bold" id="compareOffcanvasLabel" style="color: var(--geo-dark);">
@@ -149,37 +157,32 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Закрыть"></button>
         </div>
         <div class="offcanvas-body d-flex flex-column">
-            
             <p class="text-muted small mb-3">Добавьте объекты с карты для сравнения их атрибутов.</p>
-            
-            <!-- Список объектов -->
             <ul class="list-group mb-4 flex-grow-1 overflow-auto" id="compareList">
-                <li class="list-group-item text-center text-muted border-dashed py-4" id="emptyCompareMsg">
-                    Список пуст
-                </li>
+                <li class="list-group-item text-center text-muted border-dashed py-4" id="emptyCompareMsg">Список пуст</li>
             </ul>
-
-            <!-- Кнопка генерации -->
             <button class="btn btn-danger w-100 py-2 fw-bold d-none" id="btnGenerateCompare" onclick="downloadReport('compare')">
                 <i class="bi bi-file-earmark-pdf-fill me-2"></i>Сгенерировать PDF-сравнение
             </button>
-            <button class="btn btn-outline-secondary w-100 mt-2 d-none" id="btnClearCompare" onclick="clearCompareCart()">
-                Очистить список
-            </button>
+            <button class="btn btn-outline-secondary w-100 mt-2 d-none" id="btnClearCompare" onclick="clearCompareCart()">Очистить список</button>
         </div>
     </div>
 
-    <!-- БАЗОВЫЕ СКРИПТЫ (Теперь строго в одном экземпляре!) -->
+    <!-- Базовые JS-библиотеки -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Бэкенд подставит сюда массив [324, 325, 380, 381] или строку "*" для админов -->
+
+    <!-- 
+      Примечание к синтаксису (ошибка в IDE):
+      Линтеры и редакторы кода могут подсвечивать фигурную скобку как синтаксическую ошибку JavaScript.
+      Это нормальное поведение. Синтаксис {{ ... }} обрабатывается шаблонизатором Jinja2 на стороне сервера.
+      При рендеринге страницы бэкенд подставит сюда валидный JSON, и в браузере код выполнится без ошибок.
+    -->
     <script>  const userAllowedLayers = {{ allowed_layers | safe }}; </script>
 
-
-    <!-- ПОДКЛЮЧАЕМ НАШ ВЫНЕСЕННЫЙ JS -->
+    <!-- Пользовательская логика приложения -->
     <script src="../static/js/map_logic.js"></script>
-    <!-- ПОДКЛЮЧАЕМ НАШ СКРИПТ ТЕМЫ -->
     <script src="../static/js/theme.js"></script>
 
   </body>

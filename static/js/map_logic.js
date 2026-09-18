@@ -1,68 +1,73 @@
 /**
- * ГЛАВНЫЙ СКРИПТ КАРТЫ (ГИС Забайкальского края)
+ * Файл: map_logic.js
+ * Описание: Основной контроллер геоинформационного интерфейса. 
+ * Управляет инициализацией картографического движка (Leaflet), динамической загрузкой 
+ * слоев через API NextGIS, обработкой пространственных запросов, клиентским парсингом 
+ * пользовательских файлов (GeoJSON, KML, SHP) и логикой генерации PDF-отчетов.
  */
 
-const nextgisBaseUrl = ""; // Адрес сервера (если нужен)
+const nextgisBaseUrl = "";
 
-// ==========================================
-// БЛОК 1: ИНИЦИАЛИЗАЦИЯ КАРТЫ
-// ==========================================
+/* --- Инициализация картографической базы --- */
+
 const map = L.map("map", { zoomControl: false, minZoom: 3, maxZoom: 18 }).setView([52.03, 117.5], 6);
 L.control.zoom({ position: "bottomleft" }).addTo(map);
 L.control.scale({ position: 'bottomright', metric: true, imperial: false }).addTo(map);
 
+/* Конфигурация и переключение растровых подложек (Basemaps) */
 const basemaps = {
-  gis2: L.tileLayer("https://tile{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1", { subdomains: ["0", "1", "2", "3"], attribution: "&copy; 2GIS", noWrap: true, maxZoom: 19, zIndex: 1 }).addTo(map),
-  esri: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: "&copy; Esri", maxZoom: 19, noWrap: true, zIndex: 1 }),
+    gis2: L.tileLayer("https://tile{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1", { subdomains: ["0", "1", "2", "3"], attribution: "&copy; 2GIS", noWrap: true, maxZoom: 19, zIndex: 1 }).addTo(map),
+    esri: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: "&copy; Esri", maxZoom: 19, noWrap: true, zIndex: 1 }),
 };
 
 document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
-  radio.addEventListener("change", (e) => {
-    Object.values(basemaps).forEach((layer) => map.removeLayer(layer));
-    map.addLayer(basemaps[e.target.value]);
-  });
+    radio.addEventListener("change", (e) => {
+        Object.values(basemaps).forEach((layer) => map.removeLayer(layer));
+        map.addLayer(basemaps[e.target.value]);
+    });
 });
 
-// ==========================================
-// БЛОК 2: АРХИТЕКТУРА ИНТЕРФЕЙСА
-// ==========================================
+/* --- Управление состоянием пользовательского интерфейса --- */
+
 const sidebar = document.getElementById("layersSidebar");
 const btnCollapse = document.getElementById("layersSidebarCollapse");
 const iconToggle = document.getElementById("layerToggleIcon");
 
+// Адаптивная обработка боковой панели для мобильных устройств
 if (window.innerWidth <= 768) {
-  if (sidebar) sidebar.classList.add("collapsed");
-  if (iconToggle) iconToggle.className = "bi bi-chevron-right";
+    if (sidebar) sidebar.classList.add("collapsed");
+    if (iconToggle) iconToggle.className = "bi bi-chevron-right";
 }
 
 if (btnCollapse) {
-  btnCollapse.addEventListener("click", () => {
-    sidebar.classList.toggle("collapsed");
-    iconToggle.className = sidebar.classList.contains("collapsed") ? "bi bi-chevron-right" : "bi bi-chevron-left";
-    setTimeout(() => map.invalidateSize(), 300);
-  });
+    btnCollapse.addEventListener("click", () => {
+        sidebar.classList.toggle("collapsed");
+        iconToggle.className = sidebar.classList.contains("collapsed") ? "bi bi-chevron-right" : "bi bi-chevron-left";
+        setTimeout(() => map.invalidateSize(), 300);
+    });
 }
 
 map.on('click', () => {
-  if (window.innerWidth <= 768 && sidebar && !sidebar.classList.contains("collapsed")) {
-    sidebar.classList.add("collapsed");
-    if (iconToggle) iconToggle.className = "bi bi-chevron-right";
-  }
+    if (window.innerWidth <= 768 && sidebar && !sidebar.classList.contains("collapsed")) {
+        sidebar.classList.add("collapsed");
+        if (iconToggle) iconToggle.className = "bi bi-chevron-right";
+    }
 });
 
+// Проверка состояния чекбокса родительской директории
 function isFolderChecked(chk) {
-  const folder = chk.closest('.collapse');
-  if (!folder) return true;
-  const container = folder.parentElement;
-  const masterCheck = container.querySelector('.folder-master-checkbox');
-  return masterCheck ? masterCheck.checked : true;
+    const folder = chk.closest('.collapse');
+    if (!folder) return true;
+    const container = folder.parentElement;
+    const masterCheck = container.querySelector('.folder-master-checkbox');
+    return masterCheck ? masterCheck.checked : true;
 }
 
-// ==========================================
-// БЛОК 3: ДИНАМИЧЕСКИЙ ДВИЖОК СЛОЕВ
-// ==========================================
+/* --- Модуль динамической загрузки и рендеринга слоев --- */
+
 let dynamicQueryQueue = [];
 
+// Обработка ограничений прав доступа (Уведомления)
 function showForbiddenToast(layerName) {
     let toastContainer = document.getElementById('geo-toast-container');
     if (!toastContainer) {
@@ -86,6 +91,7 @@ function showForbiddenToast(layerName) {
     setTimeout(() => { if (toastContainer.lastChild) toastContainer.lastChild.remove(); }, 4000);
 }
 
+// Асинхронное получение конфигурации слоев и построение DOM-дерева навигации
 async function initDynamicLayers() {
     try {
         const response = await fetch('/api/layers_config');
@@ -114,7 +120,7 @@ async function initDynamicLayers() {
                     const rasterId = ids[1] || ids[0];
                     const chkId = `chk_${rasterId}`;
                     
-                    // Безопасное чтение прав с бэкенда
+                    // Валидация прав пользователя на просмотр текущего слоя
                     let allowed = [];
                     let isAllAllowed = false;
                     
@@ -134,7 +140,7 @@ async function initDynamicLayers() {
                         hasAnyLayerInSub = true;
                         hasAnyLayerInCategory = true;
                         
-                        // Гибриды только для реальных точек (ИСПРАВЛЕНО)
+                        // Определение типа слоя для настройки порогов гибридной кластеризации
                         const isPointLayer = layerName.includes('Населённые пункты') || 
                                              layerName.includes('Месторождения') || 
                                              layerName.includes('Рудопроявления') || 
@@ -191,7 +197,10 @@ async function initDynamicLayers() {
     }
 }
 
+// Привязка обработчиков событий к динамически созданным элементам
 function bindDynamicLogic() {
+    
+    // Делегирование событий чекбоксов директорий
     document.querySelectorAll('.folder-master-checkbox').forEach(master => {
         master.addEventListener('change', (e) => {
             const folder = e.target.closest('.border').querySelector('.collapse');
@@ -220,6 +229,7 @@ function bindDynamicLogic() {
         });
     });
 
+    // Управление видимостью и подгрузкой слоев на карте
     document.querySelectorAll('.dyn-layer-chk').forEach(chk => {
         const rasterId = chk.getAttribute('data-raster');
         const vectorId = chk.getAttribute('data-vector');
@@ -238,6 +248,7 @@ function bindDynamicLogic() {
             clusterGroup = L.markerClusterGroup({ maxClusterRadius: 50 });
         }
 
+        // Асинхронная загрузка векторных геометрий для клиентской кластеризации
         async function loadHybridVector() {
             if (isVectorLoaded || !isHybrid) return;
             try {
@@ -295,6 +306,7 @@ function bindDynamicLogic() {
         if (isHybrid) map.on('zoomend', updateVisibility);
     });
     
+    // Делегирование открытия атрибутивной таблицы
     document.querySelectorAll('.attr-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -311,12 +323,10 @@ function bindDynamicLogic() {
     });
 }
 
-// Запускаем сборку интерфейса
 initDynamicLayers();
 
-// ==========================================
-// БЛОК 4: BBOX КЛИК ПО КАРТЕ
-// ==========================================
+/* --- Обработка пространственных запросов (BBOX) --- */
+
 map.on('click', async function(e) {
     const point = L.CRS.EPSG3857.project(e.latlng);
     
@@ -348,7 +358,6 @@ map.on('click', async function(e) {
                 const featureItem = data[0];
                 const props = featureItem.fields;
                 
-                // Универсальное определение ID и Названия (без привязки к fid или name)
                 const objectId = featureItem.id || props.id || props.fid || 1;
                 const objectName = props.name || props['Название'] || props.title || props.fclass || `Объект #${objectId}`;
 
@@ -365,7 +374,6 @@ map.on('click', async function(e) {
                 }
                 popupContent += `</tbody></table>`;
                 
-                // Вставляем универсальные кнопки для отчетов
                 popupContent += getPopupButtonsHTML(layer.vectorId, objectId, objectName);
                 popupContent += `</div>`;
 
@@ -378,9 +386,8 @@ map.on('click', async function(e) {
     }
 });
 
-// ==========================================
-// БЛОК 5: ТАБЛИЦА АТРИБУТОВ И СИНХРОНИЗАЦИЯ МАСШТАБА
-// ==========================================
+/* --- Модуль атрибутивных таблиц и синхронизации масштаба --- */
+
 const attrSidebar = document.getElementById('attributeSidebar');
 const closeAttrBtn = document.getElementById('closeAttributeSidebar');
 const attrContainer = document.getElementById('attributeTableContainer');
@@ -389,6 +396,7 @@ if(closeAttrBtn) {
   closeAttrBtn.addEventListener('click', () => { if(attrSidebar) attrSidebar.classList.remove('open'); });
 }
 
+// Запрос семантических данных и рендеринг таблицы слоя
 async function loadAttributeTable(vectorId, layerName) {
   if(attrSidebar) attrSidebar.classList.add('open');
   if(attrContainer) attrContainer.innerHTML = `<div class="text-center mt-5">
@@ -406,8 +414,6 @@ async function loadAttributeTable(vectorId, layerName) {
     }
 
     const firstProps = data[0].fields;
-    
-    // Собираем все ID объектов для возможности выгрузки всей таблицы целиком
     const allObjectIds = data.map(item => item.id || (item.fields && item.fields.id) || (item.fields && item.fields.fid));
 
     let tableHTML = `
@@ -442,7 +448,6 @@ async function loadAttributeTable(vectorId, layerName) {
     if(attrContainer) {
       attrContainer.innerHTML = tableHTML;
       
-      // Вешаем обработчик на экспорт всей таблицы
       document.getElementById('btnExportFullTable').addEventListener('click', () => {
         downloadBulkLayerReport(vectorId, allObjectIds, layerName);
       });
@@ -452,6 +457,7 @@ async function loadAttributeTable(vectorId, layerName) {
   }
 }
 
+// Контроллер синхронизации пользовательского масштаба
 const scaleSelect = document.getElementById('scaleSelect');
 if (scaleSelect) {
   scaleSelect.addEventListener('change', (e) => {
@@ -475,12 +481,12 @@ if (scaleSelect) {
   map.fire('zoomend');
 }
 
-// --- Глобальное состояние корзины ---
-let compareCart = []; 
-let currentLayerId = null; // Храним ID слоя, чтобы сравнивать только однотипные объекты
+/* --- Корзина сравнения объектов и генерация отчетов --- */
 
-// --- 1. Генерация кнопок для попапа (Leaflet) ---
-// Эту функцию нужно вызывать внутри твоего bindPopup() при клике на объект
+let compareCart = []; 
+let currentLayerId = null; 
+
+// Генерация интерактивных кнопок для карточки объекта (Popup)
 function getPopupButtonsHTML(layerId, objectId, objectName) {
     return `
         <div class="mt-3 border-top pt-2">
@@ -497,25 +503,23 @@ function getPopupButtonsHTML(layerId, objectId, objectName) {
     `;
 }
 
-// --- 2. Управление корзиной ---
+// Управление состоянием корзины выборки
 function isObjectInCart(objectId) {
     return compareCart.some(obj => obj.id === objectId);
 }
 
+// Валидация и добавление геометрий в реестр сравнения
 function toggleCompareCart(layerId, objectId, objectName, btnElement) {
-    // Запрещаем сравнивать объекты из разных слоев (у них разные атрибуты)
     if (currentLayerId !== null && currentLayerId !== layerId && compareCart.length > 0) {
         alert("Для сравнения можно добавлять объекты только из одного слоя!");
         return;
     }
 
     if (isObjectInCart(objectId)) {
-        // Удаляем
         compareCart = compareCart.filter(obj => obj.id !== objectId);
         btnElement.classList.replace('btn-success', 'btn-outline-primary');
         btnElement.innerHTML = '<i class="bi bi-plus-circle me-1"></i> К сравнению';
     } else {
-        // Добавляляем
         currentLayerId = layerId;
         compareCart.push({ id: objectId, name: objectName });
         btnElement.classList.replace('btn-outline-primary', 'btn-success');
@@ -524,6 +528,7 @@ function toggleCompareCart(layerId, objectId, objectName, btnElement) {
     updateCompareUI();
 }
 
+// Синхронизация DOM-интерфейса корзины с массивом данных
 function updateCompareUI() {
     const list = document.getElementById('compareList');
     const badge = document.getElementById('compareBadge');
@@ -549,7 +554,6 @@ function updateCompareUI() {
             `;
         });
         
-        // Разрешаем генерацию только если объектов 2 или больше
         if (compareCart.length >= 2) {
             btnGenerate.classList.remove('d-none');
         } else {
@@ -559,21 +563,21 @@ function updateCompareUI() {
     }
 }
 
+// Очистка сессии сравнения
 function clearCompareCart() {
     compareCart = [];
     currentLayerId = null;
     updateCompareUI();
-    // Закрываем все попапы Leaflet, чтобы сбросить кнопки
     if (window.map) map.closePopup(); 
 }
 
-// --- 3. Взаимодействие с API (Магия Blob) ---
+/* --- Модуль взаимодействия с API (генерация PDF) --- */
+
+// Формирование одиночных паспортов и сравнительных отчетов (Blob)
 async function downloadReport(mode, layerId = null, objectId = null) {
-    // Определяем, что отправлять
     const targetLayerId = mode === 'solo' ? layerId : currentLayerId;
     const targetObjectIds = mode === 'solo' ? [objectId] : compareCart.map(obj => obj.id);
 
-    // Меняем курсор и кнопку на загрузку
     document.body.style.cursor = 'wait';
     if (mode === 'compare') {
         const btn = document.getElementById('btnGenerateCompare');
@@ -593,25 +597,19 @@ async function downloadReport(mode, layerId = null, objectId = null) {
 
         if (!response.ok) throw new Error('Ошибка генерации PDF на сервере');
 
-        // Читаем ответ как бинарный Blob
         const blob = await response.blob();
-        
-        // Создаем локальную ссылку в памяти браузера
         const downloadUrl = window.URL.createObjectURL(blob);
-        
-        // Создаем невидимый тег <a> и программно кликаем по нему
         const a = document.createElement('a');
+        
         a.style.display = 'none';
         a.href = downloadUrl;
         
-        // Формируем имя файла
         const dateStr = new Date().toISOString().slice(0,10);
         a.download = mode === 'solo' ? `Passport_${objectId}_${dateStr}.pdf` : `Comparison_${dateStr}.pdf`;
         
         document.body.appendChild(a);
         a.click();
         
-        // Убираем за собой мусор из памяти
         window.URL.revokeObjectURL(downloadUrl);
         a.remove();
 
@@ -619,7 +617,6 @@ async function downloadReport(mode, layerId = null, objectId = null) {
         console.error(error);
         alert('Не удалось сгенерировать PDF. Проверьте соединение с сервером.');
     } finally {
-        // Возвращаем интерфейс в норму
         document.body.style.cursor = 'default';
         if (mode === 'compare') {
             const btn = document.getElementById('btnGenerateCompare');
@@ -629,7 +626,7 @@ async function downloadReport(mode, layerId = null, objectId = null) {
     }
 }
 
-// Выгрузка всей таблицы слоя в один клик
+// Пакетная выгрузка атрибутивной таблицы слоя
 async function downloadBulkLayerReport(layerId, objectIds, layerName) {
     const btn = document.getElementById('btnExportFullTable');
     if (btn) {
@@ -670,10 +667,12 @@ async function downloadBulkLayerReport(layerId, objectIds, layerName) {
     }
 }
 
-// Объект для хранения загруженных слоев, чтобы легко ими управлять
+/* --- Модуль локальной загрузки пользовательских геоданных (Client-Side) --- */
+
 const userCustomLayers = {};
 let customLayerIdCounter = 0;
 
+// Маршрутизация клиентских парсеров на основе расширения загруженного файла
 document.getElementById('localGeoInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -681,15 +680,13 @@ document.getElementById('localGeoInput').addEventListener('change', function(e) 
     const ext = file.name.split('.').pop().toLowerCase();
     const reader = new FileReader();
 
-    // Меняем курсор на загрузку
     document.body.style.cursor = 'wait';
 
-    // 1. Читаем Shapefile (ZIP-архив) через ArrayBuffer
+    // Обработка ZIP-архивов (Shapefile) через shpjs
     if (ext === 'zip') {
         reader.readAsArrayBuffer(file);
         reader.onload = async function(event) {
             try {
-                // Библиотека shpjs сама распаковывает ZIP и выдает GeoJSON
                 const geojson = await shp(event.target.result);
                 addCustomLayerToMap(L.geoJSON(geojson), file.name);
             } catch (err) {
@@ -697,12 +694,11 @@ document.getElementById('localGeoInput').addEventListener('change', function(e) 
             } finally { document.body.style.cursor = 'default'; }
         }
     } 
-    // 2. Читаем KML как текст
+    // Обработка KML-разметки через leaflet-omnivore
     else if (ext === 'kml') {
         reader.readAsText(file);
         reader.onload = function(event) {
             try {
-                // omnivore парсит kml строку и сразу создает слой Leaflet
                 const layer = omnivore.kml.parse(event.target.result);
                 addCustomLayerToMap(layer, file.name);
             } catch (err) {
@@ -710,7 +706,7 @@ document.getElementById('localGeoInput').addEventListener('change', function(e) 
             } finally { document.body.style.cursor = 'default'; }
         }
     } 
-    // 3. Читаем нативный GeoJSON как текст
+    // Обработка нативного GeoJSON
     else if (ext === 'geojson' || ext === 'json') {
         reader.readAsText(file);
         reader.onload = function(event) {
@@ -727,36 +723,32 @@ document.getElementById('localGeoInput').addEventListener('change', function(e) 
         document.body.style.cursor = 'default';
     }
     
-    // Сбрасываем input, чтобы можно было загрузить этот же файл заново
     e.target.value = '';
 });
 
-// Функция добавления слоя на карту и создания UI-панели настроек
+// Инициализация слоя на карте и генерация панели управления параметрами
 function addCustomLayerToMap(leafletLayer, fileName) {
     const layerId = 'custom_' + customLayerIdCounter++;
     
-    // Применяем базовые стили по умолчанию
     leafletLayer.setStyle({
-        color: '#1b578c', // Синяя обводка
+        color: '#1b578c', 
         weight: 2,
-        fillColor: '#f59e0b', // Оранжевая заливка
+        fillColor: '#f59e0b',
         fillOpacity: 0.5
     });
     
-    leafletLayer.addTo(map); // Важно: переменная карты должна называться 'map'
+    leafletLayer.addTo(map); 
     userCustomLayers[layerId] = leafletLayer;
 
-    // Генерируем карточку управления стилями для этого слоя
     const container = document.getElementById('localLayersContainer');
     const panelHTML = `
         <div class="card border-0 shadow-sm rounded-3 bg-white p-2" id="panel_${layerId}">
             <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-1">
                 <span class="small fw-bold text-truncate" style="max-width: 70%;" title="${fileName}">${fileName}</span>
                 <div>
-                    <!-- Кнопки Z-index (Вверх/Вниз) -->
+                    <!-- Элементы управления Z-index -->
                     <button class="btn btn-sm btn-light py-0 px-1" onclick="moveLayer('${layerId}', 'up')" title="На передний план"><i class="bi bi-arrow-up"></i></button>
                     <button class="btn btn-sm btn-light py-0 px-1" onclick="moveLayer('${layerId}', 'down')" title="На задний план"><i class="bi bi-arrow-down"></i></button>
-                    <!-- Кнопка удаления -->
                     <button class="btn btn-sm btn-outline-danger py-0 px-1 ms-1" onclick="removeLayer('${layerId}')"><i class="bi bi-trash"></i></button>
                 </div>
             </div>
@@ -782,39 +774,36 @@ function addCustomLayerToMap(leafletLayer, fileName) {
         </div>
     `;
     container.insertAdjacentHTML('afterbegin', panelHTML);
-    
-    // Автоматически фокусируемся на загруженном слое
     map.fitBounds(leafletLayer.getBounds());
 }
 
-// Изменение стилей слоя на лету
+// Применение визуальных настроек к пользовательскому слою
 function updateLayerStyle(layerId, styleProp, value) {
     if (!userCustomLayers[layerId]) return;
     const layer = userCustomLayers[layerId];
     
-    // Создаем объект со свойством, которое нужно обновить (например { fillOpacity: 0.8 })
     const styleObj = {};
     styleObj[styleProp] = styleProp === 'weight' || styleProp === 'fillOpacity' ? parseFloat(value) : value;
     
     layer.setStyle(styleObj);
 }
 
-// Управление Z-index (Вверх/Вниз)
+// Регулировка порядка наложения слоев (Z-index)
 function moveLayer(layerId, direction) {
     if (!userCustomLayers[layerId]) return;
     const layer = userCustomLayers[layerId];
     
     if (direction === 'up') {
-        layer.bringToFront(); // Нативный метод Leaflet
+        layer.bringToFront(); 
     } else {
-        layer.bringToBack();  // Нативный метод Leaflet
+        layer.bringToBack(); 
     }
 }
 
-// Удаление слоя
+// Освобождение ресурсов при удалении слоя
 function removeLayer(layerId) {
     if (!userCustomLayers[layerId]) return;
-    map.removeLayer(userCustomLayers[layerId]); // Удаляем с карты
-    delete userCustomLayers[layerId]; // Удаляем из памяти
-    document.getElementById('panel_' + layerId).remove(); // Удаляем менюшку
+    map.removeLayer(userCustomLayers[layerId]); 
+    delete userCustomLayers[layerId]; 
+    document.getElementById('panel_' + layerId).remove(); 
 }
