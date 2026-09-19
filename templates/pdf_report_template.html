@@ -1,8 +1,8 @@
 <!-- 
   Файл: pdf_report_template.html
   Описание: Шаблон генерации PDF-отчетов. 
-  Обрабатывает переданный массив геоданных (objects). 
-  Формирует индивидуальный паспорт при передаче одного объекта или сравнительную сводную таблицу при передаче массива.
+  Формирует индивидуальный паспорт при передаче одного объекта или 
+  сводную таблицу (в альбомной ориентации) при выгрузке массива объектов.
 -->
 <!DOCTYPE html>
 <html lang="ru">
@@ -10,16 +10,61 @@
     <meta charset="UTF-8">
     <title>Отчет | Недра Забайкальского края</title>
     
-    <!-- Абсолютная ссылка на стили (требование PDF-конвертера для корректного рендеринга) -->
+    <!-- Подключение Bootstrap для стандартизации отступов и таблиц -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <!-- Изолированные CSS-правила для печатной версии документа -->
     <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #ffffff; color: #212529; font-size: 14px; }
-        .geo-header { border-bottom: 3px solid #1b578c; padding-bottom: 12px; margin-bottom: 24px; }
-        .geo-brand { color: #1b578c; font-weight: 800; font-size: 22px; text-transform: uppercase; letter-spacing: 1px; }
-        .table th { background-color: #f8f9fa !important; color: #495057; font-weight: 600; }
-        .page-break { page-break-inside: avoid; }
+        /* Принудительная альбомная ориентация для PDF-рендерера */
+        @page {
+            size: A4 landscape;
+            margin: 15mm;
+        }
+        
+        body { 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            background-color: #ffffff; 
+            color: #212529; 
+            font-size: 12px; 
+        }
+        
+        .geo-header { 
+            border-bottom: 3px solid #1b578c; 
+            padding-bottom: 12px; 
+            margin-bottom: 24px; 
+        }
+        
+        .geo-brand { 
+            color: #1b578c; 
+            font-weight: 800; 
+            font-size: 22px; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+        }
+        
+        .table th { 
+            background-color: #f8f9fa !important; 
+            color: #495057; 
+            font-weight: 600; 
+        }
+        
+        /* Специфичные стили для больших сводных таблиц (сжатие и перенос текста) */
+        .table-compressed {
+            font-size: 10px;
+            table-layout: auto;
+            width: 100%;
+        }
+        
+        .table-compressed th, 
+        .table-compressed td {
+            padding: 4px 6px;
+            word-wrap: break-word;
+            word-break: break-word;
+            max-width: 180px; /* Ограничение ширины колонки для длинных строковых значений */
+        }
+        
+        /* Настройки переноса страниц при печати (предотвращение разрыва строк) */
+        .page-break { page-break-inside: auto; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
     </style>
 </head>
 <body>
@@ -57,31 +102,28 @@
 
         {% else %}
             
-            <!-- Сценарий Б: Сводная таблица сравнения (горизонтальная структура) -->
+            <!-- Сценарий Б: Сводная таблица (стандартная реляционная структура) -->
             <h4 class="mb-4 fw-bold">Сводный отчет по объектам (Записей: {{ objects|length }})</h4>
             
             <div class="table-responsive page-break">
-                <table class="table table-bordered table-striped border-secondary align-middle">
+                <table class="table table-bordered table-striped border-secondary align-middle table-compressed">
                     <thead>
                         <tr>
-                            <th style="background-color: #e9ecef !important;">Характеристика</th>
-                            
-                            <!-- Динамическая генерация колонок на основе количества объектов -->
-                            {% for obj in objects %}
-                            {% set col_title = obj.get('Название') or obj.get('name') or obj.get('title') or ('Объект ' ~ loop.index) %}
-                            <th class="text-center">{{ col_title }}</th>
+                            <th style="background-color: #e9ecef !important; text-align: center; width: 40px;">№</th>
+                            <!-- Генерация заголовков колонок на основе ключей первого объекта -->
+                            {% for key in objects[0].keys() %}
+                            <th>{{ key }}</th>
                             {% endfor %}
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Итерация по ключам первого объекта для формирования строк сравнения -->
-                        {% for key in objects[0].keys() %}
+                        <!-- Построчная итерация по объектам геоданных -->
+                        {% for obj in objects %}
                         <tr>
-                            <th class="text-nowrap">{{ key }}</th>
-                            
-                            <!-- Извлечение значений текущего ключа для всех объектов массива -->
-                            {% for obj in objects %}
-                            <td class="text-center">{{ obj.get(key, '—') if obj.get(key) != None and obj.get(key) != '' else '—' }}</td>
+                            <td class="text-center fw-bold text-muted">{{ loop.index }}</td>
+                            <!-- Извлечение значений по ключам -->
+                            {% for key in objects[0].keys() %}
+                            <td>{{ obj.get(key, '—') if obj.get(key) != None and obj.get(key) != '' else '—' }}</td>
                             {% endfor %}
                         </tr>
                         {% endfor %}
