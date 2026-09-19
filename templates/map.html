@@ -26,7 +26,7 @@
 
     <!-- Пользовательские стили и фавикон -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
-    <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   </head>
   
   <body class="map-body">
@@ -182,8 +182,8 @@
     <script>  const userAllowedLayers = {{ allowed_layers | safe }}; </script>
 
     <!-- Пользовательская логика приложения -->
-    <script src="../static/js/map_logic.js"></script>
-    <script src="../static/js/theme.js"></script>
+    <script src="{{ url_for('static', filename='js/map_logic.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 
   </body>
 </html>

@@ -1,25 +1,27 @@
-/**
- * Файл: map_logic.js
- * Описание: Основной контроллер геоинформационного интерфейса. 
- * Управляет инициализацией картографического движка (Leaflet), динамической загрузкой 
- * слоев через API NextGIS, обработкой пространственных запросов, клиентским парсингом 
- * пользовательских файлов (GeoJSON, KML, SHP) и логикой генерации PDF-отчетов.
- */
+/* 
+  Файл: map_logic.js
+  Описание: Ядро клиентской логики интерактивной карты. 
+  Обеспечивает инициализацию картографического движка (Leaflet), асинхронную загрузку 
+  и кластеризацию векторных слоев по API, обработку BBOX-запросов, генерацию PDF-отчетов 
+  и клиентский рендеринг загружаемых пользователем файлов (GeoJSON/KML/SHP).
+*/
 
 const nextgisBaseUrl = "";
 
-/* --- Инициализация картографической базы --- */
-
+// Инициализация экземпляра карты с отключенным стандартным контроллером масштаба
 const map = L.map("map", { zoomControl: false, minZoom: 3, maxZoom: 18 }).setView([52.03, 117.5], 6);
+
+// Регистрация контроллеров масштаба и зума в пользовательских позициях
 L.control.zoom({ position: "bottomleft" }).addTo(map);
 L.control.scale({ position: 'bottomright', metric: true, imperial: false }).addTo(map);
 
-/* Конфигурация и переключение растровых подложек (Basemaps) */
+// Конфигурация растровых тайловых подложек (Basemaps)
 const basemaps = {
     gis2: L.tileLayer("https://tile{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1", { subdomains: ["0", "1", "2", "3"], attribution: "&copy; 2GIS", noWrap: true, maxZoom: 19, zIndex: 1 }).addTo(map),
     esri: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: "&copy; Esri", maxZoom: 19, noWrap: true, zIndex: 1 }),
 };
 
+// Делегирование событий переключения базовых слоев
 document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
     radio.addEventListener("change", (e) => {
         Object.values(basemaps).forEach((layer) => map.removeLayer(layer));
@@ -27,13 +29,13 @@ document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
     });
 });
 
-/* --- Управление состоянием пользовательского интерфейса --- */
 
+// Контроллеры состояния боковой навигационной панели
 const sidebar = document.getElementById("layersSidebar");
 const btnCollapse = document.getElementById("layersSidebarCollapse");
 const iconToggle = document.getElementById("layerToggleIcon");
 
-// Адаптивная обработка боковой панели для мобильных устройств
+// Адаптивное сворачивание панели для мобильных разрешений экрана
 if (window.innerWidth <= 768) {
     if (sidebar) sidebar.classList.add("collapsed");
     if (iconToggle) iconToggle.className = "bi bi-chevron-right";
@@ -54,7 +56,7 @@ map.on('click', () => {
     }
 });
 
-// Проверка состояния чекбокса родительской директории
+// Валидация состояния родительской директории для каскадного отключения слоев
 function isFolderChecked(chk) {
     const folder = chk.closest('.collapse');
     if (!folder) return true;
@@ -63,11 +65,10 @@ function isFolderChecked(chk) {
     return masterCheck ? masterCheck.checked : true;
 }
 
-/* --- Модуль динамической загрузки и рендеринга слоев --- */
 
 let dynamicQueryQueue = [];
 
-// Обработка ограничений прав доступа (Уведомления)
+// Вывод системных уведомлений при отказе в доступе к слою (HTTP 403)
 function showForbiddenToast(layerName) {
     let toastContainer = document.getElementById('geo-toast-container');
     if (!toastContainer) {
@@ -91,7 +92,7 @@ function showForbiddenToast(layerName) {
     setTimeout(() => { if (toastContainer.lastChild) toastContainer.lastChild.remove(); }, 4000);
 }
 
-// Асинхронное получение конфигурации слоев и построение DOM-дерева навигации
+// Асинхронное формирование структуры слоев на основе серверной конфигурации
 async function initDynamicLayers() {
     try {
         const response = await fetch('/api/layers_config');
@@ -120,7 +121,6 @@ async function initDynamicLayers() {
                     const rasterId = ids[1] || ids[0];
                     const chkId = `chk_${rasterId}`;
                     
-                    // Валидация прав пользователя на просмотр текущего слоя
                     let allowed = [];
                     let isAllAllowed = false;
                     
@@ -140,7 +140,7 @@ async function initDynamicLayers() {
                         hasAnyLayerInSub = true;
                         hasAnyLayerInCategory = true;
                         
-                        // Определение типа слоя для настройки порогов гибридной кластеризации
+                        // Маркировка точечных слоев для инициализации алгоритмов кластеризации
                         const isPointLayer = layerName.includes('Населённые пункты') || 
                                              layerName.includes('Месторождения') || 
                                              layerName.includes('Рудопроявления') || 
@@ -197,10 +197,9 @@ async function initDynamicLayers() {
     }
 }
 
-// Привязка обработчиков событий к динамически созданным элементам
+// Регистрация слушателей событий для динамически сгенерированного дерева слоев
 function bindDynamicLogic() {
     
-    // Делегирование событий чекбоксов директорий
     document.querySelectorAll('.folder-master-checkbox').forEach(master => {
         master.addEventListener('change', (e) => {
             const folder = e.target.closest('.border').querySelector('.collapse');
@@ -229,7 +228,6 @@ function bindDynamicLogic() {
         });
     });
 
-    // Управление видимостью и подгрузкой слоев на карте
     document.querySelectorAll('.dyn-layer-chk').forEach(chk => {
         const rasterId = chk.getAttribute('data-raster');
         const vectorId = chk.getAttribute('data-vector');
@@ -248,7 +246,7 @@ function bindDynamicLogic() {
             clusterGroup = L.markerClusterGroup({ maxClusterRadius: 50 });
         }
 
-        // Асинхронная загрузка векторных геометрий для клиентской кластеризации
+        // Асинхронная выгрузка GeoJSON для формирования клиентских кластеров
         async function loadHybridVector() {
             if (isVectorLoaded || !isHybrid) return;
             try {
@@ -280,6 +278,7 @@ function bindDynamicLogic() {
             }
         }
 
+        // Маршрутизация рендеринга (Растр/Кластер) в зависимости от уровня масштабирования
         function updateVisibility() {
             if (!(chk.checked && isFolderChecked(chk))) {
                 if (map.hasLayer(tmsLayer)) map.removeLayer(tmsLayer);
@@ -306,7 +305,7 @@ function bindDynamicLogic() {
         if (isHybrid) map.on('zoomend', updateVisibility);
     });
     
-    // Делегирование открытия атрибутивной таблицы
+    // Запрос атрибутивной таблицы слоя
     document.querySelectorAll('.attr-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -325,8 +324,8 @@ function bindDynamicLogic() {
 
 initDynamicLayers();
 
-/* --- Обработка пространственных запросов (BBOX) --- */
 
+// Перехват клика по карте и генерация пространственного BBOX-запроса
 map.on('click', async function(e) {
     const point = L.CRS.EPSG3857.project(e.latlng);
     
@@ -354,6 +353,7 @@ map.on('click', async function(e) {
             
             const data = await response.json();
 
+            // Парсинг атрибутов объекта и формирование HTML-структуры карточки
             if (data && data.length > 0) {
                 const featureItem = data[0];
                 const props = featureItem.fields;
@@ -386,7 +386,6 @@ map.on('click', async function(e) {
     }
 });
 
-/* --- Модуль атрибутивных таблиц и синхронизации масштаба --- */
 
 const attrSidebar = document.getElementById('attributeSidebar');
 const closeAttrBtn = document.getElementById('closeAttributeSidebar');
@@ -396,7 +395,7 @@ if(closeAttrBtn) {
   closeAttrBtn.addEventListener('click', () => { if(attrSidebar) attrSidebar.classList.remove('open'); });
 }
 
-// Запрос семантических данных и рендеринг таблицы слоя
+// Загрузка полного реестра атрибутов слоя в боковую панель
 async function loadAttributeTable(vectorId, layerName) {
   if(attrSidebar) attrSidebar.classList.add('open');
   if(attrContainer) attrContainer.innerHTML = `<div class="text-center mt-5">
@@ -447,7 +446,6 @@ async function loadAttributeTable(vectorId, layerName) {
     
     if(attrContainer) {
       attrContainer.innerHTML = tableHTML;
-      
       document.getElementById('btnExportFullTable').addEventListener('click', () => {
         downloadBulkLayerReport(vectorId, allObjectIds, layerName);
       });
@@ -481,12 +479,11 @@ if (scaleSelect) {
   map.fire('zoomend');
 }
 
-/* --- Корзина сравнения объектов и генерация отчетов --- */
 
 let compareCart = []; 
 let currentLayerId = null; 
 
-// Генерация интерактивных кнопок для карточки объекта (Popup)
+// Компоновка интерфейса управления отчетами для карточки объекта
 function getPopupButtonsHTML(layerId, objectId, objectName) {
     return `
         <div class="mt-3 border-top pt-2">
@@ -503,12 +500,12 @@ function getPopupButtonsHTML(layerId, objectId, objectName) {
     `;
 }
 
-// Управление состоянием корзины выборки
+// Проверка наличия объекта в пуле сравнения
 function isObjectInCart(objectId) {
     return compareCart.some(obj => obj.id === objectId);
 }
 
-// Валидация и добавление геометрий в реестр сравнения
+// Валидация и добавление объектов в корзину (с ограничением по слою)
 function toggleCompareCart(layerId, objectId, objectName, btnElement) {
     if (currentLayerId !== null && currentLayerId !== layerId && compareCart.length > 0) {
         alert("Для сравнения можно добавлять объекты только из одного слоя!");
@@ -528,13 +525,12 @@ function toggleCompareCart(layerId, objectId, objectName, btnElement) {
     updateCompareUI();
 }
 
-// Синхронизация DOM-интерфейса корзины с массивом данных
+// Рендеринг пользовательского интерфейса корзины сравнения
 function updateCompareUI() {
     const list = document.getElementById('compareList');
     const badge = document.getElementById('compareBadge');
     const btnGenerate = document.getElementById('btnGenerateCompare');
     const btnClear = document.getElementById('btnClearCompare');
-    const emptyMsg = document.getElementById('emptyCompareMsg');
 
     badge.innerText = compareCart.length;
 
@@ -563,7 +559,7 @@ function updateCompareUI() {
     }
 }
 
-// Очистка сессии сравнения
+// Сброс контекста сравнения
 function clearCompareCart() {
     compareCart = [];
     currentLayerId = null;
@@ -571,9 +567,8 @@ function clearCompareCart() {
     if (window.map) map.closePopup(); 
 }
 
-/* --- Модуль взаимодействия с API (генерация PDF) --- */
 
-// Формирование одиночных паспортов и сравнительных отчетов (Blob)
+// Формирование PDF-паспортов и сравнительных отчетов (Blob API)
 async function downloadReport(mode, layerId = null, objectId = null) {
     const targetLayerId = mode === 'solo' ? layerId : currentLayerId;
     const targetObjectIds = mode === 'solo' ? [objectId] : compareCart.map(obj => obj.id);
@@ -626,7 +621,7 @@ async function downloadReport(mode, layerId = null, objectId = null) {
     }
 }
 
-// Пакетная выгрузка атрибутивной таблицы слоя
+// Пакетная выгрузка всей атрибутивной таблицы слоя в PDF
 async function downloadBulkLayerReport(layerId, objectIds, layerName) {
     const btn = document.getElementById('btnExportFullTable');
     if (btn) {
@@ -667,12 +662,12 @@ async function downloadBulkLayerReport(layerId, objectIds, layerName) {
     }
 }
 
-/* --- Модуль локальной загрузки пользовательских геоданных (Client-Side) --- */
 
 const userCustomLayers = {};
+let customLayersOrder = []; // Индексный стек для управления физическим порядком (Z-index)
 let customLayerIdCounter = 0;
 
-// Маршрутизация клиентских парсеров на основе расширения загруженного файла
+// Клиентский парсинг и рендеринг загружаемых файлов (GeoJSON, KML, SHP)
 document.getElementById('localGeoInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -706,7 +701,7 @@ document.getElementById('localGeoInput').addEventListener('change', function(e) 
             } finally { document.body.style.cursor = 'default'; }
         }
     } 
-    // Обработка нативного GeoJSON
+    // Обработка нативного формата GeoJSON
     else if (ext === 'geojson' || ext === 'json') {
         reader.readAsText(file);
         reader.onload = function(event) {
@@ -726,7 +721,7 @@ document.getElementById('localGeoInput').addEventListener('change', function(e) 
     e.target.value = '';
 });
 
-// Инициализация слоя на карте и генерация панели управления параметрами
+// Инициализация загруженного слоя на карте и добавление в стек Z-индексов
 function addCustomLayerToMap(leafletLayer, fileName) {
     const layerId = 'custom_' + customLayerIdCounter++;
     
@@ -739,6 +734,7 @@ function addCustomLayerToMap(leafletLayer, fileName) {
     
     leafletLayer.addTo(map); 
     userCustomLayers[layerId] = leafletLayer;
+    customLayersOrder.push(layerId); // Размещение на вершине стека рендеринга
 
     const container = document.getElementById('localLayersContainer');
     const panelHTML = `
@@ -764,7 +760,7 @@ function addCustomLayerToMap(leafletLayer, fileName) {
                 </div>
                 <div class="col-7 mt-1">
                     <label class="small text-muted" style="font-size: 0.7rem;">Прозрачность</label>
-                    <input type="range" class="form-range" min="0.1" max="1" step="0.1" value="0.5" oninput="updateLayerStyle('${layerId}', 'fillOpacity', this.value)">
+                    <input type="range" class="form-range" min="0" max="1" step="0.1" value="0.8" oninput="updateLayerStyle('${layerId}', 'opacity', this.value)">
                 </div>
                 <div class="col-5 mt-1">
                     <label class="small text-muted" style="font-size: 0.7rem;">Толщина</label>
@@ -777,27 +773,46 @@ function addCustomLayerToMap(leafletLayer, fileName) {
     map.fitBounds(leafletLayer.getBounds());
 }
 
-// Применение визуальных настроек к пользовательскому слою
+// Динамическое применение стилей к полигонам и линиям (LineString)
 function updateLayerStyle(layerId, styleProp, value) {
     if (!userCustomLayers[layerId]) return;
     const layer = userCustomLayers[layerId];
     
     const styleObj = {};
-    styleObj[styleProp] = styleProp === 'weight' || styleProp === 'fillOpacity' ? parseFloat(value) : value;
     
-    layer.setStyle(styleObj);
+    if (styleProp === 'opacity') {
+        // Установка прозрачности одновременно для заливки и контуров геометрии
+        const val = parseFloat(value);
+        styleObj['opacity'] = val;
+        styleObj['fillOpacity'] = val * 0.6; 
+    } else {
+        styleObj[styleProp] = styleProp === 'weight' ? parseFloat(value) : value;
+    }
+    
+    if (layer.setStyle) {
+        layer.setStyle(styleObj);
+    }
 }
 
-// Регулировка порядка наложения слоев (Z-index)
+// Математическое управление порядком наложения слоев на карте
 function moveLayer(layerId, direction) {
-    if (!userCustomLayers[layerId]) return;
-    const layer = userCustomLayers[layerId];
-    
-    if (direction === 'up') {
-        layer.bringToFront(); 
-    } else {
-        layer.bringToBack(); 
+    const index = customLayersOrder.indexOf(layerId);
+    if (index === -1) return;
+
+    if (direction === 'up' && index < customLayersOrder.length - 1) {
+        // Инверсия с верхним элементом в стеке
+        [customLayersOrder[index], customLayersOrder[index + 1]] = [customLayersOrder[index + 1], customLayersOrder[index]];
+    } else if (direction === 'down' && index > 0) {
+        // Инверсия с нижним элементом в стеке
+        [customLayersOrder[index], customLayersOrder[index - 1]] = [customLayersOrder[index - 1], customLayersOrder[index]];
     }
+
+    // Принудительный последовательный рендеринг геометрий для корректного наложения SVG
+    customLayersOrder.forEach(id => {
+        if (userCustomLayers[id] && userCustomLayers[id].bringToFront) {
+            userCustomLayers[id].bringToFront();
+        }
+    });
 }
 
 // Освобождение ресурсов при удалении слоя
@@ -805,5 +820,6 @@ function removeLayer(layerId) {
     if (!userCustomLayers[layerId]) return;
     map.removeLayer(userCustomLayers[layerId]); 
     delete userCustomLayers[layerId]; 
+    customLayersOrder = customLayersOrder.filter(id => id !== layerId); // Выгрузка из стека Z-индексов
     document.getElementById('panel_' + layerId).remove(); 
 }

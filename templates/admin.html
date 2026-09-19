@@ -94,7 +94,13 @@
                     
                     <!-- Контейнер динамического дерева слоев для настройки прав доступа -->
                     <div class="col-12 mt-4">
-                        <h6 class="fw-bold mb-3" style="color: var(--geo-dark);"><i class="bi bi-layers text-secondary me-2"></i>Доступ к слоям</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0" style="color: var(--geo-dark);"><i class="bi bi-layers text-secondary me-2"></i>Доступ к слоям</h6>
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="selectAllCreateLayers">
+                                <label class="form-check-label small text-muted" style="cursor:pointer;" for="selectAllCreateLayers">Выбрать всё</label>
+                            </div>
+                        </div>
                         <div id="adminLayersTree" class="border rounded bg-white p-3 shadow-sm" style="max-height: 250px; overflow-y: auto;">
                             <div class="text-center text-muted spinner-border spinner-border-sm" role="status"></div> Загрузка структуры...
                         </div>
@@ -285,14 +291,15 @@
 
                         <!-- Контейнер настройки конфигурации слоев пользователя -->
                         <div class="mb-4">
-                            <label class="form-label small fw-bold text-secondary">Доступ к дата-румам (Слоям)</label>
-                            <div class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
-                                <div class="mb-4">
-                                    <label class="form-label small fw-bold text-secondary">Доступ к дата-румам (Слоям)</label>
-                                    <div id="editAdminLayersTree" class="border rounded p-3 bg-light shadow-sm" style="max-height: 200px; overflow-y: auto;">
-                                        <div class="text-center text-muted"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Загрузка структуры...</div>
-                                    </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label small fw-bold text-secondary mb-0">Доступ к дата-румам (Слоям)</label>
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="selectAllEditLayers">
+                                    <label class="form-check-label small text-muted" style="cursor:pointer;" for="selectAllEditLayers">Выбрать всё</label>
                                 </div>
+                            </div>
+                            <div id="editAdminLayersTree" class="border rounded p-3 bg-light shadow-sm" style="max-height: 250px; overflow-y: auto;">
+                                <div class="text-center text-muted"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Загрузка структуры...</div>
                             </div>
                         </div>
 
@@ -452,6 +459,7 @@
             const userId = document.getElementById('editUserId').value;
             
             // Трансформация структур слоев в плоский массив идентификаторов
+            // Выбираем только конечные элементы (дата-румы), игнорируя родительские папки
             let checkedLayers = [];
             document.querySelectorAll('.edit-layer-cb:checked').forEach(chk => {
                 const ids = JSON.parse(chk.value);
@@ -498,7 +506,7 @@
     });
     </script>
 
-    <!-- Скрипт: Инициализация деревьев слоев и логика создания нового пользователя -->
+    <!-- Скрипт: Инициализация деревьев слоев и логика группового выбора -->
     <script>
     document.addEventListener("DOMContentLoaded", async () => {
         
@@ -528,35 +536,99 @@
 
             for (const [categoryName, subcategories] of Object.entries(config)) {
                 
-                // Генерация разметки категорий для модальных окон (Создание и Редактирование)
-                let catHtmlCreate = `<div class="mb-3"><h6 class="fw-bold text-primary mb-2">${categoryName}</h6><div class="ps-3 border-start">`;
-                let catHtmlEdit = `<div class="mb-3"><h6 class="fw-bold text-primary mb-2">${categoryName}</h6><div class="ps-3 border-start">`;
+                // Генерация корневых категорий с чекбоксом группового выбора
+                let catHtmlCreate = `
+                <div class="mb-3 category-wrapper">
+                    <div class="d-flex align-items-center mb-2">
+                        <input type="checkbox" class="form-check-input me-2 cat-master-chk-create">
+                        <h6 class="fw-bold text-primary mb-0">${categoryName}</h6>
+                    </div>
+                    <div class="ps-3 border-start">`;
+                    
+                let catHtmlEdit = `
+                <div class="mb-3 category-wrapper">
+                    <div class="d-flex align-items-center mb-2">
+                        <input type="checkbox" class="form-check-input me-2 cat-master-chk-edit">
+                        <h6 class="fw-bold text-primary mb-0">${categoryName}</h6>
+                    </div>
+                    <div class="ps-3 border-start">`;
                 
                 for (const [subName, layers] of Object.entries(subcategories)) {
-                    catHtmlCreate += `<div class="fw-bold small text-secondary mt-2 mb-1">${subName}</div>`;
-                    catHtmlEdit += `<div class="fw-bold small text-secondary mt-2 mb-1">${subName}</div>`;
+                    
+                    // Генерация подкатегорий с чекбоксом каскадного выбора
+                    catHtmlCreate += `
+                    <div class="sub-group-wrapper">
+                        <div class="d-flex align-items-center mt-2 mb-1">
+                            <input type="checkbox" class="form-check-input me-2 sub-master-chk-create">
+                            <div class="fw-bold small text-secondary">${subName}</div>
+                        </div>
+                        <div class="ps-2">`;
+                        
+                    catHtmlEdit += `
+                    <div class="sub-group-wrapper">
+                        <div class="d-flex align-items-center mt-2 mb-1">
+                            <input type="checkbox" class="form-check-input me-2 sub-master-chk-edit">
+                            <div class="fw-bold small text-secondary">${subName}</div>
+                        </div>
+                        <div class="ps-2">`;
                     
                     for (const [layerName, ids] of Object.entries(layers)) {
                         
+                        // Генерация конечных элементов иерархии (целевые слои геоданных)
                         catHtmlCreate += `
-                        <div class="form-check mb-1">
-                            <input class="form-check-input admin-layer-chk" type="checkbox" value='${JSON.stringify(ids)}' id="adm_${ids[0]}">
-                            <label class="form-check-label small" for="adm_${ids[0]}">${layerName}</label>
+                        <div class="form-check mb-1 layer-item-container">
+                            <input class="form-check-input admin-layer-chk" type="checkbox" value='${JSON.stringify(ids)}' id="adm_cr_${ids[0]}">
+                            <label class="form-check-label small" for="adm_cr_${ids[0]}">${layerName}</label>
                         </div>`;
                         
                         catHtmlEdit += `
-                        <div class="form-check mb-1">
+                        <div class="form-check mb-1 layer-item-container">
                             <input class="form-check-input edit-layer-cb" type="checkbox" value='${JSON.stringify(ids)}' id="edit_adm_${ids[0]}">
                             <label class="form-check-label small" for="edit_adm_${ids[0]}">${layerName}</label>
                         </div>`;
                     }
+                    catHtmlCreate += `</div></div>`; // Закрытие блока подкатегории
+                    catHtmlEdit += `</div></div>`;
                 }
-                catHtmlCreate += `</div></div>`;
+                catHtmlCreate += `</div></div>`; // Закрытие блока корневой категории
                 catHtmlEdit += `</div></div>`;
                 
                 treeContainer.insertAdjacentHTML('beforeend', catHtmlCreate);
                 editTreeContainer.insertAdjacentHTML('beforeend', catHtmlEdit);
             }
+
+            // Инициализация логики каскадного выбора чекбоксов
+            function bindTreeLogic(containerId, masterBtnId, catClass, subClass, itemClass) {
+                const container = document.getElementById(containerId);
+                const masterBtn = document.getElementById(masterBtnId);
+                
+                // Глобальный выбор всех слоев в дереве
+                if (masterBtn) {
+                    masterBtn.addEventListener('change', (e) => {
+                        container.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = e.target.checked);
+                    });
+                }
+
+                // Выбор всех слоев внутри родительской категории
+                container.querySelectorAll(`.${catClass}`).forEach(catChk => {
+                    catChk.addEventListener('change', (e) => {
+                        const wrapper = e.target.closest('.category-wrapper');
+                        wrapper.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = e.target.checked);
+                    });
+                });
+
+                // Выбор всех слоев внутри дочерней подкатегории
+                container.querySelectorAll(`.${subClass}`).forEach(subChk => {
+                    subChk.addEventListener('change', (e) => {
+                        const wrapper = e.target.closest('.sub-group-wrapper');
+                        wrapper.querySelectorAll(`.${itemClass}`).forEach(chk => chk.checked = e.target.checked);
+                    });
+                });
+            }
+
+            bindTreeLogic('adminLayersTree', 'selectAllCreateLayers', 'cat-master-chk-create', 'sub-master-chk-create', 'admin-layer-chk');
+            bindTreeLogic('editAdminLayersTree', 'selectAllEditLayers', 'cat-master-chk-edit', 'sub-master-chk-edit', 'edit-layer-cb');
+
         } catch (e) {
             document.getElementById('adminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки конфигурации слоев</div>';
             document.getElementById('editAdminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки конфигурации слоев</div>';
@@ -572,7 +644,7 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Создание...';
             alertBox.innerHTML = '';
 
-            // Конвертация вложенных массивов ID слоев
+            // Извлечение идентификаторов слоев только из конечных чекбоксов дата-румов
             let allowed_layers = [];
             document.querySelectorAll('.admin-layer-chk:checked').forEach(chk => {
                 const ids = JSON.parse(chk.value);
@@ -600,7 +672,7 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    // Вывод сгенерированного пароля при условии серверной генерации
+                    // Динамический вывод сгенерированного пароля при пустом вводе
                     const pwdInfo = result.temp_password && !payload.password 
                         ? `<div class="font-monospace bg-white border p-2 rounded mt-2 text-dark">Сгенерированный пароль: <strong>${result.temp_password}</strong></div>` 
                         : '';
