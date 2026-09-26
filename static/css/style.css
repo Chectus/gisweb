@@ -491,6 +491,7 @@ body.login-page {
 body.dark-theme .card,
 body.dark-theme .service-card,
 body.dark-theme .admin-card,
+body.dark-theme .admin-card .card-body, /* Перекрывает инлайн-фон #fafbfc в форме нового доступа */
 body.dark-theme .doc-card,
 body.dark-theme .login-card,
 body.dark-theme #layersSidebar,
@@ -508,7 +509,8 @@ body.dark-theme .text-dark,
 body.dark-theme h1, body.dark-theme h2, 
 body.dark-theme h3, body.dark-theme h4, 
 body.dark-theme h5, body.dark-theme h6,
-body.dark-theme .offcanvas-title {
+body.dark-theme .offcanvas-title,
+body.dark-theme .table-geo td .fw-bold /* Делает никнеймы светлыми, перекрывая инлайн-цвет */ {
     color: var(--geo-text) !important;
 }
 
@@ -538,6 +540,12 @@ body.dark-theme .form-select:focus {
     border-color: var(--geo-main);
     background-color: var(--geo-input-bg);
     color: white;
+}
+
+/* Высветляем подсказки (плейсхолдеры) в полях ввода паролей и почты */
+body.dark-theme .form-control::placeholder {
+    color: #cbd5e1 !important; 
+    opacity: 0.8;
 }
 
 body.dark-theme .input-group-text,
