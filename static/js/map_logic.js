@@ -494,7 +494,7 @@ function getPopupButtonsHTML(layerId, objectId, objectName) {
             <button class="btn btn-sm w-100 fw-medium ${isObjectInCart(objectId) ? 'btn-success' : 'btn-outline-primary'}" 
                     onclick="toggleCompareCart(${layerId}, ${objectId}, '${objectName}', this)">
                 <i class="bi ${isObjectInCart(objectId) ? 'bi-check-lg' : 'bi-plus-circle'} me-1"></i> 
-                ${isObjectInCart(objectId) ? 'В корзине' : 'К сравнению'}
+                ${isObjectInCart(objectId) ? 'В таблице' : 'Добавить в отчет'}
             </button>
         </div>
     `;
@@ -515,12 +515,12 @@ function toggleCompareCart(layerId, objectId, objectName, btnElement) {
     if (isObjectInCart(objectId)) {
         compareCart = compareCart.filter(obj => obj.id !== objectId);
         btnElement.classList.replace('btn-success', 'btn-outline-primary');
-        btnElement.innerHTML = '<i class="bi bi-plus-circle me-1"></i> К сравнению';
+        btnElement.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Добавить в отчет';
     } else {
         currentLayerId = layerId;
         compareCart.push({ id: objectId, name: objectName });
         btnElement.classList.replace('btn-outline-primary', 'btn-success');
-        btnElement.innerHTML = '<i class="bi bi-check-lg me-1"></i> В корзине';
+        btnElement.innerHTML = '<i class="bi bi-check-lg me-1"></i> В таблице';
     }
     updateCompareUI();
 }

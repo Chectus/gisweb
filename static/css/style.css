@@ -483,36 +483,49 @@ body.login-page {
 }
 
 
-/* Интеграция темной темы для специфичных компонентов */
+/* ==============================================================
+                    ПРАВИЛА ДЛЯ ТЁМНОЙ ТЕМЫ:
+   ============================================================== */
 
-/* Переопределение стилей карточек в темной теме */
+/* 1. Карточки, боковые панели карты и шторки (Offcanvas) */
 body.dark-theme .card,
 body.dark-theme .service-card,
 body.dark-theme .admin-card,
 body.dark-theme .doc-card,
-body.dark-theme .login-card {
-    background-color: var(--geo-card-bg);
-    border-color: var(--geo-border);
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+body.dark-theme .login-card,
+body.dark-theme #layersSidebar,
+body.dark-theme #attributeSidebar,
+body.dark-theme .offcanvas,
+body.dark-theme .offcanvas-header,
+body.dark-theme .bg-white {
+    background-color: var(--geo-card-bg) !important;
+    border-color: var(--geo-border) !important;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Переопределение типографики в темной теме */
+/* 2. Тексты, заголовки и иконки */
 body.dark-theme .text-dark, 
 body.dark-theme h1, body.dark-theme h2, 
 body.dark-theme h3, body.dark-theme h4, 
-body.dark-theme h5, body.dark-theme h6 {
+body.dark-theme h5, body.dark-theme h6,
+body.dark-theme .offcanvas-title {
     color: var(--geo-text) !important;
 }
 
-body.dark-theme .text-muted {
+body.dark-theme .text-muted,
+body.dark-theme .text-secondary {
     color: var(--geo-text-muted) !important;
 }
 
-body.dark-theme .bg-light {
+/* 3. Плашки, подложки и QGIS-масштаб */
+body.dark-theme .bg-light,
+body.dark-theme .qgis-scale-control {
     background-color: var(--geo-light) !important;
+    color: var(--geo-text) !important;
+    border-color: var(--geo-border) !important;
 }
 
-/* Переопределение элементов управления формами в темной теме */
+/* 4. Инпуты, селекты и формы */
 body.dark-theme .form-control,
 body.dark-theme .form-select {
     background-color: var(--geo-input-bg);
@@ -527,36 +540,70 @@ body.dark-theme .form-select:focus {
     color: white;
 }
 
-body.dark-theme .input-group-text {
+body.dark-theme .input-group-text,
+body.dark-theme .btn-eye,
+body.dark-theme .btn-eye-admin {
     background-color: var(--geo-light);
     border-color: var(--geo-border);
     color: var(--geo-text-muted);
 }
 
-/* Переопределение таблиц и списков в темной теме */
+/* 5. Шапки админ-панели */
+body.dark-theme .admin-card-header {
+    background-color: var(--geo-card-bg) !important;
+    border-bottom: 2px solid var(--geo-border) !important;
+}
+
+/* 6. Списки и таблицы (Админка, Документация, Атрибуты карты) */
 body.dark-theme .list-group-item,
 body.dark-theme .table {
-    background-color: transparent;
-    border-color: var(--geo-border);
-    color: var(--geo-text);
+    background-color: transparent !important;
+    border-color: var(--geo-border) !important;
+    color: var(--geo-text) !important;
 }
 
+/* Шапки таблиц */
 body.dark-theme .table-light, 
-body.dark-theme  thead, 
-body.dark-theme .table-geo thead {
-    background-color: var(--geo-light);
-    color: var(--geo-text);
+body.dark-theme thead, 
+body.dark-theme .table-geo thead th {
+    background-color: var(--geo-light) !important;
+    color: var(--geo-text) !important;
+    border-bottom: 1px solid var(--geo-border) !important;
 }
 
-/* Переопределение системных уведомлений в темной теме */
+/* Ячейки таблиц */
+body.dark-theme .table-geo td,
+body.dark-theme .table td {
+    background-color: transparent !important;
+    color: var(--geo-text) !important;
+    border-color: var(--geo-border) !important;
+}
+
+/* Ховер в таблицах */
+body.dark-theme .table-hover tbody tr:hover td {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* 7. Уведомления (Алерты) */
 body.dark-theme .alert-success {
-    background-color: rgba(25, 135, 84, 0.15);
-    color: #4ade80;
-    border-color: rgba(74, 222, 128, 0.2);
+    background-color: rgba(25, 135, 84, 0.15) !important;
+    color: #4ade80 !important;
+    border-color: rgba(74, 222, 128, 0.2) !important;
 }
 
 body.dark-theme .alert-danger {
-    background-color: rgba(220, 53, 69, 0.15);
-    color: #f87171;
-    border-color: rgba(248, 113, 113, 0.2);
+    background-color: rgba(220, 53, 69, 0.15) !important;
+    color: #f87171 !important;
+    border-color: rgba(248, 113, 113, 0.2) !important;
+}
+
+body.dark-theme .alert-warning {
+    background-color: rgba(217, 119, 6, 0.15) !important;
+    color: #fbbf24 !important;
+    border-color: rgba(251, 191, 36, 0.2) !important;
+}
+
+/* 8. Кнопки закрытия (Крестики в модалках и тостах) */
+body.dark-theme .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
 }
