@@ -313,7 +313,7 @@ def proxy_nextgis(subpath):
 
     user = User.query.get(session['user_id'])
     
-    # --- НАЧАЛО БЛОКА ФЕЙС-КОНТРОЛЯ И ШПИОНАЖА ---
+    # --- НАЧАЛО БЛОКА ФЕЙС-КОНТРОЛЯ ---
     # Пытаемся найти ID ресурса (в пути или в аргументах)
     layer_id_str = None
     match = re.search(r'resource/(\d+)', subpath)
@@ -333,25 +333,11 @@ def proxy_nextgis(subpath):
                     log_action(user.id, user.username, 'ВТОРЖЕНИЕ', f'Попытка доступа к закрытому слою ID {layer_id}')
                     return "У вас нет доступа к этому дата-руму", 403
 
-            # --- УМНЫЙ ШПИОНАЖ (только для разрешенных слоев) ---
-            session_key = f'log_layer_{layer_id}'
-            last_logged_str = session.get(session_key)
-            
-            should_log = False
-            if not last_logged_str:
-                should_log = True
-            else:
-                last_logged_time = datetime.fromisoformat(last_logged_str)
-                if datetime.now() > last_logged_time + timedelta(minutes=5):
-                    should_log = True
-                    
-            if should_log:
-                log_action(user.id, user.username, 'КАРТА', f'Работа со слоем/ресурсом #{layer_id}')
-                session[session_key] = datetime.now().isoformat()
+            # Весь код умного шпионажа за обычными кликами по карте отсюда удален!
                 
         except ValueError:
             pass # Если ID оказался не числом, просто пропускаем
-    # --- КОНЕЦ БЛОКА ФЕЙС-КОНТРОЛЯ И ШПИОНАЖА ---
+    # --- КОНЕЦ БЛОКА ФЕЙС-КОНТРОЛЯ ---
 
     # 2. Формируем запрос к скрытому локальному NextGIS
     url = f"{NEXTGIS_LOCAL_URL}/api/{subpath}"
