@@ -105,13 +105,13 @@
                         <input type="email" class="form-control" id="newEmail" placeholder="Опционально">
                     </div>
                     
-                    <div class="col-12 mt-4" id="step-admin-layers">
+                    <div class="col-12 mt-4" >
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней</label>
                         <input type="number" class="form-control" id="newExpire" placeholder="Навсегда">
                     </div>
                     
                     <!-- Контейнер динамического дерева слоев для настройки прав доступа -->
-                    <div class="col-12 mt-4">
+                    <div class="col-12 mt-4" id="step-admin-layers">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="fw-bold mb-0" style="color: var(--geo-dark);"><i class="bi bi-layers text-secondary me-2"></i>Доступ к слоям</h6>
                             <div class="form-check mb-0">
@@ -745,7 +745,7 @@
                     element: '#step-admin-form', 
                     popover: {
                         title: 'Создание пользователей',
-                        description: 'Укажите логин, выберите роль и задайте срок действия пароля. Вы можете оставить пароль пустым — система сгенерирует его автоматически.',
+                        description: 'Укажите логин, пароль, выберите роль и задайте срок действия аккаунта. Для подключения 2FA укажите электронную почту. ',
                         side: "bottom", align: 'start'
                     }
                 },
@@ -761,7 +761,7 @@
                     element: '#step-admin-table', 
                     popover: {
                         title: 'Реестр учетных записей',
-                        description: 'Здесь отображаются все активные сессии. Истекшие аккаунты автоматически теряют доступ к порталу.',
+                        description: 'Здесь отображаются все сессии. Истекшие аккаунты автоматически теряют доступ к порталу.',
                         side: "top", align: 'start'
                     }
                 },
