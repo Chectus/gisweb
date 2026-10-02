@@ -30,19 +30,30 @@
     <!-- Верхняя навигационная панель -->
     <nav class="navbar navbar-expand-lg navbar-custom py-3">
         <div class="container-fluid px-4">
-            <a class="btn btn-outline-light btn-sm fw-medium me-3 border-opacity-50" href="/hub">
-              <i class="bi bi-arrow-left"></i> <span class="d-none d-md-inline">Назад</span>
-            </a>
-            <span class="navbar-brand mb-0 h5 text-white fw-bold d-flex align-items-center">
+            <!-- Левый блок -->
+            <div class="d-flex" style="flex: 1;">
+                <a class="btn btn-outline-light btn-sm fw-medium border-opacity-50" href="/hub">
+                  <i class="bi bi-arrow-left"></i> <span class="d-none d-md-inline">Назад</span>
+                </a>
+            </div>
+
+            <!-- Центр (Абсолютное позиционирование) -->
+            <span class="navbar-brand mb-0 h5 text-white fw-bold position-absolute top-50 start-50 translate-middle d-flex align-items-center w-auto" style="pointer-events: none;">
                 <i class="bi bi-shield-lock-fill me-2" style="color: var(--geo-accent);"></i>
-                Панель администратора
+                <span class="d-none d-md-inline">Панель администратора</span>
+                <span class="d-md-none">Админка</span>
             </span>
-            <button id="help-tutorial-btn" class="btn btn-outline-light border-0 me-2 ms-auto" title="Справка и обучение">
-                <i class="bi bi-question-circle-fill"></i>
-            </button>
-            <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
-                <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
-            </button>
+
+            <!-- Правый блок -->
+            <div class="d-flex justify-content-end align-items-center" style="flex: 1; z-index: 10;">
+                <button id="help-tutorial-btn" class="btn btn-outline-light border-0 me-2" title="Справка и обучение">
+                    <i class="bi bi-question-circle-fill"></i>
+                </button>
+                <button id="theme-toggle" class="btn btn-outline-light border-0" title="Переключить тему">
+                    <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+                </button>
+            </div>
+          </div>
         </div>
     </nav>
 
