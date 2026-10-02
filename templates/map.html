@@ -48,6 +48,9 @@
               <i class="bi bi-globe-americas me-2" style="color: var(--geo-accent);"></i>
               Веб-ГИС «Недра Забайкальского края»
           </span>
+          <button id="help-tutorial-btn" class="btn btn-outline-light border-0 me-2 ms-auto" title="Справка и обучение">
+                <i class="bi bi-question-circle-fill"></i>
+            </button>
           <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
               <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
           </button>
@@ -183,6 +186,77 @@
     <!-- Пользовательская логика приложения -->
     <script src="{{ url_for('static', filename='js/map_logic.js') }}"></script>
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+    <!-- СИСТЕМА ОБУЧЕНИЯ (ONBOARDING) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Конвертация Python Boolean в JavaScript Boolean
+        const hasSeenTutorial = {{ 'true' if has_seen_tutorial else 'false' }};
+        const currentPageName = 'map';
+        
+        async function saveTutorialState(status) {
+            try {
+                await fetch('/api/onboarding/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ page: currentPageName, status: status })
+                });
+            } catch (error) {
+                console.error('Ошибка сохранения статуса обучалки:', error);
+            }
+        }
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true, 
+            nextBtnText: 'Далее ➔',
+            prevBtnText: ' Назад',
+            doneBtnText: 'Понятно, спасибо!',
+            onDestroyed: () => saveTutorialState(true),
+            steps: [
+                {
+                    element: '#layersSidebar', 
+                    popover: {
+                        title: 'Управление слоями',
+                        description: 'Здесь находится основная панель управления. Вы можете сворачивать её для удобного обзора карты.',
+                        side: "right", align: 'start'
+                    }
+                },
+                {
+                    element: '#step-server-layers', 
+                    popover: {
+                        title: 'Каталог геоданных',
+                        description: 'Включайте геологические слои и просматривайте их атрибутивные таблицы. Если слоя нет в списке, обратитесь к администратору дата-рума.',
+                        side: "right", align: 'start'
+                    }
+                },
+                {
+                    element: '#step-local-upload', 
+                    popover: {
+                        title: 'Пользовательские данные',
+                        description: 'Загружайте собственные архивы SHP, KML или GeoJSON. Они будут отображаться поверх основной карты с возможностью настройки стилей.',
+                        side: "right", align: 'start'
+                    }
+                },
+                {
+                    element: '#btnCompareCart',
+                    popover: {
+                        title: 'Генерация отчетов',
+                        description: 'При клике на объекты карты добавляйте их в сводку, а затем генерируйте сравнительный PDF-документ одним нажатием.',
+                        side: "left", align: 'end'
+                    }
+                }
+            ]
+        });
+
+        if (hasSeenTutorial === false) {
+            driverObj.drive();
+        }
+
+        document.getElementById('help-tutorial-btn').addEventListener('click', () => {
+            driverObj.drive(); 
+        });
+    });
+    </script>
 
   </body>
 </html>

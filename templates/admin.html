@@ -37,6 +37,9 @@
                 <i class="bi bi-shield-lock-fill me-2" style="color: var(--geo-accent);"></i>
                 Панель администратора
             </span>
+            <button id="help-tutorial-btn" class="btn btn-outline-light border-0 me-2 ms-auto" title="Справка и обучение">
+                <i class="bi bi-question-circle-fill"></i>
+            </button>
             <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
                 <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
             </button>
@@ -693,6 +696,77 @@
                 btn.disabled = false;
                 btn.innerHTML = 'Создать пользователя <i class="bi bi-arrow-right ms-2"></i>';
             }
+        });
+    });
+    </script>
+
+    <!-- СИСТЕМА ОБУЧЕНИЯ (ONBOARDING) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Конвертация Python Boolean в JavaScript Boolean
+        const hasSeenTutorial = {{ 'true' if has_seen_tutorial else 'false' }};
+        const currentPageName = 'admin';
+        
+        async function saveTutorialState(status) {
+            try {
+                await fetch('/api/onboarding/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ page: currentPageName, status: status })
+                });
+            } catch (error) {
+                console.error('Ошибка сохранения статуса обучалки:', error);
+            }
+        }
+
+        const driverObj = window.driver.js.driver({
+            showProgress: true, 
+            nextBtnText: 'Далее ➔',
+            prevBtnText: ' Назад',
+            doneBtnText: 'Понятно, спасибо!',
+            onDestroyed: () => saveTutorialState(true),
+            steps: [
+                {
+                    element: '#step-admin-form', 
+                    popover: {
+                        title: 'Создание пользователей',
+                        description: 'Укажите логин, выберите роль и задайте срок действия пароля. Вы можете оставить пароль пустым — система сгенерирует его автоматически.',
+                        side: "bottom", align: 'start'
+                    }
+                },
+                {
+                    element: '#step-admin-layers', 
+                    popover: {
+                        title: 'Настройка доступа',
+                        description: 'Детальная настройка видимости дата-румов. Каскадные галочки помогут быстро выделить нужные группы геологических слоев.',
+                        side: "top", align: 'start'
+                    }
+                },
+                {
+                    element: '#step-admin-table', 
+                    popover: {
+                        title: 'Реестр учетных записей',
+                        description: 'Здесь отображаются все активные сессии. Истекшие аккаунты автоматически теряют доступ к порталу.',
+                        side: "top", align: 'start'
+                    }
+                },
+                {
+                    element: '#step-admin-actions',
+                    popover: {
+                        title: 'Управление профилем',
+                        description: 'Редактируйте права, просматривайте системный журнал действий пользователя (аудит логов) или удаляйте доступ.',
+                        side: "left", align: 'center'
+                    }
+                }
+            ]
+        });
+
+        if (hasSeenTutorial === false) {
+            driverObj.drive();
+        }
+
+        document.getElementById('help-tutorial-btn').addEventListener('click', () => {
+            driverObj.drive(); 
         });
     });
     </script>
