@@ -61,7 +61,7 @@
     <div class="container admin-container">
         
         <!-- Секция 1: Форма регистрации нового пользователя -->
-        <div class="admin-card mb-4">
+        <div class="admin-card mb-4" id="step-admin-form">
             <div class="admin-card-header">
                 <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-person-plus-fill me-2" style="color: var(--geo-main);"></i>Новый доступ</h5>
             </div>
@@ -101,7 +101,7 @@
                         <input type="email" class="form-control" id="newEmail" placeholder="Опционально">
                     </div>
                     
-                    <div class="col-md-2">
+                    <div class="col-12 mt-4" id="step-admin-layers">
                         <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней</label>
                         <input type="number" class="form-control" id="newExpire" placeholder="Навсегда">
                     </div>
@@ -130,7 +130,7 @@
         </div>
 
         <!-- Секция 2: Реестр активных учетных записей -->
-        <div class="admin-card mb-5">
+        <div class="admin-card mb-5" id="step-admin-table">
             <div class="admin-card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-people-fill me-2" style="color: var(--geo-main);"></i>Активные учетные записи</h5>
             </div>
@@ -183,7 +183,7 @@
                                 
                                 <!-- Элементы управления учетной записью -->
                                 <td class="text-end pe-4">
-                                    <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                    <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap" id="{% if loop.index == 1 %}step-admin-actions{% endif %}">
 
                                         <button class="btn btn-sm btn-outline-primary edit-user-btn" 
                                                 title="Редактировать"

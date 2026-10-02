@@ -80,7 +80,7 @@
           
           <!-- Модуль локальной загрузки пользовательских файлов -->
           <div class="mb-4">
-            <div class="card border-0 shadow-sm mt-3" style="background-color: var(--geo-light);">
+            <div class="card border-0 shadow-sm mt-3" style="background-color: var(--geo-light);" id="step-local-upload">
                 <div class="card-body p-3">
                     <h6 class="fw-bold mb-3" style="color: var(--geo-dark);">
                         <i class="bi bi-cloud-arrow-up-fill text-primary me-2"></i>Загрузка слоев (Локально)
@@ -107,7 +107,7 @@
           </div>
 
           <!-- Контейнер серверных векторных и растровых слоев (заполняется через JS) -->
-          <div class="mb-3 mt-4">
+          <div class="mb-3 mt-4" id="step-server-layers">
             <label class="form-label text-muted small text-uppercase fw-bold mb-2">Данные</label>
             <div class="d-flex flex-column gap-2" id="layersAccordion"></div>
           </div>
