@@ -18,6 +18,7 @@ from email.mime.multipart import MIMEMultipart
 from flask_migrate import Migrate
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from sqlalchemy.orm.attributes import flag_modified
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 
 # Активируем чтение скрытого файла .env
@@ -239,6 +240,9 @@ class User(db.Model):
     email = db.Column(db.String(120), nullable=True)          # Почта (если None — 2FA выключена)
     current_2fa_code = db.Column(db.String(6), nullable=True) # Сюда будем класть 6 цифр из письма
     
+    # НОВОЕ: Хранилище статусов обучения
+    onboarding_state = db.Column(db.JSON, default=dict)
+    
     # Связь базы данных: один пользователь -> много устройств
     # cascade="all, delete-orphan" значит, что если мы удалим геолога, все его устройства тоже удалятся
     trusted_devices = db.relationship('TrustedDevice', backref='user', lazy=True, cascade="all, delete-orphan")
@@ -313,7 +317,7 @@ def proxy_nextgis(subpath):
 
     user = User.query.get(session['user_id'])
     
-    # --- НАЧАЛО БЛОКА ФЕЙС-КОНТРОЛЯ И ШПИОНАЖА ---
+    # --- НАЧАЛО БЛОКА ФЕЙС-КОНТРОЛЯ ---
     # Пытаемся найти ID ресурса (в пути или в аргументах)
     layer_id_str = None
     match = re.search(r'resource/(\d+)', subpath)
@@ -333,25 +337,11 @@ def proxy_nextgis(subpath):
                     log_action(user.id, user.username, 'ВТОРЖЕНИЕ', f'Попытка доступа к закрытому слою ID {layer_id}')
                     return "У вас нет доступа к этому дата-руму", 403
 
-            # --- УМНЫЙ ШПИОНАЖ (только для разрешенных слоев) ---
-            session_key = f'log_layer_{layer_id}'
-            last_logged_str = session.get(session_key)
-            
-            should_log = False
-            if not last_logged_str:
-                should_log = True
-            else:
-                last_logged_time = datetime.fromisoformat(last_logged_str)
-                if datetime.now() > last_logged_time + timedelta(minutes=5):
-                    should_log = True
-                    
-            if should_log:
-                log_action(user.id, user.username, 'КАРТА', f'Работа со слоем/ресурсом #{layer_id}')
-                session[session_key] = datetime.now().isoformat()
+            # Весь код умного шпионажа за обычными кликами по карте отсюда удален!
                 
         except ValueError:
             pass # Если ID оказался не числом, просто пропускаем
-    # --- КОНЕЦ БЛОКА ФЕЙС-КОНТРОЛЯ И ШПИОНАЖА ---
+    # --- КОНЕЦ БЛОКА ФЕЙС-КОНТРОЛЯ ---
 
     # 2. Формируем запрос к скрытому локальному NextGIS
     url = f"{NEXTGIS_LOCAL_URL}/api/{subpath}"
@@ -666,10 +656,16 @@ def map_page():
     # Достаем юзера из базы
     user = db.session.get(User, session['user_id'])
     
-    # Передаем в шаблон и логин, и JSON с массивом разрешенных слоев
+    # --- НОВОЕ: Проверка статуса обучалки для карты ---
+    state_dict = user.onboarding_state if user.onboarding_state else {}
+    # Ищем ключ 'map'. Если его еще нет, возвращаем False (обучалку не видел)
+    has_seen_tutorial = state_dict.get('map', False)
+    
+    # Передаем в шаблон логин, JSON слоев и статус обучалки
     return render_template('map.html', 
                            username=user.username,
-                           allowed_layers=json.dumps(user.allowed_layers))
+                           allowed_layers=json.dumps(user.allowed_layers),
+                           has_seen_tutorial=json.dumps(has_seen_tutorial))
 
 @app.route('/docs')
 def docs():
@@ -754,16 +750,27 @@ def admin_panel():
     
     all_users = User.query.all()
     
-    # --- НОВОЕ: Достаем структуру слоев для модалки редактирования ---
+    # Достаем структуру слоев для модалки редактирования
     config_path = os.path.join(app.root_path, 'layers_config.json')
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             all_layers = json.load(f)
     except Exception:
-        all_layers = [] # Если файла нет, отдаем пустой список, чтобы страница не падала
+        all_layers = [] 
         
-    # Передаем и юзеров, и слои в шаблон
-    return render_template('admin.html', users=all_users, all_layers=all_layers)
+    # --- НОВОЕ: Проверка статуса обучалки для админки ---
+    # Нам нужен текущий пользователь, чтобы посмотреть его личные настройки
+    current_user = db.session.get(User, session['user_id'])
+    
+    state_dict = current_user.onboarding_state if current_user.onboarding_state else {}
+    # Ищем ключ 'admin'. Если его еще нет, возвращаем False
+    has_seen_tutorial = state_dict.get('admin', False)
+        
+    # Передаем юзеров, слои и статус обучалки в шаблон
+    return render_template('admin.html', 
+                           users=all_users, 
+                           all_layers=all_layers,
+                           has_seen_tutorial=json.dumps(has_seen_tutorial))
 
 @app.route('/admin/api/create_user', methods=['POST'])
 def api_create_user():
@@ -941,6 +948,30 @@ def get_layers_config():
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": f"Ошибка чтения конфига: {str(e)}"}), 500
+
+@app.route('/api/onboarding/update', methods=['POST'])
+def update_onboarding():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+        
+    data = request.get_json()
+    page = data.get('page')       # Ожидаем 'map' или 'admin'
+    status = data.get('status')   # True (пройдено) или False (сброшено)
+    
+    user = db.session.get(User, session['user_id'])
+    
+    # Берем текущий словарь состояний или создаем пустой
+    state = user.onboarding_state if user.onboarding_state else {}
+    
+    # Обновляем статус конкретной страницы
+    state[page] = status
+    user.onboarding_state = state
+    
+    # Особенность SQLAlchemy: нужно принудительно сказать, что JSON изменился
+    flag_modified(user, 'onboarding_state')
+    db.session.commit()
+    
+    return jsonify({'status': 'success', 'page': page, 'state': status})
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=True)
