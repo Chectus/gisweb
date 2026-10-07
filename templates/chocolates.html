@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Технические работы</title>
+    <style>
+        /* Сбрасываем отступы, чтобы всё было на 100% экрана */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #121212; /* Подстраховка на долю секунды, пока грузится картинка */
+        }
+
+        /* Контейнер на весь экран с фоновой картинкой */
+        .error-wrapper {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            
+            /* ПУТЬ К КАРТИНКЕ. Бэкендеру нужно положить ее в папку static/img/ */
+            background-image: url('/static/img/chocolates-bg.webp'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            
+            /* Полупрозрачное затемнение картинки, чтобы белый текст читался 100% идеально */
+            box-shadow: inset 0 0 0 2000px rgba(0, 0, 0, 0.55);
+        }
+
+        /* Стили текста (эффект стеклянной плашки) */
+        .error-message {
+            color: #ffffff;
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 30px 50px;
+            
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px); /* Эффект размытия фона под плашкой */
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+            
+            /* Анимация плавного появления */
+            animation: fadeIn 0.8s ease-in-out;
+        }
+
+        /* Адаптив под мобилки */
+        @media (max-width: 768px) {
+            .error-message {
+                font-size: 1.5rem;
+                margin: 0 20px;
+                padding: 20px 30px;
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-wrapper">
+        <div class="error-message">
+            Ой, возникли технические шоколадки 🍫
+        </div>
+    </div>
+</body>
+</html>
