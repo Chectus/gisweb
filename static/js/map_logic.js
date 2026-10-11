@@ -24,8 +24,13 @@ const basemaps = {
 // Делегирование событий переключения базовых слоев
 document.querySelectorAll('input[name="basemap"]').forEach((radio) => {
     radio.addEventListener("change", (e) => {
+        // Сначала удаляем все текущие подложки с карты
         Object.values(basemaps).forEach((layer) => map.removeLayer(layer));
-        map.addLayer(basemaps[e.target.value]);
+        
+        // Если выбрано что-то кроме "none", добавляем нужный слой
+        if (e.target.value !== "none") {
+            map.addLayer(basemaps[e.target.value]);
+        }
     });
 });
 

@@ -98,17 +98,23 @@
             </div>
 
             <!-- Селектор базовой подложки карты -->
-            <label class="form-label text-muted small text-uppercase fw-bold mb-2">Подложка</label>
+            <label class="form-label text-muted small text-uppercase fw-bold mb-2 mt-3">Подложка</label>
             <div class="d-flex flex-column gap-2">
-              <div class="form-check layer-item">
-                <input class="form-check-input" type="radio" name="basemap" id="bm2Gis" value="gis2" checked />
-                <label class="form-check-label w-100" for="bm2Gis"><strong>Схема 2GIS</strong></label>
-              </div>
-              <div class="form-check layer-item">
-                <input class="form-check-input" type="radio" name="basemap" id="bmEsri" value="esri" />
-                <label class="form-check-label w-100" for="bmEsri"><strong>Спутник Esri</strong></label>
-              </div>
-          </div>
+                <div class="form-check layer-item">
+                    <input class="form-check-input" type="radio" name="basemap" id="bm2Gis" value="gis2" checked />
+                    <label class="form-check-label w-100" for="bm2Gis"><strong>Схема 2GIS</strong></label>
+                </div>
+                <div class="form-check layer-item">
+                    <input class="form-check-input" type="radio" name="basemap" id="bmEsri" value="esri" />
+                    <label class="form-check-label w-100" for="bmEsri"><strong>Спутник Esri</strong></label>
+                </div>
+                
+                <!-- НОВЫЙ РУБИЛЬНИК -->
+                <div class="form-check layer-item">
+                    <input class="form-check-input" type="radio" name="basemap" id="bmNone" value="none" />
+                    <label class="form-check-label w-100" for="bmNone"><strong>Без подложки</strong></label>
+                </div>
+            </div>
 
           <!-- Контейнер серверных векторных и растровых слоев (заполняется через JS) -->
           <div class="mb-3 mt-4" id="step-server-layers">
