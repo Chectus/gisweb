@@ -7,13 +7,18 @@ from datetime import datetime, timedelta
 def init_roles():
     """Создает базовые роли в пустой БД, если их нет"""
     with app.app_context():
-        db.create_all() # Создаст все таблицы в PostgreSQL, если база пустая
+        db.create_all() 
         
         if Role.query.count() == 0:
             roles = [
-                Role(name='admin', can_have_tasks=True),
-                Role(name='worker', can_have_tasks=True),
-                Role(name='viewer', can_have_tasks=False)
+                # Админ: Раздает задачи, но сам их не получает
+                Role(name='admin', can_assign_tasks=True, can_receive_tasks=False),
+                
+                # Лаборант: Получает задачи, но сам не раздает
+                Role(name='worker', can_assign_tasks=False, can_receive_tasks=True),
+                
+                # Инвестор: Ничего не может в плане задач
+                Role(name='viewer', can_assign_tasks=False, can_receive_tasks=False)
             ]
             db.session.bulk_save_objects(roles)
             db.session.commit()
