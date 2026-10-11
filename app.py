@@ -219,7 +219,7 @@ if not NEXTGIS_USER or not NEXTGIS_PASS:
 NEXTGIS_AUTH = (NEXTGIS_USER, NEXTGIS_PASS)
 NEXTGIS_LOCAL_URL = "http://127.0.0.1:8081" # Порт докера NextGIS
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://geo_user:password@localhost:5432/geo_db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # --- НАСТРОЙКИ СЕССИЙ (ТАЙМ-АУТ 3 ЧАСА) ---
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1) # Время жизни сессии ровно 1 часа
@@ -228,56 +228,111 @@ app.config['SESSION_REFRESH_EACH_REQUEST'] = True             # Скользящ
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# --- МОДЕЛЬ ПОЛЬЗОВАТЕЛЯ В БАЗЕ ДАННЫХ ---
+# 1. СПРАВОЧНИК РОЛЕЙ
+class Role(db.Model):
+    __tablename__ = 'roles'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False) # 'admin', 'worker', 'viewer'
+    can_assign_tasks = db.Column(db.Boolean, default=False)      # Права начальника/зама
+    can_receive_tasks = db.Column(db.Boolean, default=False)     # Права лаборантов
+    
+    users = db.relationship('User', backref='role', lazy=True)
+
+# 2. ТАБЛИЦА ДОСТУПОВ К СЛОЯМ
+class UserLayer(db.Model):
+    __tablename__ = 'user_layers'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    layer_id = db.Column(db.Integer, nullable=False) # Просто число из layers_config.json
+
+# 3. ПОЛЬЗОВАТЕЛИ
 class User(db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(120), nullable=True)
+    
+    # Новые поля для отчетов и связей
+    full_name = db.Column(db.String(150), nullable=True) 
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)
+    has_all_layers = db.Column(db.Boolean, default=True) # Замена JSON "*"
+    
+    # Старые поля (оставляем для безопасности и 2FA)
     expires_at = db.Column(db.DateTime, nullable=True) 
-    is_admin = db.Column(db.Boolean, default=False)
-    
-    # --- НОВЫЕ ПОЛЯ ДЛЯ 2FA ---
-    email = db.Column(db.String(120), nullable=True)          # Почта (если None — 2FA выключена)
-    current_2fa_code = db.Column(db.String(6), nullable=True) # Сюда будем класть 6 цифр из письма
-    
-    # НОВОЕ: Хранилище статусов обучения
+    current_2fa_code = db.Column(db.String(6), nullable=True)
     onboarding_state = db.Column(db.JSON, default=dict)
     
-    # Связь базы данных: один пользователь -> много устройств
-    # cascade="all, delete-orphan" значит, что если мы удалим геолога, все его устройства тоже удалятся
+    # Связи (Relationships)
+    specific_layers = db.relationship('UserLayer', backref='user', cascade="all, delete-orphan")
     trusted_devices = db.relationship('TrustedDevice', backref='user', lazy=True, cascade="all, delete-orphan")
-    allowed_layers = db.Column(db.JSON, default="*")
+    tasks_assigned = db.relationship('Task', foreign_keys='Task.assignee_id', backref='assignee', lazy=True)
+    tasks_authored = db.relationship('Task', foreign_keys='Task.author_id', backref='author', lazy=True)
+
+    # --- МАГИЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ДЛЯ ФРОНТА И РОУТОВ ---
+    @property
+    def is_admin(self):
+        """Чтобы старый код (session['is_admin'] = user.is_admin) не сломался"""
+        return self.role.name == 'admin' if self.role else False
+
+    @property
+    def allowed_layers(self):
+        """Чтобы прокси-охранник и фронтенд Светы получали привычный формат '*' или [320, 321]"""
+        if self.has_all_layers:
+            return "*"
+        return [link.layer_id for link in self.specific_layers]
 
     def is_active(self):
         if self.expires_at is None:
             return True
         return datetime.now() < self.expires_at
 
-# --- НОВАЯ МОДЕЛЬ ДОВЕРЕННОГО УСТРОЙСТВА ---
-class TrustedDevice(db.Model):
+# 4. ЗАДАЧИ (Модуль CRM)
+class Task(db.Model):
+    __tablename__ = 'tasks'
     id = db.Column(db.Integer, primary_key=True)
-    # Привязываем токен к конкретному ID пользователя
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    # Сам длинный криптографический токен, который ляжет в куки браузера
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    
+    # Статус: 'pending', 'in_progress', 'review', 'completed'
+    status = db.Column(db.String(50), default='pending')
+    score = db.Column(db.Integer, nullable=True) # Оценка начальника от 1 до 10
+    
+    employee_report = db.Column(db.Text, nullable=True)
+    attachment_path = db.Column(db.String(255), nullable=True)
+    
+    # Строгий тайминг для формирования рабочих карт
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    deadline = db.Column(db.DateTime, nullable=True)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+# 5. ДОВЕРЕННЫЕ УСТРОЙСТВА (Оставляем без изменений!)
+class TrustedDevice(db.Model):
+    __tablename__ = 'trusted_devices'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     device_token = db.Column(db.String(100), unique=True, nullable=False)
-    # Дата последнего входа с этого компа
     last_login = db.Column(db.DateTime, default=datetime.now)
 
-    # Метод, который проверяет тот самый тайм-аут в 3 дня (72 часа)
     def is_valid(self):
         return datetime.now() < (self.last_login + timedelta(days=1))
 
-# --- НОВАЯ МОДЕЛЬ ДЛЯ ЛОГОВ ---
+# 6. ЛОГИ АУДИТА (Оставляем без изменений!)
 class ActionLog(db.Model):
+    __tablename__ = 'action_logs'
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, default=datetime.now)
-    # ondelete='SET NULL' значит, что если мы удалим юзера, его логи останутся, просто ID станет пустым
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True) 
-    username = db.Column(db.String(50)) # Запоминаем логин текстом навечно
-    action_type = db.Column(db.String(50)) # Категория (ВХОД, ОШИБКА, АДМИНКА)
-    details = db.Column(db.String(255)) # Суть действия
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True) 
+    username = db.Column(db.String(50)) 
+    action_type = db.Column(db.String(50)) 
+    details = db.Column(db.String(255)) 
     ip_address = db.Column(db.String(50))
-    user_agent = db.Column(db.String(255)) # Браузер и ОС
+    user_agent = db.Column(db.String(255))
 
 # --- ФУНКЦИЯ-ШПИОН ЗАПИСИ ЛОГОВ ---
 def log_action(user_id, username, action_type, details):
