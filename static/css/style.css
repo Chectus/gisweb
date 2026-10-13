@@ -298,6 +298,15 @@ body.dark-theme .leaflet-container {
     background-color: var(--geo-card-bg) !important;
 }
 
+/* Принудительное центрирование всплывающего окна обучалки с отрывом от подсвеченного элемента */
+.centered-step {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+}
+
 /* Стилизация полосы прокрутки внутри панелей */
 .overflow-auto::-webkit-scrollbar { width: 6px; }
 .overflow-auto::-webkit-scrollbar-track { background: #f1f1f1; }
