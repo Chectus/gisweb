@@ -219,7 +219,7 @@ if not NEXTGIS_USER or not NEXTGIS_PASS:
 NEXTGIS_AUTH = (NEXTGIS_USER, NEXTGIS_PASS)
 NEXTGIS_LOCAL_URL = "http://127.0.0.1:8081" # Порт докера NextGIS
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://geo_user:password@localhost:5432/geo_db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # --- НАСТРОЙКИ СЕССИЙ (ТАЙМ-АУТ 3 ЧАСА) ---
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1) # Время жизни сессии ровно 1 часа
@@ -228,56 +228,111 @@ app.config['SESSION_REFRESH_EACH_REQUEST'] = True             # Скользящ
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# --- МОДЕЛЬ ПОЛЬЗОВАТЕЛЯ В БАЗЕ ДАННЫХ ---
+# 1. СПРАВОЧНИК РОЛЕЙ
+class Role(db.Model):
+    __tablename__ = 'roles'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False) # 'admin', 'worker', 'viewer'
+    can_assign_tasks = db.Column(db.Boolean, default=False)      # Права начальника/зама
+    can_receive_tasks = db.Column(db.Boolean, default=False)     # Права лаборантов
+    
+    users = db.relationship('User', backref='role', lazy=True)
+
+# 2. ТАБЛИЦА ДОСТУПОВ К СЛОЯМ
+class UserLayer(db.Model):
+    __tablename__ = 'user_layers'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    layer_id = db.Column(db.Integer, nullable=False) # Просто число из layers_config.json
+
+# 3. ПОЛЬЗОВАТЕЛИ
 class User(db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(120), nullable=True)
+    
+    # Новые поля для отчетов и связей
+    full_name = db.Column(db.String(150), nullable=True) 
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)
+    has_all_layers = db.Column(db.Boolean, default=True) # Замена JSON "*"
+    
+    # Старые поля (оставляем для безопасности и 2FA)
     expires_at = db.Column(db.DateTime, nullable=True) 
-    is_admin = db.Column(db.Boolean, default=False)
-    
-    # --- НОВЫЕ ПОЛЯ ДЛЯ 2FA ---
-    email = db.Column(db.String(120), nullable=True)          # Почта (если None — 2FA выключена)
-    current_2fa_code = db.Column(db.String(6), nullable=True) # Сюда будем класть 6 цифр из письма
-    
-    # НОВОЕ: Хранилище статусов обучения
+    current_2fa_code = db.Column(db.String(6), nullable=True)
     onboarding_state = db.Column(db.JSON, default=dict)
     
-    # Связь базы данных: один пользователь -> много устройств
-    # cascade="all, delete-orphan" значит, что если мы удалим геолога, все его устройства тоже удалятся
+    # Связи (Relationships)
+    specific_layers = db.relationship('UserLayer', backref='user', cascade="all, delete-orphan")
     trusted_devices = db.relationship('TrustedDevice', backref='user', lazy=True, cascade="all, delete-orphan")
-    allowed_layers = db.Column(db.JSON, default="*")
+    tasks_assigned = db.relationship('Task', foreign_keys='Task.assignee_id', backref='assignee', lazy=True)
+    tasks_authored = db.relationship('Task', foreign_keys='Task.author_id', backref='author', lazy=True)
+
+    # --- МАГИЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ДЛЯ ФРОНТА И РОУТОВ ---
+    @property
+    def is_admin(self):
+        """Чтобы старый код (session['is_admin'] = user.is_admin) не сломался"""
+        return self.role.name == 'admin' if self.role else False
+
+    @property
+    def allowed_layers(self):
+        """Чтобы прокси-охранник и фронтенд Светы получали привычный формат '*' или [320, 321]"""
+        if self.has_all_layers:
+            return "*"
+        return [link.layer_id for link in self.specific_layers]
 
     def is_active(self):
         if self.expires_at is None:
             return True
         return datetime.now() < self.expires_at
 
-# --- НОВАЯ МОДЕЛЬ ДОВЕРЕННОГО УСТРОЙСТВА ---
-class TrustedDevice(db.Model):
+# 4. ЗАДАЧИ (Модуль CRM)
+class Task(db.Model):
+    __tablename__ = 'tasks'
     id = db.Column(db.Integer, primary_key=True)
-    # Привязываем токен к конкретному ID пользователя
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    # Сам длинный криптографический токен, который ляжет в куки браузера
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    
+    # Статус: 'pending', 'in_progress', 'review', 'completed'
+    status = db.Column(db.String(50), default='pending')
+    score = db.Column(db.Integer, nullable=True) # Оценка начальника от 1 до 10
+    
+    employee_report = db.Column(db.Text, nullable=True)
+    attachment_path = db.Column(db.String(255), nullable=True)
+    
+    # Строгий тайминг для формирования рабочих карт
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    deadline = db.Column(db.DateTime, nullable=True)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+# 5. ДОВЕРЕННЫЕ УСТРОЙСТВА (Оставляем без изменений!)
+class TrustedDevice(db.Model):
+    __tablename__ = 'trusted_devices'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     device_token = db.Column(db.String(100), unique=True, nullable=False)
-    # Дата последнего входа с этого компа
     last_login = db.Column(db.DateTime, default=datetime.now)
 
-    # Метод, который проверяет тот самый тайм-аут в 3 дня (72 часа)
     def is_valid(self):
         return datetime.now() < (self.last_login + timedelta(days=1))
 
-# --- НОВАЯ МОДЕЛЬ ДЛЯ ЛОГОВ ---
+# 6. ЛОГИ АУДИТА (Оставляем без изменений!)
 class ActionLog(db.Model):
+    __tablename__ = 'action_logs'
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, default=datetime.now)
-    # ondelete='SET NULL' значит, что если мы удалим юзера, его логи останутся, просто ID станет пустым
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True) 
-    username = db.Column(db.String(50)) # Запоминаем логин текстом навечно
-    action_type = db.Column(db.String(50)) # Категория (ВХОД, ОШИБКА, АДМИНКА)
-    details = db.Column(db.String(255)) # Суть действия
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True) 
+    username = db.Column(db.String(50)) 
+    action_type = db.Column(db.String(50)) 
+    details = db.Column(db.String(255)) 
     ip_address = db.Column(db.String(50))
-    user_agent = db.Column(db.String(255)) # Браузер и ОС
+    user_agent = db.Column(db.String(255))
 
 # --- ФУНКЦИЯ-ШПИОН ЗАПИСИ ЛОГОВ ---
 def log_action(user_id, username, action_type, details):
@@ -782,46 +837,65 @@ def api_create_user():
     if not current_user.is_admin:
         return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
 
-    # Получаем данные в формате JSON от фронтенда
     data = request.get_json()
     if not data:
         return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
 
     username = data.get('username')
     email = data.get('email')
-    password = data.get('password') # Теперь ждем пароль от фронтенда!
-    expire_days = data.get('expire_days') # Ждем таймер
-    is_admin = data.get('is_admin', False) # Ждем роль (по умолчанию False)
+    password = data.get('password')
+    expire_days = data.get('expire_days')
+    is_admin = data.get('is_admin', False) # С фронта все еще приходит True/False
     allowed_layers = data.get('allowed_layers', []) 
     
-    # Обработка пустой почты
     if not email or email.strip() == '':
         email = None
 
     if User.query.filter_by(username=username).first():
         return jsonify({'status': 'error', 'message': 'Пользователь с таким логином уже существует'}), 400
 
-    # Если пароль не ввели руками, генерим кракозябру сами (на всякий случай)
     if not password:
         password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
-    # Логика таймера жизни аккаунта
     expires_at = None
     if expire_days and str(expire_days).isdigit():
         expires_at = datetime.now() + timedelta(days=int(expire_days))
 
-    # Создаем юзера со ВСЕМИ параметрами
+    # --- ИЗМЕНЕНИЯ ЗДЕСЬ (РОЛИ И СЛОИ) ---
+    
+    # 1. Определяем роль. Если с фронта пришло is_admin=True, ищем роль 'admin', иначе 'worker'
+    role_name = 'admin' if is_admin else 'worker'
+    role = Role.query.filter_by(name=role_name).first()
+    
+    if not role:
+        return jsonify({'status': 'error', 'message': f'Системная роль {role_name} не найдена в БД. Запустите скрипт инициализации.'}), 500
+
+    # 2. Определяем, есть ли доступ ко всем слоям
+    has_all = (allowed_layers == "*")
+
+    # 3. Создаем юзера с новыми параметрами
     new_user = User(
         username=username,
         email=email,
         password_hash=generate_password_hash(password),
         expires_at=expires_at,
-        is_admin=is_admin,
-        allowed_layers=allowed_layers
+        role_id=role.id,          # <--- ТЕПЕРЬ ТУТ role_id
+        has_all_layers=has_all    # <--- И ТУТ has_all_layers
     )
     
     db.session.add(new_user)
-    db.session.commit()
+    db.session.commit() # Сохраняем, чтобы получить new_user.id
+    
+    # 4. Если выбраны конкретные слои, добавляем их в таблицу-связку
+    if not has_all and isinstance(allowed_layers, list):
+        for layer_id in allowed_layers:
+            try:
+                db.session.add(UserLayer(user_id=new_user.id, layer_id=int(layer_id)))
+            except ValueError:
+                pass
+        db.session.commit()
+
+    # ------------------------------------
     
     role_text = "Админ" if is_admin else "Геолог"
     log_action(current_user.id, current_user.username, 'АДМИНКА', f'Создан новый {role_text}: {username}')
@@ -829,7 +903,7 @@ def api_create_user():
     return jsonify({
         'status': 'success', 
         'message': f'Пользователь {username} успешно создан!',
-        'temp_password': password # Возвращаем пароль, чтобы вывести админу на экран, если нужно
+        'temp_password': password
     })
 
 @app.route('/admin/api/edit_user/<int:user_id>', methods=['POST'])
@@ -842,7 +916,6 @@ def api_edit_user(user_id):
     if not current_user.is_admin:
         return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
 
-    # Ищем пользователя, которого хотим отредактировать
     target_user = db.session.get(User, user_id)
     if not target_user:
         return jsonify({'status': 'error', 'message': 'Пользователь не найден'}), 404
@@ -853,37 +926,55 @@ def api_edit_user(user_id):
 
     new_username = data.get('username')
     
-    # Проверяем, не пытается ли админ задать логин, который уже занят кем-то другим
     if new_username and new_username != target_user.username:
         if User.query.filter_by(username=new_username).first():
             return jsonify({'status': 'error', 'message': 'Логин уже занят другим пользователем'}), 400
         target_user.username = new_username
 
-    # Обновляем базовые поля
     email = data.get('email')
     target_user.email = email if email and email.strip() != '' else None
     
-    # Если прислали новый пароль - перезаписываем хэш. Если пусто - оставляем старый.
     password = data.get('password')
     if password and password.strip() != '':
         target_user.password_hash = generate_password_hash(password)
 
-    # Обновляем права
+    # --- ИЗМЕНЕНИЯ ЗДЕСЬ (РОЛИ И СЛОИ) ---
+    
+    # 1. Обновляем роль
     if 'is_admin' in data:
-        target_user.is_admin = data.get('is_admin')
-    if 'allowed_layers' in data:
-        target_user.allowed_layers = data.get('allowed_layers')
+        is_admin = data.get('is_admin')
+        role_name = 'admin' if is_admin else 'worker'
+        role = Role.query.filter_by(name=role_name).first()
+        if role:
+            target_user.role_id = role.id
 
-    # Логика таймера: если передали число дней - обнуляем и считаем от СЕЙЧАС
+    # 2. Обновляем слои
+    if 'allowed_layers' in data:
+        allowed_layers = data.get('allowed_layers')
+        
+        # Сначала удаляем все старые доступы
+        UserLayer.query.filter_by(user_id=target_user.id).delete()
+        
+        if allowed_layers == "*":
+            target_user.has_all_layers = True
+        else:
+            target_user.has_all_layers = False
+            if isinstance(allowed_layers, list):
+                for layer_id in allowed_layers:
+                    try:
+                        db.session.add(UserLayer(user_id=target_user.id, layer_id=int(layer_id)))
+                    except ValueError:
+                        pass
+    # ------------------------------------
+
     expire_days = data.get('expire_days')
     if expire_days and str(expire_days).isdigit():
         target_user.expires_at = datetime.now() + timedelta(days=int(expire_days))
-    elif expire_days == "": # Если передали пустую строку - делаем бессрочным
+    elif expire_days == "": 
         target_user.expires_at = None
 
     db.session.commit()
     
-    # Шпионим за админом
     log_action(current_user.id, current_user.username, 'АДМИНКА', f'Отредактирован аккаунт: {target_user.username}')
 
     return jsonify({
