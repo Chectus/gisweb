@@ -745,7 +745,12 @@ function addCustomLayerToMap(leafletLayer, fileName) {
     const panelHTML = `
         <div class="card border-0 shadow-sm rounded-3 bg-white p-2" id="panel_${layerId}">
             <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-1">
-                <span class="small fw-bold text-truncate" style="max-width: 70%;" title="${fileName}">${fileName}</span>
+                <!-- Блок с галочкой и названием -->
+                <div class="d-flex align-items-center" style="max-width: 65%;">
+                    <input class="form-check-input me-2 mt-0" type="checkbox" checked onchange="toggleLocalLayer('${layerId}', this.checked)" title="Показать/скрыть слой" style="cursor: pointer;">
+                    <span class="small fw-bold text-truncate" title="${fileName}">${fileName}</span>
+                </div>
+                
                 <div>
                     <!-- Элементы управления Z-index -->
                     <button class="btn btn-sm btn-light py-0 px-1" onclick="moveLayer('${layerId}', 'up')" title="На передний план"><i class="bi bi-arrow-up"></i></button>
@@ -776,6 +781,17 @@ function addCustomLayerToMap(leafletLayer, fileName) {
     `;
     container.insertAdjacentHTML('afterbegin', panelHTML);
     map.fitBounds(leafletLayer.getBounds());
+}
+// Включение и отключение видимости локального слоя
+function toggleLocalLayer(layerId, isVisible) {
+    const layer = userCustomLayers[layerId];
+    if (!layer) return;
+    
+    if (isVisible) {
+        map.addLayer(layer);
+    } else {
+        map.removeLayer(layer);
+    }
 }
 
 // Динамическое применение стилей к полигонам и линиям (LineString)
