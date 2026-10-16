@@ -133,9 +133,20 @@ async function initDynamicLayers() {
                         if (userAllowedLayers === "*") {
                             isAllAllowed = true;
                         } else if (Array.isArray(userAllowedLayers)) {
-                            allowed = userAllowedLayers;
+                            if (userAllowedLayers.includes("*")) {
+                                isAllAllowed = true;
+                            } else {
+                                allowed = userAllowedLayers;
+                            }
                         } else if (typeof userAllowedLayers === 'string') {
-                            try { allowed = JSON.parse(userAllowedLayers); } catch(e) {}
+                            try {
+                                const parsed = JSON.parse(userAllowedLayers);
+                                if (parsed === "*" || (Array.isArray(parsed) && parsed.includes("*"))) {
+                                    isAllAllowed = true;
+                                } else if (Array.isArray(parsed)) {
+                                    allowed = parsed;
+                                }
+                            } catch(e) {}
                         }
                     }
 
@@ -488,8 +499,14 @@ if (scaleSelect) {
 let compareCart = []; 
 let currentLayerId = null; 
 
+// Безопасное экранирование кавычек в названиях объектов для передачи в inline onclick
+function escapeQuotes(str) {
+    return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
 // Компоновка интерфейса управления отчетами для карточки объекта
 function getPopupButtonsHTML(layerId, objectId, objectName) {
+    const safeName = escapeQuotes(objectName);
     return `
         <div class="mt-3 border-top pt-2">
             <button class="btn btn-sm btn-outline-danger w-100 mb-2 fw-medium" 
@@ -497,7 +514,7 @@ function getPopupButtonsHTML(layerId, objectId, objectName) {
                 <i class="bi bi-file-pdf me-1"></i> Скачать PDF
             </button>
             <button class="btn btn-sm w-100 fw-medium ${isObjectInCart(objectId) ? 'btn-success' : 'btn-outline-primary'}" 
-                    onclick="toggleCompareCart(${layerId}, ${objectId}, '${objectName}', this)">
+                    onclick="toggleCompareCart(${layerId}, ${objectId}, '${safeName}', this)">
                 <i class="bi ${isObjectInCart(objectId) ? 'bi-check-lg' : 'bi-plus-circle'} me-1"></i> 
                 ${isObjectInCart(objectId) ? 'В таблице' : 'Добавить в отчет'}
             </button>
@@ -547,10 +564,11 @@ function updateCompareUI() {
     } else {
         list.innerHTML = '';
         compareCart.forEach(obj => {
+            const safeName = escapeQuotes(obj.name);
             list.innerHTML += `
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     <span class="small fw-medium text-truncate" style="max-width: 85%;">${obj.name}</span>
-                    <i class="bi bi-x-circle-fill text-danger text-opacity-50" style="cursor: pointer;" onclick="toggleCompareCart(${currentLayerId}, ${obj.id}, '${obj.name}', document.createElement('button'))"></i>
+                    <i class="bi bi-x-circle-fill text-danger text-opacity-50" style="cursor: pointer;" onclick="toggleCompareCart(${currentLayerId}, ${obj.id}, '${safeName}', document.createElement('button'))"></i>
                 </li>
             `;
         });
@@ -780,8 +798,11 @@ function addCustomLayerToMap(leafletLayer, fileName) {
         </div>
     `;
     container.insertAdjacentHTML('afterbegin', panelHTML);
-    map.fitBounds(leafletLayer.getBounds());
+    if (leafletLayer.getBounds && leafletLayer.getBounds().isValid()) {
+        map.fitBounds(leafletLayer.getBounds());
+    }
 }
+
 // Включение и отключение видимости локального слоя
 function toggleLocalLayer(layerId, isVisible) {
     const layer = userCustomLayers[layerId];
