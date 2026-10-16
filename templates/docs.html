@@ -1,7 +1,8 @@
 <!-- 
   Файл: docs.html
   Описание: Модуль базы знаний и технической документации. 
-  Содержит паспорт проекта, регламенты работы с интерактивной картой, описание уровней доступа и архитектурного стека технологий. 
+  Содержит паспорт проекта, регламенты работы с интерактивной картой, описание ролевой модели доступа (RBAC), 
+  регламент модуля CRM и архитектурного стека технологий. 
   Использует адаптивную боковую навигацию (ScrollSpy/Sticky) для удобной навигации по разделам.
 -->
 <!DOCTYPE html>
@@ -86,7 +87,7 @@
             <a class="btn btn-outline-light btn-sm fw-medium me-3 border-opacity-50" href="/hub">
               <i class="bi bi-arrow-left"></i> <span class="d-none d-md-inline">Назад</span>
             </a>
-            <span class="navbar-brand mb-0 h5 text-white fw-bold d-flex align-items-center">
+            <span class="navbar-brand mb-0 h5 text-white fw-bold d-flex align-items-center me-auto">
                 <i class="bi bi-journal-bookmark-fill me-2" style="color: var(--geo-accent);"></i>
                 База знаний и регламенты
             </span>
@@ -116,12 +117,12 @@
                     <div class="doc-sidebar doc-card p-3">
                         <h6 class="text-uppercase small fw-bold text-muted mb-3 px-2 d-none d-md-block">Содержание</h6>
                         
-                        <nav class="nav nav-pills flex-column gap-1">
+                        <nav class="nav nav-pills flex-column gap-1" id="docTocNav">
                             <a class="nav-link active py-2 small" href="#section1"><i class="bi bi-bank me-2"></i>1. Паспорт проекта</a>
                             <a class="nav-link py-2 small" href="#section2"><i class="bi bi-map me-2"></i>2. Картографическая база</a>
                             <a class="nav-link py-2 small" href="#section3"><i class="bi bi-cpu me-2"></i>3. ИИ и прогнозирование</a>
                             <a class="nav-link py-2 small" href="#section4"><i class="bi bi-table me-2"></i>4. Работа с данными</a>
-                            <a class="nav-link py-2 small" href="#section5"><i class="bi bi-shield-lock me-2"></i>5. Уровни доступа</a>
+                            <a class="nav-link py-2 small" href="#section5"><i class="bi bi-shield-lock me-2"></i>5. Роли (RBAC) и CRM</a>
                             <a class="nav-link py-2 small" href="#section6"><i class="bi bi-code-square me-2"></i>6. Стек технологий</a>
                         </nav>
                     </div>
@@ -172,7 +173,7 @@
 
                     <!-- Блок 3: ИИ и прогнозирование -->
                     <section id="section3" class="mb-5">
-                        <h3 class="doc-section-title">3. Прогнобно-поисковое моделирование (ИИ)</h3>
+                        <h3 class="doc-section-title">3. Прогнозно-поисковое моделирование (ИИ)</h3>
                         <p class="text-secondary">
                             Отличительной особенностью портала является интеграция в него результатов прогнозно-поискового моделирования, выполненного с использованием технологий искусственного интеллекта.
                         </p>
@@ -221,49 +222,159 @@
                         </div>
                     </section>
 
-                    <!-- Блок 5: Уровни доступа -->
+                    <!-- Блок 5: Ролевая модель доступа (RBAC) и модуль CRM -->
                     <section id="section5" class="mb-5">
-                        <h3 class="doc-section-title">5. Разграничение уровней доступа</h3>
+                        <h3 class="doc-section-title">5. Ролевая модель доступа (RBAC) и модуль CRM</h3>
                         <p class="text-secondary">
-                            В целях обеспечения информационной безопасности и защиты авторских прав на геологические материалы, портал предусматривает строгую ролевую модель доступа к данным и аналитическим инструментам.
+                            Для защиты авторских прав на геологические материалы и организации совместной работы сотрудников лаборатории в системе реализована трехуровневая ролевая модель управления доступом (<strong>Role-Based Access Control, RBAC</strong>) с интегрированным модулем управления задачами (<strong>CRM</strong>). Каждая учетная запись идентифицируется логином, системной ролью и ФИО сотрудника (<code>full_name</code>) для персонализации карточек поручений и формирования ежемесячной отчетности.
                         </p>
 
-                        <div class="row g-3 mt-3">
+                        <!-- Карточки трех ролей системы -->
+                        <div class="row g-3 mt-2 mb-4">
+                            
+                            <!-- Роль 1: Viewer (Инвестор / Гость) -->
                             <div class="col-md-4">
-                                <div class="card border-0 shadow-sm h-100" style="background-color: var(--geo-light);">
-                                    <div class="card-body p-4">
-                                        <h6 class="fw-bold" style="color: var(--geo-dark);">
-                                            <i class="bi bi-globe text-success me-2 fs-5 align-middle"></i>Открытый доступ
-                                        </h6>
-                                        <p class="text-secondary small mb-0 mt-3">
-                                            Базовый набор картографических подложек и справочная информация о месторождениях. Ресурс открыт для всех посетителей: студентов, краеведов и представителей органов власти.
+                                <div class="card border shadow-sm h-100" style="background-color: var(--geo-light);">
+                                    <div class="card-body p-4 d-flex flex-column">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">viewer</span>
+                                            <i class="bi bi-eye-fill text-primary fs-5"></i>
+                                        </div>
+                                        <h6 class="fw-bold mb-2" style="color: var(--geo-dark);">Пользователь (Инвестор / Гость)</h6>
+                                        <p class="text-secondary small mb-3 flex-grow-1">
+                                            Внешние партнеры, инвесторы и эксперты, получающие целевой доступ к порталу (бессрочный или ограниченный по таймеру в днях).
                                         </p>
+                                        <ul class="text-secondary small ps-3 mb-0">
+                                            <li class="mb-1">Доступ только к разрешенным слоям карты (настраивается индивидуально через дерево дата-румов).</li>
+                                            <li class="mb-1">Управление безопасностью аккаунта (смена пароля по 2FA, сброс активных сеансов) в <code>/profile</code>.</li>
+                                            <li>Изоляция от внутренних задач лаборатории (CRM) и панели администрирования.</li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Роль 2: Worker (Работник: Лаборант / Геолог) -->
                             <div class="col-md-4">
-                                <div class="card border-0 shadow-sm h-100" style="background-color: var(--geo-light);">
-                                    <div class="card-body p-4">
-                                        <h6 class="fw-bold" style="color: var(--geo-dark);">
-                                            <i class="bi bi-briefcase-fill text-primary me-2 fs-5 align-middle"></i>Специалисты
-                                        </h6>
-                                        <p class="text-secondary small mb-0 mt-3">
-                                            Расширенные возможности для геологов и инвесторов. Включает доступ к первичным материалам геологоразведки, ИИ-прогнозам и закрытым тематическим дата-румам.
+                                <div class="card border shadow-sm h-100" style="background-color: var(--geo-light);">
+                                    <div class="card-body p-4 d-flex flex-column">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">worker</span>
+                                            <i class="bi bi-person-workspace text-success fs-5"></i>
+                                        </div>
+                                        <h6 class="fw-bold mb-2" style="color: var(--geo-dark);">Работник (Лаборант / Геолог)</h6>
+                                        <p class="text-secondary small mb-3 flex-grow-1">
+                                            Штатные специалисты и исследователи лаборатории, выполняющие оцифровку листов, верификацию геологических слоев и подготовку данных.
                                         </p>
+                                        <ul class="text-secondary small ps-3 mb-0">
+                                            <li class="mb-1">Полный доступ ко всем картографическим слоям и прогнозным моделям портала (<code>"*"</code>).</li>
+                                            <li class="mb-1">Доступ к разделу <strong>«Мои задачи»</strong> в Личном кабинете (<code>/profile</code>) и персональному дашборду KPI.</li>
+                                            <li>Прием поручений в работу и отправка отчетов с прикреплением файлов (до 50 МБ).</li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Роль 3: Admin (Руководитель / Зам) -->
                             <div class="col-md-4">
-                                <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="background-color: #fff8e6;">
-                                    <div class="position-absolute top-0 start-0 w-100" style="height: 4px; background-color: #f59e0b;"></div>
-                                    <div class="card-body p-4">
-                                        <h6 class="fw-bold text-dark">
-                                            <i class="bi bi-shield-lock-fill text-warning me-2 fs-5 align-middle"></i>Администрирование
-                                        </h6>
-                                        <p class="text-secondary small mb-0 mt-3">
-                                            Управление жизненным циклом учетных записей. Генерация бессрочных профилей для штатных сотрудников лаборатории и выдача временных сессий (в днях) для практикантов.
+                                <div class="card border border-warning shadow-sm h-100" style="background-color: var(--geo-light);">
+                                    <div class="card-body p-4 d-flex flex-column">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill">admin</span>
+                                            <i class="bi bi-shield-lock-fill text-danger fs-5"></i>
+                                        </div>
+                                        <h6 class="fw-bold mb-2" style="color: var(--geo-dark);">Администратор (Руководитель)</h6>
+                                        <p class="text-secondary small mb-3 flex-grow-1">
+                                            Руководство лаборатории и системные администраторы, управляющие правами доступа и производственными процессами в <code>/admin</code>.
+                                        </p>
+                                        <ul class="text-secondary small ps-3 mb-0">
+                                            <li class="mb-1">Полный доступ ко всем слоям карты, регистрация и редактирование пользователей, аудит системных логов.</li>
+                                            <li class="mb-1">Управление доской задач лаборатории (фильтрация по исполнителям, статусам и месяцам).</li>
+                                            <li>Постановка задач, перенос дедлайнов, проверка отчетов и оценка работы по 10-балльной шкале.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Подблок: Регламент работы с модулем CRM и жизненный цикл задачи -->
+                        <div class="p-4 border rounded-3 bg-white">
+                            <h6 class="fw-bold mb-3" style="color: var(--geo-dark);">
+                                <i class="bi bi-kanban text-primary me-2"></i>Регламент работы в модуле CRM и жизненный цикл задачи
+                            </h6>
+                            <p class="text-secondary small mb-3">
+                                Взаимодействие между руководителем (<code>admin</code>) и исполнителем (<code>worker</code>) строится вокруг единой карточки задачи, проходящей 4 последовательных статуса с автоматической фиксацией временных меток каждого этапа:
+                            </p>
+
+                            <div class="table-responsive mb-3">
+                                <table class="table table-sm table-bordered align-middle small mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 18%;">Статус в системе</th>
+                                            <th style="width: 42%;">Описание этапа</th>
+                                            <th style="width: 20%;">Действия Работника (<code>/profile</code>)</th>
+                                            <th style="width: 20%;">Действия Руководителя (<code>/admin</code>)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="text-secondary">
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill">pending</span>
+                                                <div class="fw-bold mt-1">Не принята (Новая)</div>
+                                            </td>
+                                            <td>Руководитель назначает задачу конкретному сотруднику и при необходимости задает срок выполнения (дедлайн). Фиксируется дата создания <code>created_at</code>.</td>
+                                            <td>Нажатие кнопки <strong>«Принять в работу»</strong> (отказ от поручения не предусмотрен).</td>
+                                            <td>Продление дедлайна или удаление задачи.</td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">in_progress</span>
+                                                <div class="fw-bold mt-1">Выполняется</div>
+                                            </td>
+                                            <td>Сотрудник приступил к выполнению поручения (фиксируется точное время принятия <code>accepted_at</code>). При возврате с проверки прошлый отчет сохраняется для доработки.</td>
+                                            <td>Нажатие кнопки <strong>«Сдать отчет»</strong>: заполнение текста отчета и прикрепление файла (до 50 МБ).</td>
+                                            <td>Контроль сроков, продление дедлайна (<code>extend_deadline</code>) или удаление.</td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill">review</span>
+                                                <div class="fw-bold mt-1">На проверке</div>
+                                            </td>
+                                            <td>Отчет и вложенный архив переданы руководителю (фиксируется время сдачи <code>submitted_at</code>). Руководитель скачивает материалы и проверяет качество работы.</td>
+                                            <td>Ожидание проверки (просмотр отправленного отчета и файла).</td>
+                                            <td><strong>Принять и оценить (1–10)</strong> (<code>approve</code>) либо <strong>Вернуть на доработку</strong> (<code>reject</code>).</td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">completed</span>
+                                                <div class="fw-bold mt-1">Выполнена</div>
+                                            </td>
+                                            <td>Работа принята руководителем (фиксируется дата завершения <code>completed_at</code>). Выставленный балл (от 1 до 10) начисляется в рейтинг сотрудника.</td>
+                                            <td>Просмотр полученной оценки и архива выполненных работ.</td>
+                                            <td>Просмотр архива (при необходимости возврат в работу через <code>reject</code>).</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-6">
+                                    <div class="p-3 rounded h-100" style="background-color: var(--geo-light);">
+                                        <div class="fw-bold small mb-1" style="color: var(--geo-dark);">
+                                            <i class="bi bi-graph-up-arrow text-success me-1"></i>Показатели эффективности (KPI)
+                                        </div>
+                                        <p class="text-secondary small mb-0">
+                                            В личном кабинете сотрудника автоматически рассчитываются сводные метрики: количество активных, проверяемых и завершенных задач, сумма набранных баллов за текущий месяц (<code>month_points</code>) и средняя оценка качества выполнения работ (<code>average_score</code> из 10).
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="p-3 rounded h-100" style="background-color: var(--geo-light);">
+                                        <div class="fw-bold small mb-1" style="color: var(--geo-dark);">
+                                            <i class="bi bi-alarm text-danger me-1"></i>Контроль соблюдения сроков
+                                        </div>
+                                        <p class="text-secondary small mb-0">
+                                            При превышении установленного срока (<code>deadline</code>) у незавершенной задачи система автоматически активирует флаг <code>is_overdue</code>, выделяя карточку красным индикатором <strong>«Просрочена»</strong> как в кабинете исполнителя, так и на доске руководителя.
                                         </p>
                                     </div>
                                 </div>
@@ -283,10 +394,10 @@
                                 <div class="p-3 border rounded bg-light h-100">
                                     <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-display me-2"></i>Клиентская часть (Фронтенд)</h6>
                                     <ul class="text-secondary small mb-0 ps-3">
-                                        <li class="mb-1"><strong>HTML5, CSS3, JS (ES6):</strong> Ядро пользовательского интерфейса, асинхронный обмен данными через Fetch API.</li>
-                                        <li class="mb-1"><strong>Bootstrap 5:</strong> Адаптивная компонентная база и сеточная архитектура.</li>
+                                        <li class="mb-1"><strong>HTML5, CSS3, JS (ES6):</strong> Ядро пользовательского интерфейса, асинхронный обмен данными через Fetch API и отправка отчетов через <code>FormData</code>.</li>
+                                        <li class="mb-1"><strong>Bootstrap 5:</strong> Адаптивная компонентная база, модальные окна и сеточная архитектура с поддержкой темной темы.</li>
                                         <li class="mb-1"><strong>Leaflet.js:</strong> Клиентский картографический движок.</li>
-                                        <li><strong>MarkerCluster:</strong> Модуль динамической агрегации геоданных.</li>
+                                        <li><strong>MarkerCluster & Driver.js:</strong> Модуль динамической агрегации геоданных и система интерактивного обучения (Onboarding).</li>
                                     </ul>
                                 </div>
                             </div>
@@ -294,21 +405,21 @@
                                 <div class="p-3 border rounded bg-light h-100">
                                     <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-server me-2"></i>Серверная логика и ГИС (Бэкенд)</h6>
                                     <ul class="text-secondary small mb-0 ps-3">
-                                        <li class="mb-1"><strong>Python (Flask):</strong> Основной фреймворк маршрутизации и серверной бизнес-логики.</li>
-                                        <li class="mb-1"><strong>SQLAlchemy & SQLite:</strong> ORM-система и управление реляционными базами данных.</li>
-                                        <li class="mb-1"><strong>Jinja2:</strong> Шаблонизатор для безопасного рендеринга данных.</li>
+                                        <li class="mb-1"><strong>Python (Flask):</strong> Основной фреймворк маршрутизации, REST API модуля CRM и серверной бизнес-логики.</li>
+                                        <li class="mb-1"><strong>PostgreSQL & SQLAlchemy:</strong> Промышленная реляционная СУБД и ORM-система для хранения профилей, ролей, логов и задач.</li>
+                                        <li class="mb-1"><strong>Jinja2:</strong> Шаблонизатор для безопасного серверного рендеринга интерфейсов с учетом прав ролей.</li>
                                         <li><strong>NextGIS Web/Server:</strong> Проксирование тайлов, геометрий и хранение QML-стилей.</li>
                                     </ul>
                                 </div>
                             </div>
                             <div class="col-12">
                                 <div class="p-3 border rounded bg-light">
-                                    <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-shield-check me-2"></i>Информационная безопасность</h6>
+                                    <h6 class="fw-bold" style="color: var(--geo-main);"><i class="bi bi-shield-check me-2"></i>Информационная безопасность и RBAC</h6>
                                     <ul class="text-secondary small mb-0 ps-3">
+                                        <li class="mb-1"><strong>Role-Based Access Control (RBAC):</strong> Строгое разграничение доступа к эндпоинтам API, картографическим слоям и CRM по ролям (<code>admin</code>, <code>worker</code>, <code>viewer</code>).</li>
                                         <li class="mb-1"><strong>Werkzeug Security:</strong> Криптографическое хеширование паролей пользователей.</li>
                                         <li class="mb-1"><strong>Flask-Limiter (Memory Storage):</strong> Защита конечных точек API от брутфорс-атак и DDoS.</li>
-                                        <li class="mb-1"><strong>URLSafeTimedSerializer:</strong> Генерация безопасных временных токенов для сброса паролей.</li>
-                                        <li><strong>SMTP Auth (MIMEMultipart):</strong> Модуль двухфакторной аутентификации (2FA) с подтверждением доверенных устройств через email-шлюз.</li>
+                                        <li><strong>SMTP Auth & URLSafeTimedSerializer:</strong> Двухфакторная аутентификация (2FA), подтверждение смены паролей и генерация безопасных временных токенов через email-шлюз.</li>
                                     </ul>
                                 </div>
                             </div>
@@ -326,19 +437,39 @@
         <i class="bi bi-chevron-up fs-5"></i>
     </button>
     
-    <!-- Скрипт управления логикой цветовой темы -->
-    <script src="../static/js/theme.js"></script>
+    <!-- Подключение Bootstrap JS и скрипта темы -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 
-    <!-- Контроллер видимости и плавного скролла для кнопки возврата к началу -->
+    <!-- Контроллер видимости кнопки возврата к началу и подсветки активного пункта оглавления -->
     <script>
         const mybutton = document.getElementById("btn-back-to-top");
+        const sections = document.querySelectorAll("section[id]");
+        const navLinks = document.querySelectorAll("#docTocNav .nav-link");
 
         window.addEventListener('scroll', function() {
+            // Кнопка наверх
             if (window.scrollY > 300) {
                 mybutton.classList.remove("d-none");
             } else {
                 mybutton.classList.add("d-none");
             }
+
+            // Подсветка текущего раздела в боковом меню
+            let currentSection = "section1";
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 120;
+                if (window.scrollY >= sectionTop) {
+                    currentSection = section.getAttribute("id");
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove("active");
+                if (link.getAttribute("href") === `#${currentSection}`) {
+                    link.classList.add("active");
+                }
+            });
         });
 
         mybutton.addEventListener("click", function () {

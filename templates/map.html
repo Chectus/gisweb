@@ -46,7 +46,7 @@
     <nav class="navbar navbar-expand-lg navbar-custom py-2">
       <div class="container-fluid">
           <!-- Левый блок (Кнопка Назад) -->
-          <div class="d-flex" style="flex: 1;">
+          <div class="d-flex align-items-center" style="flex: 1;">
               <a class="btn btn-outline-light btn-sm fw-medium border-opacity-50" href="/hub">
                   <i class="bi bi-arrow-left"></i> <span class="d-none d-md-inline">Назад</span>
               </a>
@@ -59,8 +59,20 @@
               <span class="d-md-none">Веб-ГИС</span>
           </span>
 
-          <!-- Правый блок (Кнопки обучения и темы) -->
+          <!-- Правый блок (Быстрый переход к задачам CRM, кнопки обучения и темы) -->
           <div class="d-flex justify-content-end align-items-center" style="flex: 1; z-index: 10;">
+              {% if user is defined and user %}
+                  {% if user.role_name == 'admin' or user.is_admin %}
+                      <a href="/admin#crm" class="btn btn-outline-light btn-sm border-opacity-50 me-2 d-none d-sm-inline-flex align-items-center" title="Управление задачами (CRM)">
+                          <i class="bi bi-kanban me-1"></i> <span class="d-none d-lg-inline">CRM</span>
+                      </a>
+                  {% elif user.role_name == 'worker' or user.can_receive %}
+                      <a href="/profile#tasks" class="btn btn-outline-light btn-sm border-opacity-50 me-2 d-none d-sm-inline-flex align-items-center" title="Мои задачи (CRM)">
+                          <i class="bi bi-check2-square me-1"></i> <span class="d-none d-lg-inline">Мои задачи</span>
+                      </a>
+                  {% endif %}
+              {% endif %}
+
               <button id="help-tutorial-btn" class="btn btn-outline-light border-0 me-2" title="Справка и обучение">
                   <i class="bi bi-question-circle-fill"></i>
               </button>
@@ -82,7 +94,7 @@
 
         <div class="sidebar-content overflow-auto">
           
-          <!-- Модуль локальной загрузки пользовательских файлов -->
+          <!-- Модуль локальной загрузки пользовательских файлов и выбора подложки -->
           <div class="mb-4">
             <div class="card border-0 shadow-sm mt-3" style="background-color: var(--geo-light);" id="step-local-upload">
                 <div class="card-body p-3">
@@ -108,19 +120,19 @@
                     <input class="form-check-input" type="radio" name="basemap" id="bmEsri" value="esri" />
                     <label class="form-check-label w-100" for="bmEsri"><strong>Спутник Esri</strong></label>
                 </div>
-                
-                <!-- НОВЫЙ РУБИЛЬНИК -->
                 <div class="form-check layer-item">
                     <input class="form-check-input" type="radio" name="basemap" id="bmNone" value="none" />
                     <label class="form-check-label w-100" for="bmNone"><strong>Без подложки</strong></label>
                 </div>
             </div>
+          </div>
 
           <!-- Контейнер серверных векторных и растровых слоев (заполняется через JS) -->
           <div class="mb-3 mt-4" id="step-server-layers">
             <label class="form-label text-muted small text-uppercase fw-bold mb-2">Данные</label>
             <div class="d-flex flex-column gap-2" id="layersAccordion"></div>
           </div>
+
         </div>
       </nav>
 
@@ -201,7 +213,7 @@
       Линтеры могут подсвечивать конструкцию Jinja2 как синтаксическую ошибку JavaScript.
       Это нормально: переменная отрендерится сервером в валидную строку или массив перед загрузкой.
     -->
-    <script>  const userAllowedLayers = {{ allowed_layers | safe }}; </script>
+    <script> const userAllowedLayers = {{ allowed_layers | safe }}; </script>
 
     <!-- Пользовательская логика приложения -->
     <script src="{{ url_for('static', filename='js/map_logic.js') }}"></script>
@@ -235,9 +247,9 @@
             onDestroyed: () => saveTutorialState(true),
             steps: [
                 {
-                    element: '#layersSidebar', // Возвращаем прожектор на левую панель
+                    element: '#layersSidebar',
                     popover: {
-                        popoverClass: 'centered-step', // Добавляем класс для отрыва карточки
+                        popoverClass: 'centered-step',
                         title: 'Управление слоями',
                         description: 'Слева находится основная панель управления. Сразу за ней есть кнопка-стрелочка — используйте её, чтобы сворачивать меню и освобождать место для карты.<br><br><span style="font-size: 0.8rem; color: #6c757d;">💡 Вы можете закрыть это обучение в любой момент, кликнув крестик или нажав на тёмный фон.</span>'
                     }
@@ -246,7 +258,7 @@
                     element: '#step-server-layers', 
                     popover: {
                         title: 'Каталог геоданных',
-                        description: 'Включайте геологические слои и просматривайте их атрибутивные таблицы. Если слоя нет в списке, обратитесь к администратору дата-рума.',
+                        description: 'Включайте геологические слои и просматривайте их атрибутивные таблицы. Сотрудникам и администраторам доступны все слои, а для инвесторов список формируется по правам дата-рума.',
                         side: "right", align: 'start'
                     }
                 },
