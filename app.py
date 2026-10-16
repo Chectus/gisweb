@@ -7,6 +7,7 @@ import requests
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, make_response, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import secrets
@@ -25,6 +26,11 @@ from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 load_dotenv()
 
 app = Flask(__name__)
+
+# Папка для хранения прикрепленных файлов к задачам CRM
+TASKS_UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads', 'tasks')
+os.makedirs(TASKS_UPLOAD_FOLDER, exist_ok=True)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # Лимит файла: 50 МБ
 
 # --- НОВОЕ: Настройка защиты от брутфорса ---
 limiter = Limiter(
@@ -269,11 +275,25 @@ class User(db.Model):
     tasks_assigned = db.relationship('Task', foreign_keys='Task.assignee_id', backref='assignee', lazy=True)
     tasks_authored = db.relationship('Task', foreign_keys='Task.author_id', backref='author', lazy=True)
 
-    # --- МАГИЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ДЛЯ ФРОНТА И РОУТОВ ---
+    # --- МАГИЯ ОБРАТНОЙ СОВМЕСТИМОСТИ И ПРАВ CRM ---
     @property
     def is_admin(self):
         """Чтобы старый код (session['is_admin'] = user.is_admin) не сломался"""
         return self.role.name == 'admin' if self.role else False
+
+    @property
+    def role_name(self):
+        return self.role.name if self.role else 'viewer'
+
+    @property
+    def can_assign(self):
+        """Может ли пользователь раздавать и проверять задачи (Начальник/Зам)"""
+        return self.is_admin or (self.role is not None and self.role.can_assign_tasks)
+
+    @property
+    def can_receive(self):
+        """Может ли пользователь получать задачи в работу (Лаборант/Геолог)"""
+        return self.role is not None and (self.role.name == 'worker' or self.role.can_receive_tasks)
 
     @property
     def allowed_layers(self):
@@ -286,6 +306,7 @@ class User(db.Model):
         if self.expires_at is None:
             return True
         return datetime.now() < self.expires_at
+
 
 # 4. ЗАДАЧИ (Модуль CRM)
 class Task(db.Model):
@@ -310,6 +331,51 @@ class Task(db.Model):
     
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    @property
+    def is_overdue(self):
+        """Проверка: просрочена ли задача сейчас или была ли сдана с опозданием"""
+        if not self.deadline:
+            return False
+        if self.status == 'completed':
+            check_time = self.submitted_at or self.completed_at or datetime.now()
+            return check_time > self.deadline
+        return datetime.now() > self.deadline
+
+    def to_dict(self):
+        """Упаковка задачи со всеми датами и связями в JSON для фронтенда"""
+        fmt = '%d.%m.%Y %H:%M'
+        iso_fmt = '%Y-%m-%dT%H:%M'
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description or '',
+            'status': self.status,
+            'is_overdue': self.is_overdue,
+            'score': self.score,
+            'employee_report': self.employee_report or '',
+            'has_attachment': bool(self.attachment_path),
+            'attachment_name': os.path.basename(self.attachment_path) if self.attachment_path else None,
+            'attachment_url': url_for('download_task_attachment', task_id=self.id) if self.attachment_path else None,
+            
+            # Красивые даты для отображения в карточках
+            'created_at': self.created_at.strftime(fmt) if self.created_at else None,
+            'deadline': self.deadline.strftime(fmt) if self.deadline else None,
+            'accepted_at': self.accepted_at.strftime(fmt) if self.accepted_at else None,
+            'submitted_at': self.submitted_at.strftime(fmt) if self.submitted_at else None,
+            'completed_at': self.completed_at.strftime(fmt) if self.completed_at else None,
+            
+            # Сырая дата дедлайна для подстановки в HTML <input type="datetime-local">
+            'deadline_iso': self.deadline.strftime(iso_fmt) if self.deadline else None,
+            
+            # Информация об исполнителе и авторе
+            'assignee_id': self.assignee_id,
+            'assignee_username': self.assignee.username if self.assignee else 'Удален',
+            'assignee_full_name': (self.assignee.full_name or self.assignee.username) if self.assignee else 'Удален',
+            'author_id': self.author_id,
+            'author_username': self.author.username if self.author else 'Система',
+            'author_full_name': (self.author.full_name or self.author.username) if self.author else 'Система'
+        }
 
 # 5. ДОВЕРЕННЫЕ УСТРОЙСТВА (Оставляем без изменений!)
 class TrustedDevice(db.Model):
@@ -827,27 +893,34 @@ def admin_panel():
                            all_layers=all_layers,
                            has_seen_tutorial=json.dumps(has_seen_tutorial))
 
+# --- ОБНОВЛЕННЫЕ ЭНДПОИНТЫ ЮЗЕРОВ (С ПОДДЕРЖКОЙ ФИО И 3 РОЛЕЙ) ---
+
 @app.route('/admin/api/create_user', methods=['POST'])
 def api_create_user():
-    """Единый API-эндпоинт для создания юзеров (с паролями, ролями и слоями)"""
+    """Единый API-эндпоинт для создания юзеров (с паролями, ФИО, 3 ролями и слоями)"""
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
         
     current_user = db.session.get(User, session['user_id'])
-    if not current_user.is_admin:
+    if not current_user or not current_user.is_admin:
         return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
 
     data = request.get_json()
     if not data:
         return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
 
-    username = data.get('username')
+    username = data.get('username', '').strip()
+    full_name = data.get('full_name', '').strip() or None
     email = data.get('email')
     password = data.get('password')
     expire_days = data.get('expire_days')
-    is_admin = data.get('is_admin', False) # С фронта все еще приходит True/False
+    is_admin = data.get('is_admin', False)
+    role_from_front = data.get('role') # Может прийти 'admin', 'worker' или 'viewer'
     allowed_layers = data.get('allowed_layers', []) 
     
+    if not username:
+        return jsonify({'status': 'error', 'message': 'Логин не может быть пустым'}), 400
+
     if not email or email.strip() == '':
         email = None
 
@@ -861,32 +934,33 @@ def api_create_user():
     if expire_days and str(expire_days).isdigit():
         expires_at = datetime.now() + timedelta(days=int(expire_days))
 
-    # --- ИЗМЕНЕНИЯ ЗДЕСЬ (РОЛИ И СЛОИ) ---
-    
-    # 1. Определяем роль. Если с фронта пришло is_admin=True, ищем роль 'admin', иначе 'worker'
-    role_name = 'admin' if is_admin else 'worker'
+    # Определяем роль: приоритет явному полю 'role', иначе фоллбэк на старый 'is_admin'
+    if role_from_front in ['admin', 'worker', 'viewer']:
+        role_name = role_from_front
+    else:
+        role_name = 'admin' if is_admin else 'worker'
+        
     role = Role.query.filter_by(name=role_name).first()
-    
     if not role:
-        return jsonify({'status': 'error', 'message': f'Системная роль {role_name} не найдена в БД. Запустите скрипт инициализации.'}), 500
+        return jsonify({'status': 'error', 'message': f'Системная роль {role_name} не найдена в БД.'}), 500
 
-    # 2. Определяем, есть ли доступ ко всем слоям
-    has_all = (allowed_layers == "*")
+    # Работникам и админам по твоей задумке можно сразу открывать все слои, 
+    # а ограничивать только пользователей (viewer), либо по выбору в админке:
+    has_all = (role_name in ['admin', 'worker']) or (allowed_layers == "*")
 
-    # 3. Создаем юзера с новыми параметрами
     new_user = User(
         username=username,
+        full_name=full_name,
         email=email,
         password_hash=generate_password_hash(password),
         expires_at=expires_at,
-        role_id=role.id,          # <--- ТЕПЕРЬ ТУТ role_id
-        has_all_layers=has_all    # <--- И ТУТ has_all_layers
+        role_id=role.id,
+        has_all_layers=has_all
     )
     
     db.session.add(new_user)
-    db.session.commit() # Сохраняем, чтобы получить new_user.id
+    db.session.commit()
     
-    # 4. Если выбраны конкретные слои, добавляем их в таблицу-связку
     if not has_all and isinstance(allowed_layers, list):
         for layer_id in allowed_layers:
             try:
@@ -895,16 +969,14 @@ def api_create_user():
                 pass
         db.session.commit()
 
-    # ------------------------------------
-    
-    role_text = "Админ" if is_admin else "Геолог"
-    log_action(current_user.id, current_user.username, 'АДМИНКА', f'Создан новый {role_text}: {username}')
+    log_action(current_user.id, current_user.username, 'АДМИНКА', f'Создан аккаунт ({role_name}): {username}')
 
     return jsonify({
         'status': 'success', 
         'message': f'Пользователь {username} успешно создан!',
         'temp_password': password
     })
+
 
 @app.route('/admin/api/edit_user/<int:user_id>', methods=['POST'])
 def api_edit_user(user_id):
@@ -913,7 +985,7 @@ def api_edit_user(user_id):
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
         
     current_user = db.session.get(User, session['user_id'])
-    if not current_user.is_admin:
+    if not current_user or not current_user.is_admin:
         return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
 
     target_user = db.session.get(User, user_id)
@@ -925,37 +997,40 @@ def api_edit_user(user_id):
         return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
 
     new_username = data.get('username')
-    
     if new_username and new_username != target_user.username:
         if User.query.filter_by(username=new_username).first():
             return jsonify({'status': 'error', 'message': 'Логин уже занят другим пользователем'}), 400
         target_user.username = new_username
 
-    email = data.get('email')
-    target_user.email = email if email and email.strip() != '' else None
+    if 'full_name' in data:
+        fn = data.get('full_name')
+        target_user.full_name = fn.strip() if fn and fn.strip() != '' else None
+
+    if 'email' in data:
+        email = data.get('email')
+        target_user.email = email.strip() if email and email.strip() != '' else None
     
     password = data.get('password')
     if password and password.strip() != '':
         target_user.password_hash = generate_password_hash(password)
 
-    # --- ИЗМЕНЕНИЯ ЗДЕСЬ (РОЛИ И СЛОИ) ---
-    
-    # 1. Обновляем роль
-    if 'is_admin' in data:
-        is_admin = data.get('is_admin')
-        role_name = 'admin' if is_admin else 'worker'
+    # Обновляем роль (поддержка как 'role', так и старого 'is_admin')
+    if 'role' in data and data.get('role') in ['admin', 'worker', 'viewer']:
+        role = Role.query.filter_by(name=data.get('role')).first()
+        if role:
+            target_user.role_id = role.id
+    elif 'is_admin' in data:
+        role_name = 'admin' if data.get('is_admin') else 'worker'
         role = Role.query.filter_by(name=role_name).first()
         if role:
             target_user.role_id = role.id
 
-    # 2. Обновляем слои
+    # Обновляем слои
     if 'allowed_layers' in data:
         allowed_layers = data.get('allowed_layers')
-        
-        # Сначала удаляем все старые доступы
         UserLayer.query.filter_by(user_id=target_user.id).delete()
         
-        if allowed_layers == "*":
+        if allowed_layers == "*" or target_user.role_name in ['admin', 'worker']:
             target_user.has_all_layers = True
         else:
             target_user.has_all_layers = False
@@ -965,7 +1040,6 @@ def api_edit_user(user_id):
                         db.session.add(UserLayer(user_id=target_user.id, layer_id=int(layer_id)))
                     except ValueError:
                         pass
-    # ------------------------------------
 
     expire_days = data.get('expire_days')
     if expire_days and str(expire_days).isdigit():
@@ -974,13 +1048,468 @@ def api_edit_user(user_id):
         target_user.expires_at = None
 
     db.session.commit()
-    
     log_action(current_user.id, current_user.username, 'АДМИНКА', f'Отредактирован аккаунт: {target_user.username}')
 
     return jsonify({
         'status': 'success', 
         'message': f'Аккаунт {target_user.username} успешно обновлен!'
     })
+
+
+# =====================================================================
+# --- МОДУЛЬ CRM: УПРАВЛЕНИЕ ЗАДАЧАМИ И ЭФФЕКТИВНОСТЬЮ ЛАБОРАТОРИИ ---
+# =====================================================================
+
+def parse_deadline(date_str):
+    """Умный парсер дат: понимает и 'YYYY-MM-DDTHH:MM', и просто 'YYYY-MM-DD'"""
+    if not date_str or not str(date_str).strip():
+        return None
+    date_str = str(date_str).strip()
+    for fmt in ('%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M', '%Y-%m-%d', '%d.%m.%Y'):
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            # Если передана только дата без времени, ставим конец рабочего дня (23:59)
+            if fmt in ('%Y-%m-%d', '%d.%m.%Y'):
+                dt = dt.replace(hour=23, minute=59, second=59)
+            return dt
+        except ValueError:
+            continue
+    return None
+
+
+@app.route('/api/tasks/workers', methods=['GET'])
+def api_get_workers():
+    """
+    Отдает список сотрудников (лаборантов/геологов), которым начальник 
+    может насильно назначить задачу в выпадающем списке.
+    Инвесторы ('viewer') сюда не попадают!
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user or not current_user.can_assign:
+        return jsonify({'status': 'error', 'message': 'Доступ запрещен'}), 403
+
+    # Берем всех пользователей, у чьей роли есть право получать задачи (или роль 'worker')
+    workers = User.query.join(Role).filter(
+        (Role.can_receive_tasks == True) | (Role.name == 'worker')
+    ).order_by(User.username.asc()).all()
+
+    workers_list = [{
+        'id': w.id,
+        'username': w.username,
+        'full_name': w.full_name or w.username,
+        'email': w.email
+    } for w in workers]
+
+    return jsonify({'status': 'success', 'workers': workers_list})
+
+
+@app.route('/api/tasks/my', methods=['GET'])
+def api_get_my_tasks():
+    """
+    Личный кабинет сотрудника: отдает все задачи, назначенные текущему пользователю,
+    плюс его личную статистику (KPI/баллы). Инвесторам ('viewer') вход закрыт.
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user or current_user.role_name == 'viewer':
+        return jsonify({'status': 'error', 'message': 'У вашей роли нет доступа к модулю задач'}), 403
+
+    tasks = Task.query.filter_by(assignee_id=current_user.id).order_by(Task.created_at.desc()).all()
+    tasks_data = [t.to_dict() for t in tasks]
+
+    # Считаем статистику для красивых плашек в личном кабинете
+    now = datetime.now()
+    completed_tasks = [t for t in tasks if t.status == 'completed']
+    completed_this_month = [
+        t for t in completed_tasks 
+        if t.completed_at and t.completed_at.year == now.year and t.completed_at.month == now.month
+    ]
+    
+    total_score_month = sum(t.score for t in completed_this_month if t.score)
+    scored_tasks = [t.score for t in completed_tasks if t.score is not None]
+    avg_score = round(sum(scored_tasks) / len(scored_tasks), 1) if scored_tasks else 0.0
+
+    stats = {
+        'pending_count': sum(1 for t in tasks if t.status == 'pending'),
+        'in_progress_count': sum(1 for t in tasks if t.status == 'in_progress'),
+        'review_count': sum(1 for t in tasks if t.status == 'review'),
+        'completed_count': len(completed_tasks),
+        'overdue_count': sum(1 for t in tasks if t.status != 'completed' and t.is_overdue),
+        'month_points': total_score_month,
+        'average_score': avg_score
+    }
+
+    return jsonify({
+        'status': 'success',
+        'tasks': tasks_data,
+        'stats': stats
+    })
+
+
+@app.route('/api/tasks/all', methods=['GET'])
+def api_get_all_tasks():
+    """
+    Доска руководителя: отдает все задачи лаборатории.
+    Поддерживает фильтры: ?assignee_id=5&status=review&month=2026-10
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user or not current_user.can_assign:
+        return jsonify({'status': 'error', 'message': 'Доступ только для руководства'}), 403
+
+    query = Task.query
+
+    # Фильтр по конкретному лаборанту
+    assignee_id = request.args.get('assignee_id')
+    if assignee_id and assignee_id.isdigit():
+        query = query.filter_by(assignee_id=int(assignee_id))
+
+    # Фильтр по статусу ('pending', 'in_progress', 'review', 'completed')
+    status_filter = request.args.get('status')
+    if status_filter in ['pending', 'in_progress', 'review', 'completed']:
+        query = query.filter_by(status=status_filter)
+
+    tasks = query.order_by(Task.created_at.desc()).all()
+
+    # Опциональный фильтр по месяцу (формат 'YYYY-MM') для просмотра архива/рабочих карт
+    month_filter = request.args.get('month')
+    if month_filter and re.match(r'^\d{4}-\d{2}$', month_filter):
+        year, month = map(int, month_filter.split('-'))
+        tasks = [
+            t for t in tasks 
+            if (t.created_at and t.created_at.year == year and t.created_at.month == month) or
+               (t.completed_at and t.completed_at.year == year and t.completed_at.month == month)
+        ]
+
+    return jsonify({
+        'status': 'success',
+        'tasks': [t.to_dict() for t in tasks]
+    })
+
+
+@app.route('/api/tasks/create', methods=['POST'])
+def api_create_task():
+    """
+    Насильное назначение задачи конкретному сотруднику руководителем.
+    Создает задачу в статусе 'pending' (Ожидает принятия сотрудником).
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user or not current_user.can_assign:
+        return jsonify({'status': 'error', 'message': 'У вас нет прав назначать задачи'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
+
+    title = data.get('title', '').strip()
+    description = data.get('description', '').strip()
+    assignee_id = data.get('assignee_id')
+    deadline_raw = data.get('deadline')
+
+    if not title:
+        return jsonify({'status': 'error', 'message': 'Укажите название задачи'}), 400
+    if not assignee_id:
+        return jsonify({'status': 'error', 'message': 'Необходимо обязательно выбрать исполнителя'}), 400
+
+    assignee = db.session.get(User, int(assignee_id))
+    if not assignee:
+        return jsonify({'status': 'error', 'message': 'Выбранный сотрудник не найден'}), 404
+
+    if assignee.role_name == 'viewer':
+        return jsonify({'status': 'error', 'message': 'Нельзя назначить рабочую задачу гостю/инвестору!'}), 400
+
+    deadline_dt = parse_deadline(deadline_raw)
+    if deadline_raw and not deadline_dt:
+        return jsonify({'status': 'error', 'message': 'Неверный формат даты дедлайна'}), 400
+
+    new_task = Task(
+        title=title,
+        description=description,
+        status='pending',
+        created_at=datetime.now(),
+        deadline=deadline_dt,
+        assignee_id=assignee.id,
+        author_id=current_user.id
+    )
+
+    db.session.add(new_task)
+    db.session.commit()
+
+    log_action(
+        current_user.id, 
+        current_user.username, 
+        'CRM', 
+        f'Назначена задача #{new_task.id} ("{title[:40]}") сотруднику {assignee.username}'
+    )
+
+    return jsonify({
+        'status': 'success',
+        'message': f'Задача успешно назначена сотруднику {assignee.full_name or assignee.username}!',
+        'task': new_task.to_dict()
+    })
+
+
+@app.route('/api/tasks/<int:task_id>/accept', methods=['POST'])
+def api_accept_task(task_id):
+    """
+    Кнопка «Принять задачу» для лаборанта.
+    Фиксирует точное время принятия (accepted_at) и переводит статус в 'in_progress'.
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    task = db.session.get(Task, task_id)
+
+    if not task:
+        return jsonify({'status': 'error', 'message': 'Задача не найдена'}), 404
+
+    if task.assignee_id != current_user.id:
+        return jsonify({'status': 'error', 'message': 'Вы не являетесь исполнителем этой задачи'}), 403
+
+    if task.status != 'pending':
+        return jsonify({'status': 'error', 'message': 'Задача уже принята в работу или завершена'}), 400
+
+    task.status = 'in_progress'
+    task.accepted_at = datetime.now()
+    db.session.commit()
+
+    log_action(current_user.id, current_user.username, 'CRM', f'Принята в работу задача #{task.id}')
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Задача принята в работу!',
+        'task': task.to_dict()
+    })
+
+
+@app.route('/api/tasks/<int:task_id>/submit', methods=['POST'])
+def api_submit_task(task_id):
+    """
+    Кнопка «Сдать на проверку» для лаборанта.
+    Принимает обязательный текстовый отчет и опциональный файл.
+    Поддерживает и multipart/form-data (с файлом), и обычный JSON.
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    task = db.session.get(Task, task_id)
+
+    if not task:
+        return jsonify({'status': 'error', 'message': 'Задача не найдена'}), 404
+
+    if task.assignee_id != current_user.id:
+        return jsonify({'status': 'error', 'message': 'Вы не являетесь исполнителем этой задачи'}), 403
+
+    if task.status != 'in_progress':
+        return jsonify({'status': 'error', 'message': 'Сдать можно только задачу, находящуюся в работе'}), 400
+
+    # Универсальное чтение: сначала проверяем JSON, иначе берем из формы (multipart/form-data)
+    if request.is_json:
+        data = request.get_json()
+        report_text = data.get('employee_report', '').strip()
+        uploaded_file = None
+    else:
+        report_text = request.form.get('employee_report', '').strip()
+        uploaded_file = request.files.get('attachment')
+
+    if not report_text:
+        return jsonify({'status': 'error', 'message': 'Напишите краткий отчет о проделанной работе перед сдачей'}), 400
+
+    # Если прикрепили файл — сохраняем его на диск
+    if uploaded_file and uploaded_file.filename:
+        safe_name = secure_filename(uploaded_file.filename)
+        # Если имя файла было полностью на кириллице и secure_filename оставил только расширение
+        if not safe_name or safe_name.startswith('.'):
+            ext = os.path.splitext(uploaded_file.filename)[1]
+            safe_name = f"report_file{ext}"
+            
+        unique_filename = f"task_{task.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{safe_name}"
+        full_save_path = os.path.join(TASKS_UPLOAD_FOLDER, unique_filename)
+        
+        # Если у задачи уже был старый файл (при пересдаче) — аккуратно удаляем старый
+        if task.attachment_path and os.path.exists(task.attachment_path):
+            try:
+                os.remove(task.attachment_path)
+            except OSError:
+                pass
+                
+        uploaded_file.save(full_save_path)
+        task.attachment_path = full_save_path
+
+    task.employee_report = report_text
+    task.status = 'review'
+    task.submitted_at = datetime.now()
+    db.session.commit()
+
+    log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} отправлена на проверку руководителю')
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Отчет отправлен руководителю на проверку!',
+        'task': task.to_dict()
+    })
+
+
+@app.route('/api/tasks/<int:task_id>/review', methods=['POST'])
+def api_review_task(task_id):
+    """
+    Вердикт руководителя по задаче:
+    - action = 'approve': закрывает задачу ('completed'), ставит балл от 1 до 10, фиксирует completed_at.
+    - action = 'reject': возвращает задачу на доработку ('in_progress'), опционально меняет дедлайн.
+    - action = 'extend_deadline': просто продлевает срок выполнения задачи в любой момент.
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user or not current_user.can_assign:
+        return jsonify({'status': 'error', 'message': 'Только руководитель может проверять и оценивать задачи'}), 403
+
+    task = db.session.get(Task, task_id)
+    if not task:
+        return jsonify({'status': 'error', 'message': 'Задача не найдена'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
+
+    action = data.get('action') # Ожидаем 'approve', 'reject' или 'extend_deadline'
+
+    # ВАРИАНТ 1: Принять работу и выставить баллы (1-10)
+    if action == 'approve':
+        score = data.get('score')
+        try:
+            score_int = int(score)
+            if not (1 <= score_int <= 10):
+                raise ValueError
+        except (TypeError, ValueError):
+            return jsonify({'status': 'error', 'message': 'Оценка должна быть целым числом от 1 до 10'}), 400
+
+        task.score = score_int
+        task.status = 'completed'
+        task.completed_at = datetime.now()
+        # Если начальник закрыл задачу сразу без этапа сдачи, проставим даты для порядка в отчете
+        if not task.accepted_at:
+            task.accepted_at = task.completed_at
+        if not task.submitted_at:
+            task.submitted_at = task.completed_at
+
+        db.session.commit()
+        log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} принята с оценкой {score_int}/10')
+
+        return jsonify({
+            'status': 'success',
+            'message': f'Задача закрыта! Выставлена оценка: {score_int} из 10.',
+            'task': task.to_dict()
+        })
+
+    # ВАРИАНТ 2: Вернуть задачу сотруднику на доработку (с возможным продлением дедлайна)
+    elif action == 'reject':
+        new_deadline_raw = data.get('new_deadline')
+        if new_deadline_raw:
+            new_dt = parse_deadline(new_deadline_raw)
+            if not new_dt:
+                return jsonify({'status': 'error', 'message': 'Неверный формат новой даты дедлайна'}), 400
+            task.deadline = new_dt
+
+        task.status = 'in_progress'
+        task.completed_at = None
+        task.score = None
+        db.session.commit()
+
+        log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} возвращена на доработку')
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Задача возвращена сотруднику на доработку!',
+            'task': task.to_dict()
+        })
+
+    # ВАРИАНТ 3: Просто продлить дедлайн задачи
+    elif action == 'extend_deadline':
+        new_deadline_raw = data.get('new_deadline')
+        new_dt = parse_deadline(new_deadline_raw)
+        if not new_dt:
+            return jsonify({'status': 'error', 'message': 'Укажите корректную дату нового дедлайна'}), 400
+
+        task.deadline = new_dt
+        db.session.commit()
+
+        log_action(current_user.id, current_user.username, 'CRM', f'Продлен срок задачи #{task.id} до {new_dt.strftime("%d.%m.%Y %H:%M")}')
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Срок выполнения задачи успешно обновлен!',
+            'task': task.to_dict()
+        })
+
+    return jsonify({'status': 'error', 'message': 'Неизвестное действие (ожидается approve, reject или extend_deadline)'}), 400
+
+
+@app.route('/api/tasks/<int:task_id>/delete', methods=['DELETE', 'POST'])
+def api_delete_task(task_id):
+    """Удаление задачи руководителем (если создана по ошибке)"""
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user or not current_user.can_assign:
+        return jsonify({'status': 'error', 'message': 'Нет прав на удаление задач'}), 403
+
+    task = db.session.get(Task, task_id)
+    if not task:
+        return jsonify({'status': 'error', 'message': 'Задача не найдена'}), 404
+
+    # Удаляем прикрепленный файл с диска, если он был
+    if task.attachment_path and os.path.exists(task.attachment_path):
+        try:
+            os.remove(task.attachment_path)
+        except OSError:
+            pass
+
+    task_title = task.title
+    db.session.delete(task)
+    db.session.commit()
+
+    log_action(current_user.id, current_user.username, 'CRM', f'Удалена задача #{task_id} ("{task_title[:40]}")')
+
+    return jsonify({'status': 'success', 'message': 'Задача успешно удалена'})
+
+
+@app.route('/api/tasks/<int:task_id>/attachment', methods=['GET'])
+def download_task_attachment(task_id):
+    """Защищенное скачивание прикрепленного к отчету файла"""
+    if 'user_id' not in session:
+        return "Доступ запрещен", 403
+
+    current_user = db.session.get(User, session['user_id'])
+    task = db.session.get(Task, task_id)
+
+    if not task or not task.attachment_path or not os.path.exists(task.attachment_path):
+        return "Файл не найден", 404
+
+    # Скачать файл может только сам исполнитель задачи или руководство
+    if task.assignee_id != current_user.id and not current_user.can_assign:
+        log_action(current_user.id, current_user.username, 'ВТОРЖЕНИЕ', f'Попытка скачать чужой отчет по задаче #{task.id}')
+        return "У вас нет прав для скачивания этого файла", 403
+
+    return send_file(
+        task.attachment_path,
+        as_attachment=True,
+        download_name=os.path.basename(task.attachment_path)
+    )
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
