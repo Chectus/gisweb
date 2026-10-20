@@ -1,9 +1,8 @@
 <!-- 
   Файл: admin.html
   Описание: Панель администратора веб-ГИС портала. 
-  Обеспечивает функционал управления доступом: регистрация новых пользователей, 
-  редактирование существующих учетных записей, распределение ролей и прав на слои (дата-румы), 
-  а также аудит системных действий пользователей (просмотр логов).
+  Обеспечивает функционал управления доступом (RBAC: admin, worker, viewer), настройку прав на слои,
+  аудит системных действий пользователей (просмотр логов) и модуль CRM (Управление задачами лаборатории).
 -->
 <!DOCTYPE html>
 <html lang="ru">
@@ -57,180 +56,366 @@
                     <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
                 </button>
             </div>
-          </div>
         </div>
     </nav>
 
     <!-- Основной контейнер панели администратора -->
     <div class="container admin-container">
-        
-        <!-- Секция 1: Форма регистрации нового пользователя -->
-        <div class="admin-card mb-4" id="step-admin-form">
-            <div class="admin-card-header">
-                <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-person-plus-fill me-2" style="color: var(--geo-main);"></i>Новый доступ</h5>
-            </div>
-            <div class="card-body p-4" style="background-color: #fafbfc; border-radius: 0 0 12px 12px;">
+
+        <!-- Навигационные вкладки админ-панели -->
+        <ul class="nav nav-pills mb-4 gap-2" id="adminMainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-medium px-4 py-2 rounded-pill d-flex align-items-center" 
+                        id="users-tab-btn" 
+                        data-bs-toggle="pill" 
+                        data-bs-target="#pane-users" 
+                        type="button" 
+                        role="tab">
+                    <i class="bi bi-people-fill me-2"></i>Пользователи и доступ
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-medium px-4 py-2 rounded-pill d-flex align-items-center" 
+                        id="crm-tab-btn" 
+                        data-bs-toggle="pill" 
+                        data-bs-target="#pane-crm" 
+                        type="button" 
+                        role="tab">
+                    <i class="bi bi-kanban-fill me-2"></i>Управление задачами (CRM)
+                    <span id="crm-review-badge" class="badge bg-warning text-dark ms-2 rounded-pill d-none" title="Ожидают проверки">0</span>
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="adminMainTabsContent">
+            
+            <!-- ========================================== -->
+            <!-- ВКЛАДКА 1: ПОЛЬЗОВАТЕЛИ И ДОСТУП (RBAC)    -->
+            <!-- ========================================== -->
+            <div class="tab-pane fade show active" id="pane-users" role="tabpanel">
                 
-                <!-- Контейнер для системных уведомлений (API) -->
-                <div id="adminAlertContainer"></div>
+                <!-- Секция 1: Форма регистрации нового пользователя -->
+                <div class="admin-card mb-4" id="step-admin-form">
+                    <div class="admin-card-header">
+                        <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-person-plus-fill me-2" style="color: var(--geo-main);"></i>Новый доступ</h5>
+                    </div>
+                    <div class="card-body p-4" style="background-color: #fafbfc; border-radius: 0 0 12px 12px;">
+                        
+                        <!-- Контейнер для системных уведомлений (API) -->
+                        <div id="adminAlertContainer"></div>
 
-                <!-- Форма создания аккаунта -->
-                <form id="apiCreateUserForm" class="row g-3 align-items-end">
-                    
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Логин</label>
-                        <input type="text" class="form-control" id="newUsername" required placeholder="geo_worker">
-                    </div>
-                    
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Пароль</label>
-                        <div class="input-group">
-                            <input type="password" class="form-control border-end-0" id="newPassword" required placeholder="••••••••">
-                            <button class="btn btn-eye-admin border-start-0 bg-white" type="button" id="toggleNewPassword">
-                                <i class="bi bi-eye text-muted" id="toggleNewIcon"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Роль</label>
-                        <select class="form-select" id="newRole" style="border-color: rgba(27, 87, 140, 0.2);">
-                            <option value="0" selected>⛏️ Гость</option>
-                            <option value="1">👑 Админ</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Email (2FA)</label>
-                        <input type="email" class="form-control" id="newEmail" placeholder="Опционально">
-                    </div>
-                    
-                    <div class="col-12 mt-4" >
-                        <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней</label>
-                        <input type="number" class="form-control" id="newExpire" placeholder="Навсегда">
-                    </div>
-                    
-                    <!-- Контейнер динамического дерева слоев для настройки прав доступа -->
-                    <div class="col-12 mt-4" id="step-admin-layers">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="fw-bold mb-0" style="color: var(--geo-dark);"><i class="bi bi-layers text-secondary me-2"></i>Доступ к слоям</h6>
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" id="selectAllCreateLayers">
-                                <label class="form-check-label small text-muted" style="cursor:pointer;" for="selectAllCreateLayers">Выбрать всё</label>
+                        <!-- Форма создания аккаунта -->
+                        <form id="apiCreateUserForm" class="row g-3 align-items-end">
+                            
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Логин</label>
+                                <input type="text" class="form-control" id="newUsername" required placeholder="ivanov_geo">
                             </div>
-                        </div>
-                        <div id="adminLayersTree" class="border rounded bg-white p-3 shadow-sm" style="max-height: 250px; overflow-y: auto;">
-                            <div class="text-center text-muted spinner-border spinner-border-sm" role="status"></div> Загрузка структуры...
-                        </div>
-                    </div>
 
-                    <div class="col-12 mt-4 text-end">
-                        <button type="submit" class="btn btn-geo px-5 fw-bold" id="btnCreateUser">
-                            Создать пользователя <i class="bi bi-arrow-right ms-2"></i>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">ФИО сотрудника</label>
+                                <input type="text" class="form-control" id="newFullName" placeholder="Иванов Иван Иванович">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Пароль</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control border-end-0" id="newPassword" required placeholder="••••••••">
+                                    <button class="btn btn-eye-admin border-start-0 bg-white" type="button" id="toggleNewPassword">
+                                        <i class="bi bi-eye text-muted" id="toggleNewIcon"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Дней</label>
+                                <input type="number" class="form-control" id="newExpire" placeholder="Навсегда" min="1">
+                            </div>
+
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Роль</label>
+                                <select class="form-select" id="newRole" style="border-color: rgba(27, 87, 140, 0.2);">
+                                    <option value="viewer" selected>Пользователь</option>
+                                    <option value="worker">Работник</option>
+                                    <option value="admin">Админ</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-7">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Email (2FA)</label>
+                                <input type="email" class="form-control" id="newEmail" placeholder="Опционально (например, ivanov@mail.ru)">
+                            </div>
+                            
+                            <!-- Контейнер динамического дерева слоев для настройки прав доступа -->
+                            <div class="col-12 mt-4" id="step-admin-layers">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="fw-bold mb-0" style="color: var(--geo-dark);"><i class="bi bi-layers text-secondary me-2"></i>Доступ к слоям</h6>
+                                    <div class="form-check mb-0" id="createLayersSelectAllWrap">
+                                        <input class="form-check-input" type="checkbox" id="selectAllCreateLayers">
+                                        <label class="form-check-label small text-muted" style="cursor:pointer;" for="selectAllCreateLayers">Выбрать всё</label>
+                                    </div>
+                                </div>
+
+                                <!-- Плашка для ролей admin и worker -->
+                                <div id="createAllLayersNotice" class="alert alert-info small py-2 px-3 mb-0 d-none d-flex align-items-center">
+                                    <i class="bi bi-check2-all fs-5 me-2"></i>
+                                    <span>Для выбранной роли <strong>доступны все слои карты</strong>.</span>
+                                </div>
+
+                                <!-- Дерево чекбоксов для роли viewer -->
+                                <div id="adminLayersTree" class="border rounded bg-white p-3 shadow-sm" style="max-height: 250px; overflow-y: auto;">
+                                    <div class="text-center text-muted spinner-border spinner-border-sm" role="status"></div> Загрузка структуры...
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-4 text-end">
+                                <button type="submit" class="btn btn-geo px-5 fw-bold" id="btnCreateUser">
+                                    Создать пользователя <i class="bi bi-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Секция 2: Реестр активных учетных записей -->
+                <div class="admin-card mb-5" id="step-admin-table">
+                    <div class="admin-card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-people-fill me-2" style="color: var(--geo-main);"></i>Активные учетные записи</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-geo align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="ps-4 w-25">Пользователь / ФИО</th>
+                                        <th class="w-25">Почта (2FA)</th> 
+                                        <th class="w-25">Статус / Годен до</th>
+                                        <th class="text-end pe-4">Действие</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Серверный рендеринг списка пользователей -->
+                                    {% for u in users %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-person-circle me-3 fs-4 text-muted opacity-50"></i>
+                                                <div>
+                                                    <div class="fw-bold" style="color: var(--geo-dark);">
+                                                        {{ u.username }}
+                                                        <span class="text-muted fw-normal small ms-1">
+                                                            ({{ u.full_name if u.full_name else '—' }})
+                                                        </span>
+                                                    </div>
+                                                    {% if u.role_name == 'admin' %}
+                                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Админ</span>
+                                                    {% elif u.role_name == 'worker' %}
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Работник</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Пользователь</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        
+                                        <td>
+                                            {% if u.email %}
+                                                <span class="text-secondary small fw-medium"><i class="bi bi-envelope me-1"></i> {{ u.email }}</span>
+                                            {% else %}
+                                                <span class="text-muted small opacity-50">—</span>
+                                            {% endif %}
+                                        </td>
+                                        
+                                        <td>
+                                            {% if u.expires_at is none %}
+                                                <span class="badge bg-warning text-dark"><i class="bi bi-infinity"></i> Бессрочный</span>
+                                            {% elif not u.is_active() %}
+                                                <span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Истёк: {{ u.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                            {% else %}
+                                                <span class="text-success fw-medium"><i class="bi bi-check-circle me-1"></i>До: {{ u.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                            {% endif %}
+                                        </td>
+                                        
+                                        <!-- Элементы управления учетной записью -->
+                                        <td class="text-end pe-4">
+                                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap" id="{% if loop.index == 1 %}step-admin-actions{% endif %}">
+
+                                                <button class="btn btn-sm btn-outline-primary edit-user-btn" 
+                                                        title="Редактировать"
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editUserModal"
+                                                        data-id="{{ u.id }}"
+                                                        data-username="{{ u.username }}"
+                                                        data-fullname="{{ u.full_name or '' }}"
+                                                        data-email="{{ u.email or '' }}"
+                                                        data-role="{{ u.role_name or ('admin' if u.is_admin else 'viewer') }}"
+                                                        data-layers='{{ u.allowed_layers | default([]) | tojson }}'>
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </button>
+                                                
+                                                <button class="btn btn-outline-info btn-sm px-3" onclick="openLogsModal('{{ u.username }}')" title="Журнал действий">
+                                                    <i class="bi bi-journal-text"></i>
+                                                </button>
+                                            
+                                                <form action="{{ url_for('delete_user', user_id=u.id) }}" method="POST" class="m-0" onsubmit="return confirm('Отключить доступ для {{ u.username }}?');">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm px-3" title="Удалить">
+                                                        <i class="bi bi-trash3-fill"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Заглушка для пустой базы пользователей -->
+                        {% if not users %}
+                        <div class="text-center py-5">
+                            <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 80px; height: 80px; background-color: var(--geo-light);">
+                                <i class="bi bi-inbox fs-2" style="color: var(--geo-main);"></i>
+                            </div>
+                            <h6 class="fw-bold" style="color: var(--geo-dark);">База пуста</h6>
+                            <p class="text-muted small mb-0">Здесь появятся добавленные пользователи.</p>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ========================================== -->
+            <!-- ВКЛАДКА 2: УПРАВЛЕНИЕ ЗАДАЧАМИ (CRM)       -->
+            <!-- ========================================== -->
+            <div class="tab-pane fade" id="pane-crm" role="tabpanel">
+                
+                <!-- Секция 1: Назначение новой задачи сотруднику -->
+                <div class="admin-card mb-4">
+                    <div class="admin-card-header">
+                        <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);">
+                            <i class="bi bi-plus-circle-fill me-2" style="color: var(--geo-main);"></i>Поставить новую задачу
+                        </h5>
+                    </div>
+                    <div class="card-body p-4" style="background-color: #fafbfc; border-radius: 0 0 12px 12px;">
+                        <div id="crmCreateAlert"></div>
+
+                        <form id="crmCreateTaskForm" class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Название задачи <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="crmTaskTitle" required placeholder="Например: Оцифровать рудные узлы листа N-50">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Исполнитель (Работник) <span class="text-danger">*</span></label>
+                                <select class="form-select" id="crmTaskAssignee" required>
+                                    <option value="" disabled selected>Загрузка сотрудников...</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Дедлайн (опционально)</label>
+                                <input type="datetime-local" class="form-control" id="crmTaskDeadline">
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Подробное описание / ТЗ</label>
+                                <textarea class="form-control" id="crmTaskDescription" rows="3" placeholder="Опишите требования к задаче, исходные материалы и ожидаемый результат..."></textarea>
+                            </div>
+
+                            <div class="col-12 text-end">
+                                <button type="submit" class="btn btn-geo px-4 fw-bold" id="btnCreateTask">
+                                    <i class="bi bi-send-plus me-2"></i>Назначить задачу
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Секция 2: Доска руководителя (Фильтры и список задач лаборатории) -->
+                <div class="admin-card mb-5">
+                    <div class="admin-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);">
+                            <i class="bi bi-clipboard-data-fill me-2" style="color: var(--geo-main);"></i>Доска задач лаборатории
+                        </h5>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="crmRefreshBtn">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Обновить доску
                         </button>
                     </div>
-                </form>
-            </div>
-        </div>
 
-        <!-- Секция 2: Реестр активных учетных записей -->
-        <div class="admin-card mb-5" id="step-admin-table">
-            <div class="admin-card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);"><i class="bi bi-people-fill me-2" style="color: var(--geo-main);"></i>Активные учетные записи</h5>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover table-geo align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th class="ps-4 w-25">Пользователь</th>
-                                <th class="w-25">Почта (2FA)</th> 
-                                <th class="w-25">Статус / Годен до</th>
-                                <th class="text-end pe-4">Действие</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Серверный рендеринг списка пользователей -->
-                            {% for u in users %}
-                            <tr>
-                                <td class="ps-4">
-                                    <div class="d-flex align-items-center">
-                                        <i class="bi bi-person-circle me-3 fs-4 text-muted opacity-50"></i>
-                                        <div>
-                                            <div class="fw-bold" style="color: var(--geo-dark);">{{ u.username }}</div>
-                                            {% if u.is_admin %}
-                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Администратор</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Пользователь</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </td>
-                                
-                                <td>
-                                    {% if u.email %}
-                                        <span class="text-secondary small fw-medium"><i class="bi bi-envelope me-1"></i> {{ u.email }}</span>
-                                    {% else %}
-                                        <span class="text-muted small opacity-50">—</span>
-                                    {% endif %}
-                                </td>
-                                
-                                <td>
-                                    {% if u.expires_at is none %}
-                                        <span class="badge bg-warning text-dark"><i class="bi bi-infinity"></i> Бессрочный</span>
-                                    {% elif not u.is_active() %}
-                                        <span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Истёк: {{ u.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
-                                    {% else %}
-                                        <span class="text-success fw-medium"><i class="bi bi-check-circle me-1"></i>До: {{ u.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
-                                    {% endif %}
-                                </td>
-                                
-                                <!-- Элементы управления учетной записью -->
-                                <td class="text-end pe-4">
-                                    <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap" id="{% if loop.index == 1 %}step-admin-actions{% endif %}">
+                    <div class="card-body p-4">
+                        <!-- Панель фильтров (GET /api/tasks/all) -->
+                        <div class="row g-3 align-items-end mb-4 p-3 rounded-3 border bg-light bg-opacity-50">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-1">Фильтр по сотруднику</label>
+                                <select class="form-select form-select-sm" id="filterAssignee">
+                                    <option value="">Все сотрудники</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary mb-1">Статус задачи</label>
+                                <select class="form-select form-select-sm" id="filterStatus">
+                                    <option value="">Все статусы</option>
+                                    <option value="pending">Не принята (Новая)</option>
+                                    <option value="in_progress">Выполняется</option>
+                                    <option value="review">На проверке</option>
+                                    <option value="completed">Выполнена</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary mb-1">Месяц (YYYY-MM)</label>
+                                <input type="month" class="form-control form-control-sm" id="filterMonth">
+                            </div>
+                            <div class="col-md-2 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-geo w-100" id="btnApplyFilters">Применить</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnResetFilters" title="Сбросить фильтры">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
 
-                                        <button class="btn btn-sm btn-outline-primary edit-user-btn" 
-                                                title="Редактировать"
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#editUserModal"
-                                                data-id="{{ u.id }}"
-                                                data-username="{{ u.username }}"
-                                                data-email="{{ u.email or '' }}"
-                                                data-isadmin="{{ 'true' if u.is_admin else 'false' }}"
-                                                data-layers='{{ u.allowed_layers | default([]) | tojson }}'>
-                                            <i class="bi bi-pencil-square"></i>
-                                        </button>
-                                        
-                                        <button class="btn btn-outline-info btn-sm px-3" onclick="openLogsModal('{{ u.username }}')" title="Журнал действий">
-                                            <i class="bi bi-journal-text"></i>
-                                        </button>
-                                    
-                                        <form action="{{ url_for('delete_user', user_id=u.id) }}" method="POST" class="m-0" onsubmit="return confirm('Отключить доступ для {{ u.username }}?');">
-                                            <button type="submit" class="btn btn-outline-danger btn-sm px-3" title="Удалить">
-                                                <i class="bi bi-trash3-fill"></i>
-                                            </button>
-                                        </form>
-                                        
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                
-                <!-- Заглушка для пустой базы пользователей -->
-                {% if not users %}
-                <div class="text-center py-5">
-                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 80px; height: 80px; background-color: var(--geo-light);">
-                        <i class="bi bi-inbox fs-2" style="color: var(--geo-main);"></i>
+                        <!-- Быстрая сводка по текущему списку -->
+                        <div class="row g-2 mb-4 text-center">
+                            <div class="col-6 col-md-3">
+                                <div class="p-2 border rounded-3 bg-white">
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">НОВЫЕ</small>
+                                    <span class="fw-bold fs-5 text-secondary" id="crmCountPending">0</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="p-2 border rounded-3 bg-white">
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">В РАБОТЕ</small>
+                                    <span class="fw-bold fs-5 text-primary" id="crmCountInProgress">0</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="p-2 border rounded-3 bg-white">
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">ЖДУТ ПРОВЕРКИ</small>
+                                    <span class="fw-bold fs-5 text-warning" id="crmCountReview">0</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="p-2 border rounded-3 bg-white">
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">ЗАВЕРШЕНО</small>
+                                    <span class="fw-bold fs-5 text-success" id="crmCountCompleted">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Контейнер карточек задач -->
+                        <div id="crmTasksContainer" class="row g-3">
+                            <div class="col-12 text-center py-5 text-muted">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                Загрузка задач лаборатории...
+                            </div>
+                        </div>
                     </div>
-                    <h6 class="fw-bold" style="color: var(--geo-dark);">База пуста</h6>
-                    <p class="text-muted small mb-0">Здесь появятся добавленные пользователи.</p>
                 </div>
-                {% endif %}
 
             </div>
+
         </div>
     </div>
 
@@ -282,40 +467,55 @@
                                 <input type="text" class="form-control bg-light" id="editUserUsername" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small fw-bold text-secondary">Почта (Email)</label>
-                                <input type="email" class="form-control bg-light" id="editUserEmail">
+                                <label class="form-label small fw-bold text-secondary">ФИО сотрудника</label>
+                                <input type="text" class="form-control bg-light" id="editUserFullName" placeholder="Иванов Иван Иванович">
                             </div>
                         </div>
 
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label small fw-bold text-secondary">Новый пароль</label>
-                                <input type="password" class="form-control" id="editUserPassword" placeholder="Оставьте пустым, чтобы не менять">
+                                <label class="form-label small fw-bold text-secondary">Почта (Email)</label>
+                                <input type="email" class="form-control bg-light" id="editUserEmail">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold text-secondary">Роль доступа</label>
                                 <select class="form-select bg-light" id="editUserRole">
-                                    <option value="false">Пользователь</option>
-                                    <option value="true">Администратор</option>
+                                    <option value="viewer">Пользователь</option>
+                                    <option value="worker">Работник</option>
+                                    <option value="admin">Админ</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="mb-4">
-                            <label class="form-label small fw-bold text-secondary">Таймер доступа (в днях)</label>
-                            <input type="number" class="form-control" id="editUserExpire" placeholder="Укажите цифру. Оставьте пустым, чтобы сделать бессрочным" min="1">
-                            <div class="form-text small">Ввод цифры установит новый таймер с текущего момента. Пустое поле обнулит таймер.</div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Новый пароль</label>
+                                <input type="password" class="form-control" id="editUserPassword" placeholder="Оставьте пустым, чтобы не менять">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Таймер доступа (в днях)</label>
+                                <input type="number" class="form-control" id="editUserExpire" placeholder="Пусто — бессрочный" min="1">
+                                <div class="form-text small">Пустое поле сделает доступ бессрочным.</div>
+                            </div>
                         </div>
 
                         <!-- Контейнер настройки конфигурации слоев пользователя -->
                         <div class="mb-4">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label small fw-bold text-secondary mb-0">Доступ к дата-румам (Слоям)</label>
-                                <div class="form-check mb-0">
+                                <label class="form-label small fw-bold text-secondary mb-0">Доступ к слоям</label>
+                                <div class="form-check mb-0" id="editLayersSelectAllWrap">
                                     <input class="form-check-input" type="checkbox" id="selectAllEditLayers">
                                     <label class="form-check-label small text-muted" style="cursor:pointer;" for="selectAllEditLayers">Выбрать всё</label>
                                 </div>
                             </div>
+
+                            <!-- Плашка для ролей admin и worker -->
+                            <div id="editAllLayersNotice" class="alert alert-info small py-2 px-3 mb-0 d-none d-flex align-items-center">
+                                <i class="bi bi-check2-all fs-5 me-2"></i>
+                                <span>Для выбранной роли <strong>доступны все слои карты</strong></span>
+                            </div>
+
+                            <!-- Дерево чекбоксов для роли viewer -->
                             <div id="editAdminLayersTree" class="border rounded p-3 bg-light shadow-sm" style="max-height: 250px; overflow-y: auto;">
                                 <div class="text-center text-muted"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Загрузка структуры...</div>
                             </div>
@@ -330,33 +530,72 @@
             </div>
         </div>
     </div>
+
+    <!-- ================================================================= -->
+    <!-- МОДАЛЬНОЕ ОКНО CRM: ДЕЙСТВИЯ РУКОВОДИТЕЛЯ (ОЦЕНКА / ВОЗВРАТ / СРОК) -->
+    <!-- ================================================================= -->
+    <div class="modal fade" id="crmReviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-bottom border-opacity-25">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="crmReviewModalTitle" style="color: var(--geo-dark);">Действие по задаче</h5>
+                        <small class="text-muted" id="crmReviewModalSubtitle"></small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <form id="crmReviewForm">
+                    <div class="modal-body p-4">
+                        <input type="hidden" id="crmActionTaskId">
+                        <input type="hidden" id="crmActionType">
+
+                        <!-- Блок выставления оценки (1-10) для action="approve" -->
+                        <div id="crmApproveBlock" class="d-none">
+                            <label class="form-label small fw-bold text-secondary">Оценка качества выполнения (от 1 до 10) <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-lg fw-bold text-center" id="crmApproveScore">
+                                <option value="10" selected>10 — Отлично (максимальный балл)</option>
+                                <option value="9">9 — Очень хорошо</option>
+                                <option value="8">8 — Хорошо</option>
+                                <option value="7">7 — Выше среднего</option>
+                                <option value="6">6 — Удовлетворительно</option>
+                                <option value="5">5 — Средне</option>
+                                <option value="4">4 — Ниже среднего</option>
+                                <option value="3">3 — Слабо</option>
+                                <option value="2">2 — Плохо</option>
+                                <option value="1">1 — Минимальный балл</option>
+                            </select>
+                            <div class="form-text small mt-2">Задача перейдет в статус «Выполнена», а баллы пойдут в KPI сотрудника.</div>
+                        </div>
+
+                        <!-- Блок выбора нового дедлайна для action="reject" или action="extend_deadline" -->
+                        <div id="crmDeadlineBlock" class="d-none">
+                            <label class="form-label small fw-bold text-secondary" id="crmDeadlineLabel">Новый дедлайн</label>
+                            <input type="datetime-local" class="form-control" id="crmNewDeadline">
+                            <div class="form-text small mt-2" id="crmDeadlineHint"></div>
+                        </div>
+
+                        <div id="crmReviewError" class="alert alert-danger small py-2 mt-3 mb-0 d-none"></div>
+                    </div>
+                    <div class="modal-footer border-top border-opacity-25">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-geo px-4" id="crmReviewSubmitBtn">Подтвердить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../static/js/theme.js"></script>
     
-    <!-- Скрипт: Управление поведением интерфейса (видимость пароля и модальное окно логов) -->
+    <!-- Скрипт: Управление поведением интерфейса и модальное окно логов -->
     <script>
-        const toggleAdminPassword = document.getElementById('toggleAdminPassword');
-        const adminPasswordInput = document.getElementById('adminPassword');
-        const toggleAdminIcon = document.getElementById('toggleAdminIcon');
-
-        // Обработка скрытия/отображения символов пароля
-        if (toggleAdminPassword) {
-            toggleAdminPassword.addEventListener('click', function () {
-                const type = adminPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                adminPasswordInput.setAttribute('type', type);
-                toggleAdminIcon.classList.toggle('bi-eye');
-                toggleAdminIcon.classList.toggle('bi-eye-slash');
-            });
-        }
-
         // Асинхронная загрузка и рендеринг истории действий (логов)
         async function openLogsModal(username) {
             const modal = new bootstrap.Modal(document.getElementById('logsModal'));
             document.getElementById('logsModalUsername').innerText = username;
             const container = document.getElementById('logsContainer');
             
-            // Инициализация интерфейса загрузки
             container.innerHTML = `
                 <div class="text-center mt-5 mb-5">
                     <div class="spinner-border text-primary" role="status"></div>
@@ -366,11 +605,9 @@
             modal.show();
 
             try {
-                // Выполнение запроса к API
                 const response = await fetch(`/admin/api/logs/${username}`);
                 const logs = await response.json();
 
-                // Обработка серверных ошибок валидации или прав
                 if (logs.error) {
                     container.innerHTML = `
                         <div class="alert alert-danger d-flex align-items-center m-3" role="alert">
@@ -380,7 +617,6 @@
                     return;
                 }
 
-                // Обработка пустого набора данных
                 if (logs.length === 0) {
                     container.innerHTML = `
                         <div class="text-center text-muted mt-5 mb-5">
@@ -390,7 +626,6 @@
                     return;
                 }
 
-                // Рендеринг карточек логов с применением цветового кодирования статусов
                 container.innerHTML = '';
                 logs.forEach(log => {
                     let badgeClass = 'bg-secondary';
@@ -432,102 +667,43 @@
         }
     </script>
 
-    <!-- Скрипт: Логика работы модального окна редактирования пользователя -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const alertBox = document.getElementById('editUserAlert');
-
-        // Чтение атрибутов дата-сета и предзаполнение формы редактирования
-        const editButtons = document.querySelectorAll('.edit-user-btn');
-        editButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                alertBox.classList.add('d-none');
-                
-                const userId = this.getAttribute('data-id');
-                const username = this.getAttribute('data-username');
-                const email = this.getAttribute('data-email');
-                const isAdmin = this.getAttribute('data-isadmin');
-                
-                // Безопасный парсинг массива доступных слоев пользователя
-                let layers = [];
-                try { layers = JSON.parse(this.getAttribute('data-layers')); } 
-                catch(e) { console.error('Ошибка парсинга ID слоев'); }
-
-                document.getElementById('editUserId').value = userId;
-                document.getElementById('editUserUsername').value = username;
-                document.getElementById('editUserEmail').value = email;
-                document.getElementById('editUserRole').value = isAdmin;
-                
-                document.getElementById('editUserPassword').value = '';
-                document.getElementById('editUserExpire').value = ''; 
-
-                // Синхронизация состояния чекбоксов дата-румов
-                const checkboxes = document.querySelectorAll('.edit-layer-cb');
-                checkboxes.forEach(cb => {
-                    const cbIds = JSON.parse(cb.value);
-                    cb.checked = cbIds.some(id => layers.includes(id));
-                });
-            });
-        });
-
-        // Формирование полезной нагрузки (payload) и отправка данных в API
-        document.getElementById('editUserForm').addEventListener('submit', function(e) {
-            e.preventDefault(); 
-            
-            const userId = document.getElementById('editUserId').value;
-            
-            // Трансформация структур слоев в плоский массив идентификаторов
-            // Выбираем только конечные элементы (дата-румы), игнорируя родительские папки
-            let checkedLayers = [];
-            document.querySelectorAll('.edit-layer-cb:checked').forEach(chk => {
-                const ids = JSON.parse(chk.value);
-                checkedLayers.push(...ids);
-            });
-
-            const payload = {
-                username: document.getElementById('editUserUsername').value.trim(),
-                email: document.getElementById('editUserEmail').value.trim(),
-                password: document.getElementById('editUserPassword').value,
-                is_admin: document.getElementById('editUserRole').value === 'true',
-                expire_days: document.getElementById('editUserExpire').value,
-                allowed_layers: checkedLayers 
-            };
-
-            // Передача обновленных данных профиля
-            fetch(`/admin/api/edit_user/${userId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(response => response.json().then(data => ({ status: response.status, body: data })))
-            .then(result => {
-                if (result.status === 200) {
-                    alertBox.classList.remove('d-none', 'alert-danger');
-                    alertBox.classList.add('alert-success');
-                    alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${result.body.message}`;
-                    setTimeout(() => window.location.reload(), 1000);
-                } else {
-                    alertBox.classList.remove('d-none', 'alert-success');
-                    alertBox.classList.add('alert-danger');
-                    alertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${result.body.message}`;
-                }
-            })
-            .catch(error => {
-                alertBox.classList.remove('d-none', 'alert-success');
-                alertBox.classList.add('alert-danger');
-                alertBox.innerHTML = `<i class="bi bi-wifi-off me-1"></i> Ошибка соединения с сервером`;
-                console.error('Fetch error:', error);
-            });
-        });
-    });
-    </script>
-
-    <!-- Скрипт: Инициализация деревьев слоев и логика группового выбора -->
+    <!-- Скрипт: Инициализация деревьев слоев, логика ролей (RBAC) и управление пользователями -->
     <script>
     document.addEventListener("DOMContentLoaded", async () => {
         
+        // Функция переключения видимости дерева слоев в зависимости от выбранной роли
+        function toggleLayersByRole(roleValue, treeId, noticeId, selectAllWrapId) {
+            const treeEl = document.getElementById(treeId);
+            const noticeEl = document.getElementById(noticeId);
+            const selectAllWrap = document.getElementById(selectAllWrapId);
+
+            if (roleValue === 'admin' || roleValue === 'worker') {
+                treeEl.classList.add('d-none');
+                if (selectAllWrap) selectAllWrap.classList.add('d-none');
+                noticeEl.classList.remove('d-none');
+            } else {
+                treeEl.classList.remove('d-none');
+                if (selectAllWrap) selectAllWrap.classList.remove('d-none');
+                noticeEl.classList.add('d-none');
+            }
+        }
+
+        const newRoleSelect = document.getElementById('newRole');
+        const editRoleSelect = document.getElementById('editUserRole');
+
+        if (newRoleSelect) {
+            newRoleSelect.addEventListener('change', (e) => {
+                toggleLayersByRole(e.target.value, 'adminLayersTree', 'createAllLayersNotice', 'createLayersSelectAllWrap');
+            });
+            toggleLayersByRole(newRoleSelect.value, 'adminLayersTree', 'createAllLayersNotice', 'createLayersSelectAllWrap');
+        }
+
+        if (editRoleSelect) {
+            editRoleSelect.addEventListener('change', (e) => {
+                toggleLayersByRole(e.target.value, 'editAdminLayersTree', 'editAllLayersNotice', 'editLayersSelectAllWrap');
+            });
+        }
+
         // Управление видимостью поля пароля при создании пользователя
         const toggleNewPassword = document.getElementById('toggleNewPassword');
         const newPasswordInput = document.getElementById('newPassword');
@@ -554,7 +730,6 @@
 
             for (const [categoryName, subcategories] of Object.entries(config)) {
                 
-                // Генерация корневых категорий с чекбоксом группового выбора
                 let catHtmlCreate = `
                 <div class="mb-3 category-wrapper">
                     <div class="d-flex align-items-center mb-2">
@@ -573,7 +748,6 @@
                 
                 for (const [subName, layers] of Object.entries(subcategories)) {
                     
-                    // Генерация подкатегорий с чекбоксом каскадного выбора
                     catHtmlCreate += `
                     <div class="sub-group-wrapper">
                         <div class="d-flex align-items-center mt-2 mb-1">
@@ -592,7 +766,6 @@
                     
                     for (const [layerName, ids] of Object.entries(layers)) {
                         
-                        // Генерация конечных элементов иерархии (целевые слои геоданных)
                         catHtmlCreate += `
                         <div class="form-check mb-1 layer-item-container">
                             <input class="form-check-input admin-layer-chk" type="checkbox" value='${JSON.stringify(ids)}' id="adm_cr_${ids[0]}">
@@ -605,10 +778,10 @@
                             <label class="form-check-label small" for="edit_adm_${ids[0]}">${layerName}</label>
                         </div>`;
                     }
-                    catHtmlCreate += `</div></div>`; // Закрытие блока подкатегории
+                    catHtmlCreate += `</div></div>`;
                     catHtmlEdit += `</div></div>`;
                 }
-                catHtmlCreate += `</div></div>`; // Закрытие блока корневой категории
+                catHtmlCreate += `</div></div>`;
                 catHtmlEdit += `</div></div>`;
                 
                 treeContainer.insertAdjacentHTML('beforeend', catHtmlCreate);
@@ -620,14 +793,12 @@
                 const container = document.getElementById(containerId);
                 const masterBtn = document.getElementById(masterBtnId);
                 
-                // Глобальный выбор всех слоев в дереве
                 if (masterBtn) {
                     masterBtn.addEventListener('change', (e) => {
                         container.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = e.target.checked);
                     });
                 }
 
-                // Выбор всех слоев внутри родительской категории
                 container.querySelectorAll(`.${catClass}`).forEach(catChk => {
                     catChk.addEventListener('change', (e) => {
                         const wrapper = e.target.closest('.category-wrapper');
@@ -635,7 +806,6 @@
                     });
                 });
 
-                // Выбор всех слоев внутри дочерней подкатегории
                 container.querySelectorAll(`.${subClass}`).forEach(subChk => {
                     subChk.addEventListener('change', (e) => {
                         const wrapper = e.target.closest('.sub-group-wrapper');
@@ -652,7 +822,7 @@
             document.getElementById('editAdminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки конфигурации слоев</div>';
         }
 
-        // Обработка отправки формы создания профиля пользователя
+        // Обработка отправки формы создания профиля пользователя (POST /admin/api/create_user)
         document.getElementById('apiCreateUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btnCreateUser');
@@ -662,21 +832,23 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Создание...';
             alertBox.innerHTML = '';
 
-            // Извлечение идентификаторов слоев только из конечных чекбоксов дата-румов
-            let allowed_layers = [];
-            document.querySelectorAll('.admin-layer-chk:checked').forEach(chk => {
-                const ids = JSON.parse(chk.value);
-                allowed_layers.push(...ids);
-            });
+            const selectedRole = document.getElementById('newRole').value;
 
-            // Трансформация строкового флага селектора в логический тип
-            const isAdminValue = document.getElementById('newRole').value === '1';
+            let allowed_layers = "*";
+            if (selectedRole === 'viewer') {
+                allowed_layers = [];
+                document.querySelectorAll('.admin-layer-chk:checked').forEach(chk => {
+                    const ids = JSON.parse(chk.value);
+                    allowed_layers.push(...ids);
+                });
+            }
 
             const payload = {
-                username: document.getElementById('newUsername').value,
+                username: document.getElementById('newUsername').value.trim(),
+                full_name: document.getElementById('newFullName').value.trim(),
+                email: document.getElementById('newEmail').value.trim(),
                 password: document.getElementById('newPassword').value,
-                email: document.getElementById('newEmail').value,
-                is_admin: isAdminValue,
+                role: selectedRole,
                 expire_days: document.getElementById('newExpire').value,
                 allowed_layers: allowed_layers
             };
@@ -690,7 +862,6 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    // Динамический вывод сгенерированного пароля при пустом вводе
                     const pwdInfo = result.temp_password && !payload.password 
                         ? `<div class="font-monospace bg-white border p-2 rounded mt-2 text-dark">Сгенерированный пароль: <strong>${result.temp_password}</strong></div>` 
                         : '';
@@ -700,7 +871,9 @@
                             <div class="fw-bold mb-1"><i class="bi bi-check-circle-fill me-2"></i>${result.message}</div>
                             ${pwdInfo}
                         </div>`;
-                    e.target.reset(); 
+                    e.target.reset();
+                    toggleLayersByRole(document.getElementById('newRole').value, 'adminLayersTree', 'createAllLayersNotice', 'createLayersSelectAllWrap');
+                    setTimeout(() => window.location.reload(), 1200);
                 } else {
                     alertBox.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>${result.message || 'Ошибка сервера'}</div>`;
                 }
@@ -712,13 +885,560 @@
                 btn.innerHTML = 'Создать пользователя <i class="bi bi-arrow-right ms-2"></i>';
             }
         });
+
+        // Логика работы модального окна редактирования пользователя (POST /admin/api/edit_user/<id>)
+        const editAlertBox = document.getElementById('editUserAlert');
+        const editButtons = document.querySelectorAll('.edit-user-btn');
+
+        editButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                editAlertBox.classList.add('d-none');
+                
+                const userId = this.getAttribute('data-id');
+                const username = this.getAttribute('data-username');
+                const fullName = this.getAttribute('data-fullname') || '';
+                const email = this.getAttribute('data-email') || '';
+                const role = this.getAttribute('data-role') || 'viewer';
+                
+                let layers = [];
+                try { layers = JSON.parse(this.getAttribute('data-layers')); } 
+                catch(e) { console.error('Ошибка парсинга ID слоев'); }
+
+                document.getElementById('editUserId').value = userId;
+                document.getElementById('editUserUsername').value = username;
+                document.getElementById('editUserFullName').value = fullName;
+                document.getElementById('editUserEmail').value = email;
+                document.getElementById('editUserRole').value = role;
+                
+                document.getElementById('editUserPassword').value = '';
+                document.getElementById('editUserExpire').value = ''; 
+
+                toggleLayersByRole(role, 'editAdminLayersTree', 'editAllLayersNotice', 'editLayersSelectAllWrap');
+
+                const isWildcard = layers === '*' || (Array.isArray(layers) && layers.includes('*'));
+                const checkboxes = document.querySelectorAll('.edit-layer-cb');
+                checkboxes.forEach(cb => {
+                    if (isWildcard) {
+                        cb.checked = true;
+                    } else if (Array.isArray(layers)) {
+                        const cbIds = JSON.parse(cb.value);
+                        cb.checked = cbIds.some(id => layers.includes(id));
+                    } else {
+                        cb.checked = false;
+                    }
+                });
+            });
+        });
+
+        document.getElementById('editUserForm').addEventListener('submit', function(e) {
+            e.preventDefault(); 
+            
+            const userId = document.getElementById('editUserId').value;
+            const selectedRole = document.getElementById('editUserRole').value;
+            
+            let allowed_layers = "*";
+            if (selectedRole === 'viewer') {
+                allowed_layers = [];
+                document.querySelectorAll('.edit-layer-cb:checked').forEach(chk => {
+                    const ids = JSON.parse(chk.value);
+                    allowed_layers.push(...ids);
+                });
+            }
+
+            const payload = {
+                username: document.getElementById('editUserUsername').value.trim(),
+                full_name: document.getElementById('editUserFullName').value.trim(),
+                email: document.getElementById('editUserEmail').value.trim(),
+                password: document.getElementById('editUserPassword').value,
+                role: selectedRole,
+                expire_days: document.getElementById('editUserExpire').value,
+                allowed_layers: allowed_layers 
+            };
+
+            fetch(`/admin/api/edit_user/${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json().then(data => ({ status: response.status, body: data })))
+            .then(result => {
+                if (result.status === 200) {
+                    editAlertBox.classList.remove('d-none', 'alert-danger');
+                    editAlertBox.classList.add('alert-success');
+                    editAlertBox.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${result.body.message}`;
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    editAlertBox.classList.remove('d-none', 'alert-success');
+                    editAlertBox.classList.add('alert-danger');
+                    editAlertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${result.body.message}`;
+                }
+            })
+            .catch(error => {
+                editAlertBox.classList.remove('d-none', 'alert-success');
+                editAlertBox.classList.add('alert-danger');
+                editAlertBox.innerHTML = `<i class="bi bi-wifi-off me-1"></i> Ошибка соединения с сервером`;
+                console.error('Fetch error:', error);
+            });
+        });
+    });
+    </script>
+
+    <!-- Скрипт: Модуль CRM в Админ-панели (Интерфейс Руководителя) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        let allLabTasks = [];
+        const assigneeSelectCreate = document.getElementById('crmTaskAssignee');
+        const assigneeSelectFilter = document.getElementById('filterAssignee');
+        const crmTasksContainer = document.getElementById('crmTasksContainer');
+        const crmReviewBadge = document.getElementById('crm-review-badge');
+
+        const reviewModalEl = document.getElementById('crmReviewModal');
+        const reviewModal = reviewModalEl ? new bootstrap.Modal(reviewModalEl) : null;
+        const reviewForm = document.getElementById('crmReviewForm');
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function getStatusBadge(status, isOverdue) {
+            let badgeHtml = '';
+            switch (status) {
+                case 'pending':
+                    badgeHtml = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill">Не принята (Новая)</span>';
+                    break;
+                case 'in_progress':
+                    badgeHtml = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">Выполняется</span>';
+                    break;
+                case 'review':
+                    badgeHtml = '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill">На проверке</span>';
+                    break;
+                case 'completed':
+                    badgeHtml = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">Выполнена</span>';
+                    break;
+                default:
+                    badgeHtml = `<span class="badge bg-light text-dark rounded-pill">${escapeHtml(status)}</span>`;
+            }
+
+            if (isOverdue) {
+                badgeHtml += ' <span class="badge bg-danger rounded-pill ms-1"><i class="bi bi-exclamation-octagon-fill me-1"></i>Просрочена</span>';
+            }
+            return badgeHtml;
+        }
+
+        // 1. Получение списка исполнителей (GET /api/tasks/workers)
+        async function loadWorkers() {
+            try {
+                const res = await fetch('/api/tasks/workers');
+                const data = await res.json();
+
+                if (data.status === 'success' && Array.isArray(data.workers)) {
+                    const workers = data.workers;
+
+                    if (workers.length === 0) {
+                        assigneeSelectCreate.innerHTML = '<option value="" disabled selected>Нет доступных работников (роль worker)</option>';
+                    } else {
+                        assigneeSelectCreate.innerHTML = '<option value="" disabled selected>Выберите сотрудника...</option>' +
+                            workers.map(w => {
+                                const label = w.full_name ? `${w.full_name} (@${w.username})` : w.username;
+                                return `<option value="${w.id}">${escapeHtml(label)}</option>`;
+                            }).join('');
+                    }
+
+                    assigneeSelectFilter.innerHTML = '<option value="">Все сотрудники</option>' +
+                        workers.map(w => {
+                            const label = w.full_name ? `${w.full_name} (@${w.username})` : w.username;
+                            return `<option value="${w.id}">${escapeHtml(label)}</option>`;
+                        }).join('');
+                }
+            } catch (err) {
+                console.error('Ошибка загрузки списка работников:', err);
+                assigneeSelectCreate.innerHTML = '<option value="" disabled selected>Ошибка загрузки списка</option>';
+            }
+        }
+
+        // 2. Получение всех задач лаборатории (GET /api/tasks/all)
+        async function loadAllTasks() {
+            const assigneeId = document.getElementById('filterAssignee').value;
+            const status = document.getElementById('filterStatus').value;
+            const month = document.getElementById('filterMonth').value;
+
+            const params = new URLSearchParams();
+            if (assigneeId) params.append('assignee_id', assigneeId);
+            if (status) params.append('status', status);
+            if (month) params.append('month', month);
+
+            const queryString = params.toString() ? `?${params.toString()}` : '';
+
+            try {
+                const res = await fetch(`/api/tasks/all${queryString}`);
+                const data = await res.json();
+
+                if (data.status !== 'success') {
+                    throw new Error(data.message || 'Ошибка загрузки задач');
+                }
+
+                allLabTasks = data.tasks || [];
+                updateBoardCounters(allLabTasks);
+                renderLabTasks(allLabTasks);
+            } catch (err) {
+                crmTasksContainer.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Не удалось загрузить задачи: ${escapeHtml(err.message)}
+                        </div>
+                    </div>`;
+            }
+        }
+
+        function updateBoardCounters(tasks) {
+            const pending = tasks.filter(t => t.status === 'pending').length;
+            const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+            const review = tasks.filter(t => t.status === 'review').length;
+            const completed = tasks.filter(t => t.status === 'completed').length;
+
+            document.getElementById('crmCountPending').textContent = pending;
+            document.getElementById('crmCountInProgress').textContent = inProgress;
+            document.getElementById('crmCountReview').textContent = review;
+            document.getElementById('crmCountCompleted').textContent = completed;
+
+            if (review > 0) {
+                crmReviewBadge.textContent = review;
+                crmReviewBadge.classList.remove('d-none');
+            } else {
+                crmReviewBadge.classList.add('d-none');
+            }
+        }
+
+        function renderLabTasks(tasks) {
+            if (tasks.length === 0) {
+                crmTasksContainer.innerHTML = `
+                    <div class="col-12 text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+                        <h6 class="fw-bold mb-1">Задачи не найдены</h6>
+                        <p class="small mb-0">Попробуйте изменить параметры фильтрации или назначьте новую задачу.</p>
+                    </div>`;
+                return;
+            }
+
+            crmTasksContainer.innerHTML = tasks.map(task => {
+                const overdueBorder = task.is_overdue ? 'border-start border-danger border-4' : '';
+                const assigneeName = task.assignee_full_name
+                    ? `${task.assignee_full_name} (@${task.assignee_username})`
+                    : (task.assignee_username || `ID ${task.assignee_id}`);
+                const authorName = task.author_full_name || task.author_username || 'Руководитель';
+
+                const scoreBadge = task.score !== null && task.score !== undefined
+                    ? `<span class="badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold">
+                           <i class="bi bi-star-fill me-1"></i>Оценка: ${task.score} / 10
+                       </span>`
+                    : '';
+
+                let reportSection = '';
+                if (task.employee_report || task.has_attachment) {
+                    const attachmentBtn = task.has_attachment
+                        ? `<div class="mt-2">
+                               <a href="${escapeHtml(task.attachment_url)}" class="btn btn-sm btn-outline-primary rounded-pill" target="_blank">
+                                   <i class="bi bi-paperclip me-1"></i>Скачать файл (${escapeHtml(task.attachment_name || 'Вложение')})
+                               </a>
+                           </div>`
+                        : '';
+
+                    reportSection = `
+                        <div class="bg-light rounded-3 p-3 mb-3 border">
+                            <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">ОТЧЕТ ИСПОЛНИТЕЛЯ:</small>
+                            <div class="small" style="white-space: pre-wrap;">${escapeHtml(task.employee_report || 'Без текстового комментария')}</div>
+                            ${attachmentBtn}
+                        </div>`;
+                }
+
+                // Кнопки действий руководителя по шпаргалке статусов ТЗ
+                let managerActions = '';
+                if (task.status === 'pending' || task.status === 'in_progress') {
+                    managerActions = `
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="extend_deadline">
+                            <i class="bi bi-calendar-event me-1"></i>Продлить срок
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-crm-delete" data-id="${task.id}">
+                            <i class="bi bi-trash3 me-1"></i>Удалить
+                        </button>`;
+                } else if (task.status === 'review') {
+                    managerActions = `
+                        <button type="button" class="btn btn-sm btn-success rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="approve">
+                            <i class="bi bi-check2-circle me-1"></i>Оценить (1–10) и закрыть
+                        </button>
+                        <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="reject">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть на доработку
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="extend_deadline">
+                            <i class="bi bi-calendar-event me-1"></i>Продлить срок
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-crm-delete" data-id="${task.id}">
+                            <i class="bi bi-trash3 me-1"></i>Удалить
+                        </button>`;
+                } else if (task.status === 'completed') {
+                    managerActions = `
+                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="reject">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть в работу
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-crm-delete" data-id="${task.id}">
+                            <i class="bi bi-trash3 me-1"></i>Удалить
+                        </button>`;
+                }
+
+                return `
+                    <div class="col-12">
+                        <div class="card border shadow-sm rounded-4 ${overdueBorder}">
+                            <div class="card-body p-4">
+                                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                                    <div>
+                                        <div class="mb-2 d-flex flex-wrap align-items-center gap-2">
+                                            <span class="text-muted small fw-bold">#${task.id}</span>
+                                            ${getStatusBadge(task.status, task.is_overdue)}
+                                        </div>
+                                        <h5 class="fw-bold mb-1" style="color: var(--geo-dark);">${escapeHtml(task.title)}</h5>
+                                        <div class="d-flex flex-wrap gap-3 text-muted small">
+                                            <span><i class="bi bi-person-workspace me-1"></i>Исполнитель: <strong>${escapeHtml(assigneeName)}</strong></span>
+                                            <span><i class="bi bi-person-badge me-1"></i>Поручил: <strong>${escapeHtml(authorName)}</strong></span>
+                                        </div>
+                                    </div>
+                                    <div>${scoreBadge}</div>
+                                </div>
+
+                                ${task.description ? `<p class="text-muted small mb-3" style="white-space: pre-wrap;">${escapeHtml(task.description)}</p>` : ''}
+
+                                ${reportSection}
+
+                                <div class="d-flex flex-wrap gap-3 text-muted small py-2 border-top border-bottom mb-3">
+                                    <div><i class="bi bi-calendar-plus me-1"></i>Создана: <strong>${escapeHtml(task.created_at || '—')}</strong></div>
+                                    <div class="${task.is_overdue ? 'text-danger fw-bold' : ''}">
+                                        <i class="bi bi-alarm me-1"></i>Дедлайн: <strong>${escapeHtml(task.deadline || 'Без срока')}</strong>
+                                    </div>
+                                    ${task.accepted_at ? `<div><i class="bi bi-play-circle me-1"></i>Принята: <strong>${escapeHtml(task.accepted_at)}</strong></div>` : ''}
+                                    ${task.submitted_at ? `<div><i class="bi bi-send-check me-1"></i>Сдана: <strong>${escapeHtml(task.submitted_at)}</strong></div>` : ''}
+                                    ${task.completed_at ? `<div><i class="bi bi-check2-all me-1"></i>Завершена: <strong>${escapeHtml(task.completed_at)}</strong></div>` : ''}
+                                </div>
+
+                                <div class="d-flex flex-wrap justify-content-end gap-2">
+                                    ${managerActions}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        // 3. Создание задачи (POST /api/tasks/create)
+        const createTaskForm = document.getElementById('crmCreateTaskForm');
+        if (createTaskForm) {
+            createTaskForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('btnCreateTask');
+                const alertBox = document.getElementById('crmCreateAlert');
+
+                const title = document.getElementById('crmTaskTitle').value.trim();
+                const assigneeId = Number(document.getElementById('crmTaskAssignee').value);
+                const deadlineVal = document.getElementById('crmTaskDeadline').value;
+                const description = document.getElementById('crmTaskDescription').value.trim();
+
+                if (!title || !assigneeId) return;
+
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Назначение...';
+                alertBox.innerHTML = '';
+
+                const payload = {
+                    title: title,
+                    description: description,
+                    assignee_id: assigneeId,
+                    deadline: deadlineVal ? deadlineVal : null
+                };
+
+                try {
+                    const res = await fetch('/api/tasks/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+
+                    if (res.ok && data.status === 'success') {
+                        alertBox.innerHTML = `
+                            <div class="alert alert-success small py-2 mb-3">
+                                <i class="bi bi-check-circle-fill me-2"></i>${escapeHtml(data.message || 'Задача успешно назначена сотруднику!')}
+                            </div>`;
+                        createTaskForm.reset();
+                        await loadAllTasks();
+                    } else {
+                        alertBox.innerHTML = `
+                            <div class="alert alert-danger small py-2 mb-3">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>${escapeHtml(data.message || 'Не удалось создать задачу')}
+                            </div>`;
+                    }
+                } catch (err) {
+                    alertBox.innerHTML = `
+                        <div class="alert alert-danger small py-2 mb-3">
+                            Ошибка соединения с сервером при создании задачи.
+                        </div>`;
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-send-plus me-2"></i>Назначить задачу';
+                }
+            });
+        }
+
+        // 4. Обработка кликов по действиям над задачей (approve, reject, extend_deadline, delete)
+        crmTasksContainer.addEventListener('click', async (e) => {
+            const actionBtn = e.target.closest('.btn-crm-action');
+            if (actionBtn) {
+                const taskId = Number(actionBtn.dataset.id);
+                const actionType = actionBtn.dataset.action;
+                const task = allLabTasks.find(t => t.id === taskId);
+                if (!task) return;
+
+                document.getElementById('crmActionTaskId').value = task.id;
+                document.getElementById('crmActionType').value = actionType;
+                document.getElementById('crmReviewModalSubtitle').textContent = `#${task.id} — ${task.title}`;
+                document.getElementById('crmReviewError').classList.add('d-none');
+
+                const approveBlock = document.getElementById('crmApproveBlock');
+                const deadlineBlock = document.getElementById('crmDeadlineBlock');
+                const deadlineInput = document.getElementById('crmNewDeadline');
+                const modalTitle = document.getElementById('crmReviewModalTitle');
+                const deadlineLabel = document.getElementById('crmDeadlineLabel');
+                const deadlineHint = document.getElementById('crmDeadlineHint');
+
+                if (actionType === 'approve') {
+                    modalTitle.textContent = 'Принять работу и выставить балл';
+                    approveBlock.classList.remove('d-none');
+                    deadlineBlock.classList.add('d-none');
+                    deadlineInput.required = false;
+                } else if (actionType === 'reject') {
+                    modalTitle.textContent = 'Вернуть задачу на доработку';
+                    approveBlock.classList.add('d-none');
+                    deadlineBlock.classList.remove('d-none');
+                    deadlineLabel.textContent = 'Новый дедлайн (опционально)';
+                    deadlineHint.textContent = 'Задача вернется в статус «Выполняется». При необходимости укажите новый срок.';
+                    deadlineInput.value = task.deadline_iso || '';
+                    deadlineInput.required = false;
+                } else if (actionType === 'extend_deadline') {
+                    modalTitle.textContent = 'Изменить / продлить дедлайн';
+                    approveBlock.classList.add('d-none');
+                    deadlineBlock.classList.remove('d-none');
+                    deadlineLabel.textContent = 'Укажите новый дедлайн';
+                    deadlineHint.textContent = 'Срок выполнения задачи изменится без смены текущего статуса.';
+                    deadlineInput.value = task.deadline_iso || '';
+                    deadlineInput.required = true;
+                }
+
+                reviewModal.show();
+                return;
+            }
+
+            // 5. Удаление задачи (POST /api/tasks/<id>/delete)
+            const deleteBtn = e.target.closest('.btn-crm-delete');
+            if (deleteBtn) {
+                const taskId = Number(deleteBtn.dataset.id);
+                const task = allLabTasks.find(t => t.id === taskId);
+                if (!confirm(`Удалить задачу #${taskId} «${task ? task.title : ''}»?`)) return;
+
+                deleteBtn.disabled = true;
+                try {
+                    const res = await fetch(`/api/tasks/${taskId}/delete`, { method: 'POST' });
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        await loadAllTasks();
+                    } else {
+                        alert(data.message || 'Ошибка удаления задачи');
+                        deleteBtn.disabled = false;
+                    }
+                } catch (err) {
+                    alert('Ошибка соединения с сервером');
+                    deleteBtn.disabled = false;
+                }
+            }
+        });
+
+        // Отправка модальной формы проверки/дедлайна (POST /api/tasks/<id>/review)
+        if (reviewForm) {
+            reviewForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const taskId = document.getElementById('crmActionTaskId').value;
+                const actionType = document.getElementById('crmActionType').value;
+                const errorBox = document.getElementById('crmReviewError');
+                const submitBtn = document.getElementById('crmReviewSubmitBtn');
+
+                let payload = { action: actionType };
+
+                if (actionType === 'approve') {
+                    payload.score = Number(document.getElementById('crmApproveScore').value);
+                } else if (actionType === 'reject') {
+                    const newDl = document.getElementById('crmNewDeadline').value;
+                    if (newDl) payload.new_deadline = newDl;
+                } else if (actionType === 'extend_deadline') {
+                    const newDl = document.getElementById('crmNewDeadline').value;
+                    if (!newDl) {
+                        errorBox.textContent = 'Пожалуйста, укажите новую дату дедлайна.';
+                        errorBox.classList.remove('d-none');
+                        return;
+                    }
+                    payload.new_deadline = newDl;
+                }
+
+                submitBtn.disabled = true;
+                errorBox.classList.add('d-none');
+
+                try {
+                    const res = await fetch(`/api/tasks/${taskId}/review`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+
+                    if (res.ok && data.status === 'success') {
+                        reviewModal.hide();
+                        await loadAllTasks();
+                    } else {
+                        errorBox.textContent = data.message || 'Ошибка при выполнении операции.';
+                        errorBox.classList.remove('d-none');
+                    }
+                } catch (err) {
+                    errorBox.textContent = 'Ошибка соединения с сервером.';
+                    errorBox.classList.remove('d-none');
+                } finally {
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+
+        // Обработчики фильтров доски руководителя
+        document.getElementById('btnApplyFilters').addEventListener('click', loadAllTasks);
+        document.getElementById('crmRefreshBtn').addEventListener('click', loadAllTasks);
+        document.getElementById('btnResetFilters').addEventListener('click', () => {
+            document.getElementById('filterAssignee').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterMonth').value = '';
+            loadAllTasks();
+        });
+
+        // Открытие вкладки CRM при передаче #crm в адресной строке
+        if (window.location.hash === '#crm') {
+            const crmTabBtn = document.getElementById('crm-tab-btn');
+            if (crmTabBtn) new bootstrap.Tab(crmTabBtn).show();
+        }
+
+        // Первичная инициализация данных CRM
+        loadWorkers();
+        loadAllTasks();
     });
     </script>
 
     <!-- СИСТЕМА ОБУЧЕНИЯ (ONBOARDING) -->
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // Конвертация Python Boolean в JavaScript Boolean
         const hasSeenTutorial = {{ 'true' if has_seen_tutorial else 'false' }};
         const currentPageName = 'admin';
         
@@ -745,7 +1465,7 @@
                     element: '#step-admin-form', 
                     popover: {
                         title: 'Создание пользователей',
-                        description: 'Укажите логин, пароль, выберите роль и задайте срок действия аккаунта. Для подключения 2FA укажите электронную почту. ',
+                        description: 'Укажите логин, ФИО сотрудника, пароль, выберите роль (Админ, Работник или Инвестор) и задайте срок действия аккаунта.',
                         side: "bottom", align: 'start'
                     }
                 },
@@ -753,7 +1473,7 @@
                     element: '#step-admin-layers', 
                     popover: {
                         title: 'Настройка доступа',
-                        description: 'Детальная настройка видимости дата-румов. Каскадные галочки помогут быстро выделить нужные группы геологических слоев.',
+                        description: 'Для Инвесторов доступна детальная настройка видимости дата-румов. Работникам и Админам автоматически доступны все слои карты.',
                         side: "top", align: 'start'
                     }
                 },
@@ -761,16 +1481,16 @@
                     element: '#step-admin-table', 
                     popover: {
                         title: 'Реестр учетных записей',
-                        description: 'Здесь отображаются все сессии. Истекшие аккаунты автоматически теряют доступ к порталу.',
+                        description: 'Здесь отображаются все пользователи, их ФИО, роли и статус срока действия.',
                         side: "top", align: 'start'
                     }
                 },
                 {
-                    element: '#step-admin-actions',
+                    element: '#crm-tab-btn',
                     popover: {
-                        title: 'Управление профилем',
-                        description: 'Редактируйте права, просматривайте системный журнал действий пользователя (аудит логов) или удаляйте доступ.',
-                        side: "left", align: 'center'
+                        title: 'Модуль CRM (Задачи)',
+                        description: 'Переключайтесь во вкладку CRM, чтобы назначать задачи геологам и лаборантам, проверять отчеты и выставлять оценки KPI.',
+                        side: "bottom", align: 'start'
                     }
                 }
             ]

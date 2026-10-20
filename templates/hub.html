@@ -1,7 +1,7 @@
 <!-- 
   Файл: hub.html
   Описание: Главная страница (хаб) портала. 
-  Обеспечивает маршрутизацию пользователя к основным рабочим модулям системы (Интерактивная карта, Документация, Панель администратора) после успешной авторизации.
+  Обеспечивает маршрутизацию пользователя к основным рабочим модулям системы (Интерактивная карта, Документация, Личный кабинет / CRM, Панель администратора) после успешной авторизации.
 -->
 <!DOCTYPE html>
 <html lang="ru">
@@ -14,7 +14,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
-    <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body class="hub-page">
     
@@ -24,6 +24,12 @@
             document.body.classList.add('dark-theme');
         }
     </script>
+
+    {# Универсальное определение имени и роли пользователя (поддержка как объекта user, так и отдельных переменных) #}
+    {% set display_name = (user.full_name if (user is defined and user and user.full_name) else (full_name if (full_name is defined and full_name) else (user.username if (user is defined and user) else username))) %}
+    {% set current_role = (user.role_name if (user is defined and user and user.role_name) else (role_name if (role_name is defined and role_name) else ('admin' if is_admin else 'viewer'))) %}
+    {% set has_admin_access = (user.is_admin or user.role_name == 'admin') if (user is defined and user) else (is_admin | default(false)) %}
+    {% set is_worker_role = (user.role_name == 'worker' or (user.can_receive and not user.is_admin)) if (user is defined and user) else (current_role == 'worker') %}
 
     <!-- Навигационная панель -->
     <nav class="navbar navbar-expand-lg navbar-custom py-3">
@@ -39,20 +45,27 @@
                 </div>
             </a>
             
-            <!-- Кнопка переключения темы -->
-            <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
-                <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
-            </button>
-            
-            <!-- Блок профиля пользователя и управления сессией -->
-            <div class="d-flex align-items-center">
-                <a href="/profile" class="d-flex align-items-center rounded px-3 py-1 me-3 text-decoration-none" style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.05)'">
-                    <i class="bi bi-person-badge text-white opacity-75 me-2"></i>
-                    <span class="text-white fw-medium">{{ username }}</span>
-                </a>
-                <a href="/logout" class="btn btn-outline-danger btn-sm px-3 fw-medium">
-                    <i class="bi bi-door-closed me-1"></i> Выход
-                </a>
+            <div class="d-flex align-items-center ms-auto">
+                <!-- Кнопка переключения темы -->
+                <button id="theme-toggle" class="btn btn-outline-light border-0 me-2" title="Переключить тему">
+                    <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+                </button>
+                
+                <!-- Блок профиля пользователя и управления сессией -->
+                <div class="d-flex align-items-center">
+                    <a href="/profile" class="d-flex align-items-center rounded px-3 py-1 me-3 text-decoration-none" style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.05)'" title="Перейти в личный кабинет">
+                        <i class="bi bi-person-badge text-white opacity-75 me-2"></i>
+                        <span class="text-white fw-medium">{{ display_name }}</span>
+                        {% if current_role == 'admin' %}
+                            <span class="badge bg-danger ms-2 rounded-pill" style="font-size: 0.65rem;">Админ</span>
+                        {% elif current_role == 'worker' %}
+                            <span class="badge bg-success ms-2 rounded-pill" style="font-size: 0.65rem;">Работник</span>
+                        {% endif %}
+                    </a>
+                    <a href="/logout" class="btn btn-outline-danger btn-sm px-3 fw-medium">
+                        <i class="bi bi-door-closed me-1"></i> Выход
+                    </a>
+                </div>
             </div>
             
         </div>
@@ -104,19 +117,40 @@
                 </div>
             </div>
 
-            <!-- Модуль: Панель администратора (Требует проверки прав доступа) -->
-            {% if is_admin %}
+            <!-- Модуль: Панель администратора и CRM (Для роли 'admin') -->
+            {% if has_admin_access %}
             <div class="col-md-4">
                 <div class="card service-card p-4">
                     <div class="card-icon-wrapper" style="background-color: #f8d7da; color: #dc3545; border-color: #f5c2c7;">
                         <i class="bi bi-shield-lock-fill"></i>
                     </div>
-                    <h5 class="card-title fw-bold text-dark mb-3">Управление доступом</h5>
+                    <h5 class="card-title fw-bold text-dark mb-3">Управление и CRM</h5>
                     <p class="card-text text-muted mb-4 small flex-grow-1">
-                        Администрирование учетных записей. Контроль активных сессий, генерация временных паролей и точечная выдача прав на скрытые дата-румы.
+                        Администрирование учетных записей и ролей (RBAC), выдача прав на дата-румы, аудит действий и управление задачами сотрудников лаборатории.
                     </p>
-                    <a href="/admin" class="btn btn-geo w-100">
-                        Панель админа <i class="bi bi-incognito ms-1"></i>
+                    <div class="d-flex gap-2">
+                        <a href="/admin" class="btn btn-geo flex-grow-1">
+                            Админка <i class="bi bi-incognito ms-1"></i>
+                        </a>
+                        <a href="/admin#crm" class="btn btn-outline-secondary d-flex align-items-center justify-content-center px-3" title="Доска задач CRM">
+                            <i class="bi bi-kanban-fill"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% elif is_worker_role %}
+            <!-- Модуль: Мои задачи CRM (Для роли 'worker' — Лаборант / Геолог) -->
+            <div class="col-md-4">
+                <div class="card service-card p-4">
+                    <div class="card-icon-wrapper" style="background-color: rgba(25, 135, 84, 0.1); color: #198754; border-color: rgba(25, 135, 84, 0.25);">
+                        <i class="bi bi-kanban-fill"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-dark mb-3">Мои задачи (CRM)</h5>
+                    <p class="card-text text-muted mb-4 small flex-grow-1">
+                        Рабочий кабинет сотрудника лаборатории. Просмотр назначенных поручений, отправка отчетов с прикреплением файлов и личный дашборд KPI.
+                    </p>
+                    <a href="/profile#tasks" class="btn btn-geo w-100">
+                        Перейти к задачам <i class="bi bi-check2-square ms-1"></i>
                     </a>
                 </div>
             </div>
@@ -140,6 +174,6 @@
     </footer>
 
     <!-- Скрипт управления логикой цветовой темы -->
-    <script src="../static/js/theme.js"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 </body>
 </html>

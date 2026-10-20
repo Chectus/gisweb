@@ -1,7 +1,8 @@
 <!-- 
   Файл: profile.html
   Описание: Личный кабинет пользователя. 
-  Отображает информацию об учетной записи (статус, роль, email) и предоставляет функционал для управления безопасностью: принудительное завершение сторонних сеансов и двухэтапную смену пароля.
+  Отображает информацию об учетной записи (ФИО, статус, роль, email), предоставляет функционал управления безопасностью 
+  и модуль CRM «Мои задачи» для сотрудников (worker / admin).
 -->
 <!DOCTYPE html>
 <html lang="ru">
@@ -31,7 +32,7 @@
             <a class="btn btn-outline-light btn-sm fw-medium me-3 border-opacity-50" href="/hub">
               <i class="bi bi-arrow-left"></i> <span class="d-none d-md-inline">Назад</span>
             </a>
-            <span class="navbar-brand mb-0 h5 text-white fw-bold d-flex align-items-center">
+            <span class="navbar-brand mb-0 h5 text-white fw-bold d-flex align-items-center me-auto">
                 <i class="bi bi-person-bounding-box me-2" style="color: var(--geo-accent);"></i>
                 Личный кабинет
             </span>
@@ -41,169 +42,371 @@
         </div>
     </nav>
 
-    <!-- Основной контейнер сетки профиля -->
+    <!-- Основной контейнер личного кабинета -->
     <div class="container my-5">
-        <div class="row justify-content-center g-4">
+
+        {% if user.role_name != 'viewer' %}
+        <!-- Навигационные вкладки (доступны только сотрудникам и администраторам) -->
+        <ul class="nav nav-pills mb-4 gap-2" id="profileTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-medium px-4 py-2 rounded-pill d-flex align-items-center" 
+                        id="security-tab-btn" 
+                        data-bs-toggle="pill" 
+                        data-bs-target="#pane-security" 
+                        type="button" 
+                        role="tab">
+                    <i class="bi bi-person-gear me-2"></i>Профиль и безопасность
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-medium px-4 py-2 rounded-pill d-flex align-items-center" 
+                        id="tasks-tab-btn" 
+                        data-bs-toggle="pill" 
+                        data-bs-target="#pane-tasks" 
+                        type="button" 
+                        role="tab">
+                    <i class="bi bi-kanban me-2"></i>Мои задачи
+                    <span id="nav-tasks-badge" class="badge bg-danger ms-2 rounded-pill d-none">0</span>
+                </button>
+            </li>
+        </ul>
+        {% endif %}
+
+        <div class="tab-content" id="profileTabsContent">
             
-            <!-- Левая колонка: Информационные блоки и управление сессиями -->
-            <div class="col-md-5">
-                
-                <!-- Карточка профиля пользователя -->
-                <div class="card border-0 shadow-sm rounded-4 mb-4">
-                    <div class="card-body p-4">
+            <!-- ========================================== -->
+            <!-- ВКЛАДКА 1: ПРОФИЛЬ И БЕЗОПАСНОСТЬ          -->
+            <!-- ========================================== -->
+            <div class="tab-pane fade show active" id="pane-security" role="tabpanel">
+                <div class="row justify-content-center g-4">
+                    
+                    <!-- Левая колонка: Информационные блоки и управление сессиями -->
+                    <div class="col-md-5">
                         
-                        <!-- Заголовок карточки с аватаром и системной ролью -->
-                        <div class="d-flex align-items-center mb-4 pb-3 border-bottom border-opacity-25">
-                            <div class="rounded-circle d-flex justify-content-center align-items-center bg-light me-3" style="width: 60px; height: 60px;">
-                                <i class="bi bi-person-fill fs-2" style="color: var(--geo-main);"></i>
-                            </div>
-                            <div>
-                                <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);">{{ user.username }}</h5>
-                                {% if user.is_admin %}
-                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill mt-1">Администратор</span>
-                                {% else %}
-                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill mt-1">Пользователь</span>
-                                {% endif %}
+                        <!-- Карточка профиля пользователя -->
+                        <div class="card border-0 shadow-sm rounded-4 mb-4">
+                            <div class="card-body p-4">
+                                
+                                <!-- Заголовок карточки с аватаром, ФИО, логином и системной ролью -->
+                                <div class="d-flex align-items-center mb-4 pb-3 border-bottom border-opacity-25">
+                                    <div class="rounded-circle d-flex justify-content-center align-items-center bg-light me-3 flex-shrink-0" style="width: 60px; height: 60px;">
+                                        <i class="bi bi-person-fill fs-2" style="color: var(--geo-main);"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);">
+                                            {{ user.full_name or user.username }}
+                                        </h5>
+                                        {% if user.full_name %}
+                                            <div class="text-muted small">@{{ user.username }}</div>
+                                        {% endif %}
+
+                                        <!-- Бейдж роли по новой системе RBAC -->
+                                        {% if user.role_name == 'admin' %}
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill mt-1">
+                                                Администратор (Руководитель)
+                                            </span>
+                                        {% elif user.role_name == 'worker' %}
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill mt-1">
+                                                Работник (Лаборант / Геолог)
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill mt-1">
+                                                Пользователь (Инвестор)
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Детальная информация об учетной записи -->
+                                <ul class="list-group list-group-flush mb-3">
+                                    <li class="list-group-item px-0 py-3 d-flex align-items-center">
+                                        <i class="bi bi-person-vcard text-muted me-3"></i>
+                                        <div>
+                                            <small class="text-muted d-block fw-bold" style="font-size: 0.75rem;">ФИО СОТРУДНИКА</small>
+                                            <span class="fw-medium">{{ user.full_name or 'Не указано' }}</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item px-0 py-3 d-flex align-items-center">
+                                        <i class="bi bi-envelope text-muted me-3"></i>
+                                        <div>
+                                            <small class="text-muted d-block fw-bold" style="font-size: 0.75rem;">EMAIL (2FA)</small>
+                                            <span class="fw-medium">{{ user.email or 'Не привязана (Общий аккаунт)' }}</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item px-0 py-3 d-flex align-items-center">
+                                        <i class="bi bi-hourglass-split text-muted me-3"></i>
+                                        <div>
+                                            <small class="text-muted d-block fw-bold" style="font-size: 0.75rem;">СТАТУС АККАУНТА</small>
+                                            {% if user.expires_at %}
+                                                <span class="fw-medium text-warning"><i class="bi bi-clock-history"></i> Годен до {{ user.expires_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                                            {% else %}
+                                                <span class="fw-medium text-success"><i class="bi bi-infinity"></i> Бессрочный</span>
+                                            {% endif %}
+                                        </div>
+                                    </li>
+                                </ul>
                             </div>
                         </div>
 
-                        <!-- Детальная информация об учетной записи -->
-                        <ul class="list-group list-group-flush mb-3">
-                            <li class="list-group-item px-0 py-3 d-flex align-items-center">
-                                <i class="bi bi-envelope text-muted me-3"></i>
-                                <div>
-                                    <small class="text-muted d-block fw-bold" style="font-size: 0.75rem;">EMAIL (2FA)</small>
-                                    <span class="fw-medium">{{ user.email or 'Не привязана (Общий аккаунт)' }}</span>
+                        <!-- Карточка управления безопасностью сторонних сеансов -->
+                        <div class="card border-0 shadow-sm rounded-4 border-start border-danger border-4">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock-fill text-danger me-2"></i>Безопасность сеансов</h5>
+                                <p class="text-muted small mb-4">
+                                    Если вы заходили в систему с чужого компьютера и забыли выйти, вы можете принудительно завершить все сеансы (кроме текущего).
+                                </p>
+
+                                <!-- Вывод подтверждения успешного завершения сеансов -->
+                                {% if message %}
+                                    <div class="alert alert-success small py-2 d-flex align-items-center" role="alert">
+                                        <i class="bi bi-check-circle-fill me-2"></i>{{ message }}
+                                    </div>
+                                {% endif %}
+
+                                <form action="{{ url_for('logout_devices') }}" method="POST">
+                                    <button type="submit" class="btn btn-outline-danger w-100 fw-medium">
+                                        <i class="bi bi-door-closed me-1"></i> Выйти со всех других устройств
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Правая колонка: Форма изменения пароля -->
+                    <div class="col-md-7">
+                        
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body p-4 p-md-5">
+                                <h4 class="fw-bold mb-4" style="color: var(--geo-dark);">Смена пароля</h4>
+                                
+                                <!-- Блок вывода информационных сообщений и ошибок смены пароля -->
+                                {% if error_pwd %} 
+                                    <div class="alert alert-danger small py-2 d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error_pwd }}</div> 
+                                {% endif %}
+                                
+                                {% if msg_pwd %} 
+                                    <div class="alert alert-success small py-2 d-flex align-items-center"><i class="bi bi-check-circle-fill me-2"></i>{{ msg_pwd }}</div> 
+                                {% endif %}
+
+                                <!-- Маршрутизация состояния формы: Ожидание 2FA или первоначальный ввод -->
+                                {% if show_pwd_2fa %}
+                                    
+                                    <!-- Форма подтверждения смены пароля (ввод 2FA кода) -->
+                                    <div class="text-center mb-4">
+                                        <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle mb-3" style="width: 70px; height: 70px;">
+                                            <i class="bi bi-envelope-paper fs-1"></i>
+                                        </div>
+                                        <h6 class="fw-bold">Подтверждение операции</h6>
+                                        <p class="text-muted small">Мы отправили код подтверждения на ваш email.</p>
+                                    </div>
+
+                                    <form action="{{ url_for('change_password_confirm') }}" method="POST">
+                                        <div class="mb-4">
+                                            <label class="form-label small fw-bold text-muted">Код из письма</label>
+                                            <input type="text" class="form-control form-control-lg text-center fw-bold" name="code" required autocomplete="off" placeholder="••••••" maxlength="6" style="letter-spacing: 0.5rem;">
+                                        </div>
+                                        <button type="submit" class="btn btn-geo w-100 py-2">Подтвердить смену пароля</button>
+                                    </form>
+                                    
+                                {% else %}
+                                    
+                                    <!-- Форма запроса на смену пароля -->
+                                    <form action="{{ url_for('change_password_request') }}" method="POST" id="pwdForm">
+                                        
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-bold text-muted">Текущий пароль</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-unlock text-muted"></i></span>
+                                                <input type="password" class="form-control border-start-0 ps-0" name="old_password" required placeholder="Введите старый пароль">
+                                                <button class="btn btn-eye border-start-0 toggle-password-btn" type="button">
+                                                    <i class="bi bi-eye text-muted"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-bold text-muted">Новый пароль</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-key text-muted"></i></span>
+                                                <input type="password" class="form-control border-start-0 ps-0" name="new_password" required placeholder="Минимум 8 символов">
+                                                <button class="btn btn-eye border-start-0 toggle-password-btn" type="button">
+                                                    <i class="bi bi-eye text-muted"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-4">
+                                            <label class="form-label small fw-bold text-muted">Повторите новый пароль</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-key-fill text-muted"></i></span>
+                                                <input type="password" class="form-control border-start-0 ps-0" id="new_password_repeat" required placeholder="Пароли должны совпадать">
+                                                <button class="btn btn-eye border-start-0 toggle-password-btn" type="button">
+                                                    <i class="bi bi-eye text-muted"></i>
+                                                </button>
+                                            </div>
+                                            <!-- Скрытый контейнер клиентской ошибки валидации -->
+                                            <div id="pwdError" class="text-danger small mt-2 d-none"><i class="bi bi-x-circle me-1"></i> Пароли не совпадают!</div>
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-geo w-100 py-2">Запросить смену</button>
+                                    </form>
+                                    
+                                {% endif %}
+
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            {% if user.role_name != 'viewer' %}
+            <!-- ========================================== -->
+            <!-- ВКЛАДКА 2: МОИ ЗАДАЧИ (МОДУЛЬ CRM)         -->
+            <!-- ========================================== -->
+            <div class="tab-pane fade" id="pane-tasks" role="tabpanel">
+                
+                <!-- Дашборд эффективности сотрудника (KPI) -->
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body p-3 text-center">
+                                <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">НОВЫЕ</small>
+                                <h3 class="fw-bold mb-0 text-secondary" id="stat-pending">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body p-3 text-center">
+                                <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">В РАБОТЕ</small>
+                                <h3 class="fw-bold mb-0 text-primary" id="stat-in-progress">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body p-3 text-center">
+                                <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">НА ПРОВЕРКЕ</small>
+                                <h3 class="fw-bold mb-0 text-warning" id="stat-review">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body p-3 text-center">
+                                <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">ВЫПОЛНЕНО</small>
+                                <h3 class="fw-bold mb-0 text-success" id="stat-completed">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body p-3 text-center">
+                                <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">ПРОСРОЧЕНО</small>
+                                <h3 class="fw-bold mb-0 text-danger" id="stat-overdue">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="card border-0 shadow-sm rounded-4 h-100 border-start border-4" style="border-color: var(--geo-main) !important;">
+                            <div class="card-body p-3 text-center">
+                                <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">БАЛЛЫ (МЕС) / СР. БАЛЛ</small>
+                                <div class="d-flex justify-content-center align-items-baseline gap-1">
+                                    <h4 class="fw-bold mb-0" style="color: var(--geo-main);" id="stat-month-points">0</h4>
+                                    <span class="text-muted small">/</span>
+                                    <span class="fw-bold text-warning" id="stat-avg-score"><i class="bi bi-star-fill me-1"></i>0.0</span>
                                 </div>
-                            </li>
-                            <li class="list-group-item px-0 py-3 d-flex align-items-center">
-                                <i class="bi bi-hourglass-split text-muted me-3"></i>
-                                <div>
-                                    <small class="text-muted d-block fw-bold" style="font-size: 0.75rem;">СТАТУС АККАУНТА</small>
-                                    {% if user.expires_at %}
-                                        <span class="fw-medium text-warning"><i class="bi bi-clock-history"></i> Годен до {{ user.expires_at.strftime('%d.%m.%Y %H:%M') }}</span>
-                                    {% else %}
-                                        <span class="fw-medium text-success"><i class="bi bi-infinity"></i> Бессрочный</span>
-                                    {% endif %}
-                                </div>
-                            </li>
-                        </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Карточка управления безопасностью сторонних сеансов -->
-                <div class="card border-0 shadow-sm rounded-4 border-start border-danger border-4">
-                    <div class="card-body p-4">
-                        <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock-fill text-danger me-2"></i>Безопасность сеансов</h5>
-                        <p class="text-muted small mb-4">
-                            Если вы заходили в систему с чужого компьютера и забыли выйти, вы можете принудительно завершить все сеансы (кроме текущего).
-                        </p>
+                <!-- Панель фильтрации и обновления списка задач -->
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-body p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div class="d-flex flex-wrap gap-2" id="my-tasks-filter">
+                            <button type="button" class="btn btn-sm btn-geo rounded-pill px-3 active" data-filter="all">Все задачи</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="pending">Новые</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="in_progress">Выполняются</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="review">На проверке</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="completed">Выполненные</button>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="refresh-tasks-btn">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Обновить
+                        </button>
+                    </div>
+                </div>
 
-                        <!-- Вывод подтверждения успешного завершения сеансов -->
-                        {% if message %}
-                            <div class="alert alert-success small py-2 d-flex align-items-center" role="alert">
-                                <i class="bi bi-check-circle-fill me-2"></i>{{ message }}
-                            </div>
-                        {% endif %}
-
-                        <form action="{{ url_for('logout_devices') }}" method="POST">
-                            <button type="submit" class="btn btn-outline-danger w-100 fw-medium">
-                                <i class="bi bi-door-closed me-1"></i> Выйти со всех других устройств
-                            </button>
-                        </form>
+                <!-- Контейнер для карточек задач -->
+                <div id="my-tasks-container" class="row g-4">
+                    <div class="col-12 text-center py-5 text-muted">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        Загрузка задач...
                     </div>
                 </div>
 
             </div>
+            {% endif %}
 
-            <!-- Правая колонка: Форма изменения пароля -->
-            <div class="col-md-7">
-                
-                <div class="card border-0 shadow-sm rounded-4 h-100">
-                    <div class="card-body p-4 p-md-5">
-                        <h4 class="fw-bold mb-4" style="color: var(--geo-dark);">Смена пароля</h4>
-                        
-                        <!-- Блок вывода информационных сообщений и ошибок смены пароля -->
-                        {% if error_pwd %} 
-                            <div class="alert alert-danger small py-2 d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error_pwd }}</div> 
-                        {% endif %}
-                        
-                        {% if msg_pwd %} 
-                            <div class="alert alert-success small py-2 d-flex align-items-center"><i class="bi bi-check-circle-fill me-2"></i>{{ msg_pwd }}</div> 
-                        {% endif %}
+        </div>
+    </div>
 
-                        <!-- Маршрутизация состояния формы: Ожидание 2FA или первоначальный ввод -->
-                        {% if show_pwd_2fa %}
-                            
-                            <!-- Форма подтверждения смены пароля (ввод 2FA кода) -->
-                            <div class="text-center mb-4">
-                                <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle mb-3" style="width: 70px; height: 70px;">
-                                    <i class="bi bi-envelope-paper fs-1"></i>
-                                </div>
-                                <h6 class="fw-bold">Подтверждение операции</h6>
-                                <p class="text-muted small">Мы отправили код подтверждения на ваш email.</p>
-                            </div>
-
-                            <form action="{{ url_for('change_password_confirm') }}" method="POST">
-                                <div class="mb-4">
-                                    <label class="form-label small fw-bold text-muted">Код из письма</label>
-                                    <input type="text" class="form-control form-control-lg text-center fw-bold" name="code" required autocomplete="off" placeholder="••••••" maxlength="6" style="letter-spacing: 0.5rem;">
-                                </div>
-                                <button type="submit" class="btn btn-geo w-100 py-2">Подтвердить смену пароля</button>
-                            </form>
-                            
-                        {% else %}
-                            
-                            <!-- Форма запроса на смену пароля -->
-                            <form action="{{ url_for('change_password_request') }}" method="POST" id="pwdForm">
-                                
-                                <div class="mb-3">
-                                    <label class="form-label small fw-bold text-muted">Текущий пароль</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-unlock text-muted"></i></span>
-                                        <input type="password" class="form-control border-start-0 ps-0" name="old_password" required placeholder="Введите старый пароль">
-                                        <button class="btn btn-eye border-start-0 toggle-password-btn" type="button">
-                                            <i class="bi bi-eye text-muted"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label small fw-bold text-muted">Новый пароль</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-key text-muted"></i></span>
-                                        <input type="password" class="form-control border-start-0 ps-0" name="new_password" required placeholder="Минимум 8 символов">
-                                        <button class="btn btn-eye border-start-0 toggle-password-btn" type="button">
-                                            <i class="bi bi-eye text-muted"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-4">
-                                    <label class="form-label small fw-bold text-muted">Повторите новый пароль</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-key-fill text-muted"></i></span>
-                                        <input type="password" class="form-control border-start-0 ps-0" id="new_password_repeat" required placeholder="Пароли должны совпадать">
-                                        <button class="btn btn-eye border-start-0 toggle-password-btn" type="button">
-                                            <i class="bi bi-eye text-muted"></i>
-                                        </button>
-                                    </div>
-                                    <!-- Скрытый контейнер клиентской ошибки валидации -->
-                                    <div id="pwdError" class="text-danger small mt-2 d-none"><i class="bi bi-x-circle me-1"></i> Пароли не совпадают!</div>
-                                </div>
-                                
-                                <button type="submit" class="btn btn-geo w-100 py-2">Запросить смену</button>
-                            </form>
-                            
-                        {% endif %}
-
+    {% if user.role_name != 'viewer' %}
+    <!-- ===================================================== -->
+    <!-- МОДАЛЬНОЕ ОКНО: СДАТЬ ОТЧЕТ НА ПРОВЕРКУ               -->
+    <!-- ===================================================== -->
+    <div class="modal fade" id="submitTaskModal" tabindex="-1" aria-labelledby="submitTaskModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4">
+                <div class="modal-header border-bottom border-opacity-25 p-4">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-1" id="submitTaskModalLabel">Сдать задачу на проверку</h5>
+                        <small class="text-muted" id="submitModalTaskTitle"></small>
                     </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
+                <form id="submitTaskForm">
+                    <div class="modal-body p-4">
+                        <input type="hidden" id="submitTaskId">
+                        
+                        <div class="mb-3">
+                            <label for="employeeReportInput" class="form-label small fw-bold text-muted">
+                                ОТЧЕТ О ПРОДЕЛАННОЙ РАБОТЕ <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" 
+                                      id="employeeReportInput" 
+                                      name="employee_report" 
+                                      rows="5" 
+                                      required 
+                                      placeholder="Опишите выполненные работы, подготовленные слои или результаты..."></textarea>
+                        </div>
 
+                        <div class="mb-2">
+                            <label for="taskAttachmentInput" class="form-label small fw-bold text-muted">
+                                ПРИКРЕПИТЬ ФАЙЛ (ОПЦИОНАЛЬНО, ДО 50 МБ)
+                            </label>
+                            <input class="form-control" type="file" id="taskAttachmentInput" name="attachment">
+                            <div class="form-text small">Архив со слоями, документация или скриншоты (при необходимости).</div>
+                        </div>
+
+                        <div id="submitTaskError" class="alert alert-danger small py-2 mt-3 d-none mb-0"></div>
+                    </div>
+                    <div class="modal-footer border-top border-opacity-25 p-3 px-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-geo rounded-pill px-4" id="submitTaskBtn">
+                            <i class="bi bi-send-check me-1"></i>Отправить на проверку
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+    {% endif %}
     
+    <!-- Подключение Bootstrap JS и скрипта темы -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../static/js/theme.js"></script>
 
     <!-- Инициализация клиентской логики страницы -->
@@ -269,5 +472,358 @@
             });
         });
     </script>
+
+    {% if user.role_name != 'viewer' %}
+    <!-- Логика модуля CRM в Личном кабинете (Мои задачи) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let allMyTasks = [];
+            let currentFilter = 'all';
+
+            const tasksContainer = document.getElementById('my-tasks-container');
+            const filterContainer = document.getElementById('my-tasks-filter');
+            const refreshBtn = document.getElementById('refresh-tasks-btn');
+            const navTasksBadge = document.getElementById('nav-tasks-badge');
+
+            const submitModalEl = document.getElementById('submitTaskModal');
+            const submitModal = submitModalEl ? new bootstrap.Modal(submitModalEl) : null;
+            const submitForm = document.getElementById('submitTaskForm');
+
+            // Экранирование HTML-символов для безопасного вывода текста
+            function escapeHtml(str) {
+                if (!str) return '';
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            // Получение бейджа статуса согласно шпаргалке ТЗ
+            function getStatusBadge(status, isOverdue) {
+                let badgeHtml = '';
+                switch (status) {
+                    case 'pending':
+                        badgeHtml = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill">Не принята (Новая)</span>';
+                        break;
+                    case 'in_progress':
+                        badgeHtml = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">Выполняется</span>';
+                        break;
+                    case 'review':
+                        badgeHtml = '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill">На проверке</span>';
+                        break;
+                    case 'completed':
+                        badgeHtml = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">Выполнена</span>';
+                        break;
+                    default:
+                        badgeHtml = `<span class="badge bg-light text-dark rounded-pill">${escapeHtml(status)}</span>`;
+                }
+
+                if (isOverdue) {
+                    badgeHtml += ' <span class="badge bg-danger rounded-pill ms-1"><i class="bi bi-exclamation-octagon-fill me-1"></i>Просрочена</span>';
+                }
+                return badgeHtml;
+            }
+
+            // Загрузка задач и статистики сотрудника
+            async function loadMyTasks() {
+                try {
+                    const res = await fetch('/api/tasks/my');
+                    const data = await res.json();
+
+                    if (data.status !== 'success') {
+                        throw new Error(data.message || 'Ошибка при получении списка задач');
+                    }
+
+                    // Отрисовка дашборда эффективности (stats)
+                    const stats = data.stats || {};
+                    document.getElementById('stat-pending').textContent = stats.pending_count ?? 0;
+                    document.getElementById('stat-in-progress').textContent = stats.in_progress_count ?? 0;
+                    document.getElementById('stat-review').textContent = stats.review_count ?? 0;
+                    document.getElementById('stat-completed').textContent = stats.completed_count ?? 0;
+                    document.getElementById('stat-overdue').textContent = stats.overdue_count ?? 0;
+                    document.getElementById('stat-month-points').textContent = stats.month_points ?? 0;
+                    document.getElementById('stat-avg-score').innerHTML = `<i class="bi bi-star-fill me-1"></i>${stats.average_score ?? 0}`;
+
+                    // Обновление счетчика активных задач на вкладке навигации
+                    const activeCount = (stats.pending_count || 0) + (stats.in_progress_count || 0);
+                    if (activeCount > 0) {
+                        navTasksBadge.textContent = activeCount;
+                        navTasksBadge.classList.remove('d-none');
+                    } else {
+                        navTasksBadge.classList.add('d-none');
+                    }
+
+                    allMyTasks = data.tasks || [];
+                    renderMyTasks();
+                } catch (err) {
+                    tasksContainer.innerHTML = `
+                        <div class="col-12">
+                            <div class="alert alert-danger rounded-4">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>Не удалось загрузить задачи: ${escapeHtml(err.message)}
+                            </div>
+                        </div>`;
+                }
+            }
+
+            // Отрисовка списка карточек задач
+            function renderMyTasks() {
+                const filtered = currentFilter === 'all'
+                    ? allMyTasks
+                    : allMyTasks.filter(t => t.status === currentFilter);
+
+                if (filtered.length === 0) {
+                    tasksContainer.innerHTML = `
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm rounded-4 text-center py-5">
+                                <div class="card-body text-muted">
+                                    <i class="bi bi-clipboard-check fs-1 d-block mb-2 opacity-50"></i>
+                                    <h6 class="fw-bold mb-1">Задач в этой категории нет</h6>
+                                    <p class="small mb-0">Новые поручения от руководителя появятся здесь автоматически.</p>
+                                </div>
+                            </div>
+                        </div>`;
+                    return;
+                }
+
+                tasksContainer.innerHTML = filtered.map(task => {
+                    const overdueBorder = task.is_overdue ? 'border-start border-danger border-4' : '';
+                    const authorName = task.author_full_name || task.author_username || 'Руководитель';
+                    
+                    // Блок оценки (для завершенных задач)
+                    const scoreBadge = task.score !== null && task.score !== undefined
+                        ? `<span class="badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold">
+                               <i class="bi bi-star-fill me-1"></i>Оценка: ${task.score} / 10
+                           </span>`
+                        : '';
+
+                    // Уведомление, если задача была возвращена на доработку (статус in_progress и уже есть прошлый отчет)
+                    const returnedAlert = (task.status === 'in_progress' && task.employee_report)
+                        ? `<div class="alert alert-warning small py-2 px-3 rounded-3 mb-3 d-flex align-items-center">
+                               <i class="bi bi-arrow-counterclockwise me-2 fs-5"></i>
+                               <div>Задача возвращена на доработку. Ваш прошлый отчет сохранен — вы можете отредактировать его при повторной сдаче.</div>
+                           </div>`
+                        : '';
+
+                    // Блок отчета сотрудника и прикрепленного файла (если есть)
+                    let reportSection = '';
+                    if (task.employee_report || task.has_attachment) {
+                        const attachmentBtn = task.has_attachment
+                            ? `<div class="mt-2">
+                                   <a href="${escapeHtml(task.attachment_url)}" class="btn btn-sm btn-outline-primary rounded-pill" target="_blank">
+                                       <i class="bi bi-paperclip me-1"></i>Скачать файл (${escapeHtml(task.attachment_name || 'Вложение')})
+                                   </a>
+                               </div>`
+                            : '';
+
+                        reportSection = `
+                            <div class="bg-light bg-opacity-50 rounded-3 p-3 mb-3 border border-opacity-25">
+                                <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">МОЙ ОТЧЕТ О ВЫПОЛНЕНИИ:</small>
+                                <div class="small" style="white-space: pre-wrap;">${escapeHtml(task.employee_report || 'Без текста')}</div>
+                                ${attachmentBtn}
+                            </div>`;
+                    }
+
+                    // Кнопки действий в зависимости от статуса задачи
+                    let actionArea = '';
+                    if (task.status === 'pending') {
+                        actionArea = `
+                            <button type="button" class="btn btn-geo rounded-pill px-4 btn-accept-task" data-id="${task.id}">
+                                <i class="bi bi-check2-circle me-1"></i>Принять в работу
+                            </button>`;
+                    } else if (task.status === 'in_progress') {
+                        actionArea = `
+                            <button type="button" class="btn btn-primary rounded-pill px-4 btn-open-submit" data-id="${task.id}">
+                                <i class="bi bi-send me-1"></i>Сдать отчет
+                            </button>`;
+                    } else if (task.status === 'review') {
+                        actionArea = `
+                            <span class="text-muted small fw-medium">
+                                <i class="bi bi-hourglass-split me-1 text-warning"></i>Ожидание проверки руководителем
+                            </span>`;
+                    } else if (task.status === 'completed') {
+                        actionArea = `
+                            <span class="text-success small fw-medium">
+                                <i class="bi bi-patch-check-fill me-1"></i>Задача принята и закрыта в архив
+                            </span>`;
+                    }
+
+                    return `
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm rounded-4 ${overdueBorder}">
+                                <div class="card-body p-4">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                                        <div>
+                                            <div class="mb-2 d-flex flex-wrap align-items-center gap-2">
+                                                <span class="text-muted small fw-bold">#${task.id}</span>
+                                                ${getStatusBadge(task.status, task.is_overdue)}
+                                            </div>
+                                            <h5 class="fw-bold mb-1" style="color: var(--geo-dark);">${escapeHtml(task.title)}</h5>
+                                            <div class="text-muted small">
+                                                <i class="bi bi-person-badge me-1"></i>Поручил: <strong>${escapeHtml(authorName)}</strong>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            ${scoreBadge}
+                                        </div>
+                                    </div>
+
+                                    ${task.description ? `<p class="text-muted mb-3" style="white-space: pre-wrap;">${escapeHtml(task.description)}</p>` : ''}
+
+                                    ${returnedAlert}
+                                    ${reportSection}
+
+                                    <!-- Даты жизненного цикла задачи -->
+                                    <div class="d-flex flex-wrap gap-3 text-muted small py-2 border-top border-bottom border-opacity-25 mb-3">
+                                        <div><i class="bi bi-calendar-plus me-1"></i>Создана: <strong>${escapeHtml(task.created_at || '—')}</strong></div>
+                                        <div class="${task.is_overdue ? 'text-danger fw-bold' : ''}">
+                                            <i class="bi bi-alarm me-1"></i>Дедлайн: <strong>${escapeHtml(task.deadline || 'Без срока')}</strong>
+                                        </div>
+                                        ${task.accepted_at ? `<div><i class="bi bi-play-circle me-1"></i>Принята: <strong>${escapeHtml(task.accepted_at)}</strong></div>` : ''}
+                                        ${task.submitted_at ? `<div><i class="bi bi-send-check me-1"></i>Сдана: <strong>${escapeHtml(task.submitted_at)}</strong></div>` : ''}
+                                        ${task.completed_at ? `<div><i class="bi bi-check2-all me-1"></i>Завершена: <strong>${escapeHtml(task.completed_at)}</strong></div>` : ''}
+                                    </div>
+
+                                    <!-- Нижняя панель действий -->
+                                    <div class="d-flex justify-content-end align-items-center">
+                                        ${actionArea}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                }).join('');
+            }
+
+            // Делегирование кликов по кнопкам внутри контейнера задач
+            tasksContainer.addEventListener('click', async (e) => {
+                // 1. Нажатие «Принять в работу»
+                const acceptBtn = e.target.closest('.btn-accept-task');
+                if (acceptBtn) {
+                    const taskId = acceptBtn.dataset.id;
+                    acceptBtn.disabled = true;
+                    acceptBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Принятие...';
+
+                    try {
+                        const res = await fetch(`/api/tasks/${taskId}/accept`, {
+                            method: 'POST'
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            await loadMyTasks();
+                        } else {
+                            alert(data.message || 'Не удалось принять задачу');
+                            acceptBtn.disabled = false;
+                            acceptBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Принять в работу';
+                        }
+                    } catch (err) {
+                        alert('Ошибка соединения с сервером');
+                        acceptBtn.disabled = false;
+                        acceptBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Принять в работу';
+                    }
+                    return;
+                }
+
+                // 2. Нажатие «Сдать отчет» (открытие модалки)
+                const openSubmitBtn = e.target.closest('.btn-open-submit');
+                if (openSubmitBtn) {
+                    const taskId = Number(openSubmitBtn.dataset.id);
+                    const task = allMyTasks.find(t => t.id === taskId);
+                    if (!task) return;
+
+                    document.getElementById('submitTaskId').value = task.id;
+                    document.getElementById('submitModalTaskTitle').textContent = `#${task.id} — ${task.title}`;
+                    // Подставляем прошлый отчет, если задача возвращалась на доработку
+                    document.getElementById('employeeReportInput').value = task.employee_report || '';
+                    document.getElementById('taskAttachmentInput').value = '';
+                    document.getElementById('submitTaskError').classList.add('d-none');
+
+                    submitModal.show();
+                }
+            });
+
+            // Отправка формы сдачи отчета через FormData
+            if (submitForm) {
+                submitForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const taskId = document.getElementById('submitTaskId').value;
+                    const reportText = document.getElementById('employeeReportInput').value.trim();
+                    const fileInput = document.getElementById('taskAttachmentInput');
+                    const errorBox = document.getElementById('submitTaskError');
+                    const submitBtn = document.getElementById('submitTaskBtn');
+
+                    if (!reportText) {
+                        errorBox.textContent = 'Пожалуйста, заполните текст отчета.';
+                        errorBox.classList.remove('d-none');
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('employee_report', reportText);
+                    if (fileInput.files[0]) {
+                        formData.append('attachment', fileInput.files[0]);
+                    }
+
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Отправка...';
+                    errorBox.classList.add('d-none');
+
+                    try {
+                        const res = await fetch(`/api/tasks/${taskId}/submit`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await res.json();
+
+                        if (data.status === 'success') {
+                            submitModal.hide();
+                            await loadMyTasks();
+                        } else {
+                            errorBox.textContent = data.message || 'Ошибка при отправке отчета.';
+                            errorBox.classList.remove('d-none');
+                        }
+                    } catch (err) {
+                        errorBox.textContent = 'Ошибка сети при отправке файла.';
+                        errorBox.classList.remove('d-none');
+                    } finally {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-send-check me-1"></i>Отправить на проверку';
+                    }
+                });
+            }
+
+            // Переключение фильтров задач
+            if (filterContainer) {
+                filterContainer.addEventListener('click', (e) => {
+                    const btn = e.target.closest('button[data-filter]');
+                    if (!btn) return;
+
+                    filterContainer.querySelectorAll('button').forEach(b => {
+                        b.classList.remove('btn-geo', 'active');
+                        b.classList.add('btn-outline-secondary');
+                    });
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add('btn-geo', 'active');
+
+                    currentFilter = btn.dataset.filter;
+                    renderMyTasks();
+                });
+            }
+
+            // Кнопка принудительного обновления
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', loadMyTasks);
+            }
+
+            // Если в URL передан хэш #tasks — сразу открываем вкладку задач
+            if (window.location.hash === '#tasks') {
+                const tasksTabBtn = document.getElementById('tasks-tab-btn');
+                if (tasksTabBtn) {
+                    new bootstrap.Tab(tasksTabBtn).show();
+                }
+            }
+
+            // Первичная загрузка задач при открытии страницы
+            loadMyTasks();
+        });
+    </script>
+    {% endif %}
 </body>
 </html>
