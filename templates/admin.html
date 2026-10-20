@@ -135,9 +135,9 @@
                             <div class="col-md-5">
                                 <label class="form-label small fw-bold" style="color: var(--geo-main);">Роль</label>
                                 <select class="form-select" id="newRole" style="border-color: rgba(27, 87, 140, 0.2);">
-                                    <option value="viewer" selected>Пользователь (Инвестор)</option>
-                                    <option value="worker">Работник (Лаборант / Геолог)</option>
-                                    <option value="admin">Админ (Руководитель)</option>
+                                    <option value="viewer" selected>Пользователь</option>
+                                    <option value="worker">Работник</option>
+                                    <option value="admin">Админ</option>
                                 </select>
                             </div>
 
@@ -159,7 +159,7 @@
                                 <!-- Плашка для ролей admin и worker -->
                                 <div id="createAllLayersNotice" class="alert alert-info small py-2 px-3 mb-0 d-none d-flex align-items-center">
                                     <i class="bi bi-check2-all fs-5 me-2"></i>
-                                    <span>Для выбранной роли <strong>доступны все слои карты</strong> автоматически (передается <code>"*"</code>).</span>
+                                    <span>Для выбранной роли <strong>доступны все слои карты</strong>.</span>
                                 </div>
 
                                 <!-- Дерево чекбоксов для роли viewer -->
@@ -212,7 +212,7 @@
                                                     {% elif u.role_name == 'worker' %}
                                                         <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Работник</span>
                                                     {% else %}
-                                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Инвестор</span>
+                                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Пользователь</span>
                                                     {% endif %}
                                                 </div>
                                             </div>
@@ -380,7 +380,7 @@
                         <div class="row g-2 mb-4 text-center">
                             <div class="col-6 col-md-3">
                                 <div class="p-2 border rounded-3 bg-white">
-                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">НОВЫЕ (PENDING)</small>
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">НОВЫЕ</small>
                                     <span class="fw-bold fs-5 text-secondary" id="crmCountPending">0</span>
                                 </div>
                             </div>
@@ -480,9 +480,9 @@
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold text-secondary">Роль доступа</label>
                                 <select class="form-select bg-light" id="editUserRole">
-                                    <option value="viewer">Пользователь (Инвестор)</option>
-                                    <option value="worker">Работник (Лаборант / Геолог)</option>
-                                    <option value="admin">Админ (Руководитель)</option>
+                                    <option value="viewer">Пользователь</option>
+                                    <option value="worker">Работник</option>
+                                    <option value="admin">Админ</option>
                                 </select>
                             </div>
                         </div>
@@ -502,7 +502,7 @@
                         <!-- Контейнер настройки конфигурации слоев пользователя -->
                         <div class="mb-4">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label small fw-bold text-secondary mb-0">Доступ к дата-румам (Слоям)</label>
+                                <label class="form-label small fw-bold text-secondary mb-0">Доступ к слоям</label>
                                 <div class="form-check mb-0" id="editLayersSelectAllWrap">
                                     <input class="form-check-input" type="checkbox" id="selectAllEditLayers">
                                     <label class="form-check-label small text-muted" style="cursor:pointer;" for="selectAllEditLayers">Выбрать всё</label>
@@ -512,7 +512,7 @@
                             <!-- Плашка для ролей admin и worker -->
                             <div id="editAllLayersNotice" class="alert alert-info small py-2 px-3 mb-0 d-none d-flex align-items-center">
                                 <i class="bi bi-check2-all fs-5 me-2"></i>
-                                <span>Для выбранной роли <strong>доступны все слои карты</strong> автоматически (передается <code>"*"</code>).</span>
+                                <span>Для выбранной роли <strong>доступны все слои карты</strong></span>
                             </div>
 
                             <!-- Дерево чекбоксов для роли viewer -->
