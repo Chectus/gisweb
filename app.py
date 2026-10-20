@@ -292,8 +292,8 @@ class User(db.Model):
 
     @property
     def can_receive(self):
-        """Может ли пользователь получать задачи в работу (Лаборант/Геолог)"""
-        return self.role is not None and (self.role.name == 'worker' or self.role.can_receive_tasks)
+        """Может ли пользователь получать задачи в работу (Админы и Лаборанты)"""
+        return self.role is not None and self.role.name != 'viewer'
 
     @property
     def allowed_layers(self):
@@ -1080,9 +1080,8 @@ def parse_deadline(date_str):
 @app.route('/api/tasks/workers', methods=['GET'])
 def api_get_workers():
     """
-    Отдает список сотрудников (лаборантов/геологов), которым начальник 
-    может насильно назначить задачу в выпадающем списке.
-    Инвесторы ('viewer') сюда не попадают!
+    Отдает список всех сотрудников и админов (всех, кроме 'viewer'), 
+    которым можно назначить задачу (включая самого себя).
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
@@ -1091,15 +1090,16 @@ def api_get_workers():
     if not current_user or not current_user.can_assign:
         return jsonify({'status': 'error', 'message': 'Доступ запрещен'}), 403
 
-    # Берем всех пользователей, у чьей роли есть право получать задачи (или роль 'worker')
+    # Берем всех пользователей, чья роль НЕ 'viewer' (то есть 'admin' и 'worker')
     workers = User.query.join(Role).filter(
-        (Role.can_receive_tasks == True) | (Role.name == 'worker')
+        Role.name != 'viewer'
     ).order_by(User.username.asc()).all()
 
     workers_list = [{
         'id': w.id,
         'username': w.username,
         'full_name': w.full_name or w.username,
+        'role': w.role_name, # 'admin' или 'worker'
         'email': w.email
     } for w in workers]
 
