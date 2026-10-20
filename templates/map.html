@@ -187,12 +187,12 @@
     <div class="offcanvas offcanvas-end" tabindex="-1" id="compareOffcanvas" aria-labelledby="compareOffcanvasLabel">
         <div class="offcanvas-header bg-light border-bottom">
             <h5 class="offcanvas-title fw-bold" id="compareOffcanvasLabel" style="color: var(--geo-dark);">
-                <i class="bi bi-intersect me-2 text-primary"></i>Сравнение объектов
+                <i class="bi bi-intersect me-2 text-primary"></i>Выбранные объекты
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Закрыть"></button>
         </div>
         <div class="offcanvas-body d-flex flex-column">
-            <p class="text-muted small mb-3">Добавьте объекты с карты для сравнения их атрибутов.</p>
+            <p class="text-muted small mb-3">Добавьте объекты с карты нажатием мыши по ним.</p>
             <ul class="list-group mb-4 flex-grow-1 overflow-auto" id="compareList">
                 <li class="list-group-item text-center text-muted border-dashed py-4" id="emptyCompareMsg">Список пуст</li>
             </ul>
@@ -258,7 +258,7 @@
                     element: '#step-server-layers', 
                     popover: {
                         title: 'Каталог геоданных',
-                        description: 'Включайте геологические слои и просматривайте их атрибутивные таблицы. Сотрудникам и администраторам доступны все слои, а для инвесторов список формируется по правам дата-рума.',
+                        description: 'Включайте геологические слои и просматривайте их атрибутивные таблицы. Если у вас какие-либо проблемы (например, отсутствие слоев), обратитесь к администратору.',
                         side: "right", align: 'start'
                     }
                 },
@@ -274,7 +274,7 @@
                     element: '#btnCompareCart',
                     popover: {
                         title: 'Генерация отчетов',
-                        description: 'При клике на объекты карты добавляйте их в сводку, а затем генерируйте сравнительный PDF-документ одним нажатием.',
+                        description: 'При клике на объекты карты добавляйте их в сводку, а затем генерируйте PDF-документ одним нажатием.',
                         side: "left", align: 'end'
                     }
                 }
