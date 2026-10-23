@@ -322,7 +322,10 @@ class Task(db.Model):
     employee_report = db.Column(db.Text, nullable=True)
     attachment_path = db.Column(db.String(255), nullable=True)
     
-    # Строгий тайминг для формирования рабочих карт
+    # НОВОЕ: Комментарий начальника (причина возврата на доработку или отзыв к оценке)
+    reviewer_comment = db.Column(db.Text, nullable=True)
+    
+    # Строгий тайминг для формирования рабочих карт и таймлайна
     created_at = db.Column(db.DateTime, default=datetime.now)
     deadline = db.Column(db.DateTime, nullable=True)
     accepted_at = db.Column(db.DateTime, nullable=True)
@@ -342,18 +345,56 @@ class Task(db.Model):
             return check_time > self.deadline
         return datetime.now() > self.deadline
 
+    @property
+    def is_revision(self):
+        """Признак того, что задача была возвращена начальником на переделку"""
+        return self.status == 'in_progress' and bool(self.reviewer_comment)
+
+    @property
+    def visual_status(self):
+        """
+        Готовый цветовой статус для карточек и полосок на Таймлайне:
+        - 'completed_late'   : Сдана, но с просрочкой дедлайна
+        - 'completed_on_time': Сдана вовремя
+        - 'overdue'          : Горит дедлайн прямо сейчас (задача еще не закрыта)
+        - 'review'           : На проверке у руководителя
+        - 'revision'         : Возвращена на доработку (есть замечания начальника)
+        - 'in_progress'      : В работе (всё по плану)
+        - 'pending'          : Не принята сотрудником
+        """
+        if self.status == 'completed':
+            return 'completed_late' if self.is_overdue else 'completed_on_time'
+        if self.is_overdue:
+            return 'overdue'
+        if self.status == 'review':
+            return 'review'
+        if self.is_revision:
+            return 'revision'
+        return self.status # 'pending' или 'in_progress'
+
     def to_dict(self):
-        """Упаковка задачи со всеми датами и связями в JSON для фронтенда"""
+        """Упаковка задачи со всеми датами, комментариями и цветами в JSON для фронтенда"""
         fmt = '%d.%m.%Y %H:%M'
         iso_fmt = '%Y-%m-%dT%H:%M'
+        date_only_fmt = '%Y-%m-%d'
+        
+        # Определяем границы задачи для таймлайна (От постановки до дедлайна/завершения)
+        start_dt = self.created_at or datetime.now()
+        end_dt = self.deadline or self.completed_at or datetime.now()
+        if end_dt < start_dt:
+            end_dt = start_dt
+
         return {
             'id': self.id,
             'title': self.title,
             'description': self.description or '',
             'status': self.status,
+            'visual_status': self.visual_status,
             'is_overdue': self.is_overdue,
+            'is_revision': self.is_revision,
             'score': self.score,
             'employee_report': self.employee_report or '',
+            'reviewer_comment': self.reviewer_comment or '',
             'has_attachment': bool(self.attachment_path),
             'attachment_name': os.path.basename(self.attachment_path) if self.attachment_path else None,
             'attachment_url': url_for('download_task_attachment', task_id=self.id) if self.attachment_path else None,
@@ -365,8 +406,10 @@ class Task(db.Model):
             'submitted_at': self.submitted_at.strftime(fmt) if self.submitted_at else None,
             'completed_at': self.completed_at.strftime(fmt) if self.completed_at else None,
             
-            # Сырая дата дедлайна для подстановки в HTML <input type="datetime-local">
+            # Сырые даты для HTML-инпутов и построения Таймлайна
             'deadline_iso': self.deadline.strftime(iso_fmt) if self.deadline else None,
+            'timeline_start': start_dt.strftime(date_only_fmt),
+            'timeline_end': end_dt.strftime(date_only_fmt),
             
             # Информация об исполнителе и авторе
             'assignee_id': self.assignee_id,
@@ -1366,8 +1409,8 @@ def api_submit_task(task_id):
 def api_review_task(task_id):
     """
     Вердикт руководителя по задаче:
-    - action = 'approve': закрывает задачу ('completed'), ставит балл от 1 до 10, фиксирует completed_at.
-    - action = 'reject': возвращает задачу на доработку ('in_progress'), опционально меняет дедлайн.
+    - action = 'approve': закрывает задачу ('completed'), ставит балл от 1 до 10, сохраняет опциональный комментарий.
+    - action = 'reject': возвращает задачу на доработку ('in_progress'), сохраняет обязательный комментарий (что переделать) и опционально новый дедлайн.
     - action = 'extend_deadline': просто продлевает срок выполнения задачи в любой момент.
     """
     if 'user_id' not in session:
@@ -1385,7 +1428,8 @@ def api_review_task(task_id):
     if not data:
         return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
 
-    action = data.get('action') # Ожидаем 'approve', 'reject' или 'extend_deadline'
+    action = data.get('action') # 'approve', 'reject' или 'extend_deadline'
+    comment = data.get('reviewer_comment', '').strip()
 
     # ВАРИАНТ 1: Принять работу и выставить баллы (1-10)
     if action == 'approve':
@@ -1400,7 +1444,9 @@ def api_review_task(task_id):
         task.score = score_int
         task.status = 'completed'
         task.completed_at = datetime.now()
-        # Если начальник закрыл задачу сразу без этапа сдачи, проставим даты для порядка в отчете
+        if comment:
+            task.reviewer_comment = comment
+            
         if not task.accepted_at:
             task.accepted_at = task.completed_at
         if not task.submitted_at:
@@ -1415,8 +1461,14 @@ def api_review_task(task_id):
             'task': task.to_dict()
         })
 
-    # ВАРИАНТ 2: Вернуть задачу сотруднику на доработку (с возможным продлением дедлайна)
+    # ВАРИАНТ 2: Вернуть задачу сотруднику на доработку (с комментарием и возможным продлением дедлайна)
     elif action == 'reject':
+        if not comment:
+            return jsonify({
+                'status': 'error', 
+                'message': 'Пожалуйста, укажите в комментарии, что именно сотруднику нужно переделать!'
+            }), 400
+
         new_deadline_raw = data.get('new_deadline')
         if new_deadline_raw:
             new_dt = parse_deadline(new_deadline_raw)
@@ -1424,20 +1476,21 @@ def api_review_task(task_id):
                 return jsonify({'status': 'error', 'message': 'Неверный формат новой даты дедлайна'}), 400
             task.deadline = new_dt
 
+        task.reviewer_comment = comment
         task.status = 'in_progress'
         task.completed_at = None
         task.score = None
         db.session.commit()
 
-        log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} возвращена на доработку')
+        log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} возвращена на доработку: {comment[:60]}')
 
         return jsonify({
             'status': 'success',
-            'message': 'Задача возвращена сотруднику на доработку!',
+            'message': 'Задача возвращена сотруднику на доработку с вашим комментарием!',
             'task': task.to_dict()
         })
 
-    # ВАРИАНТ 3: Просто продлить дедлайн задачи
+    # ВАРИАНТ 3: Просто продлить дедлайн задачи (и при желании обновить комментарий)
     elif action == 'extend_deadline':
         new_deadline_raw = data.get('new_deadline')
         new_dt = parse_deadline(new_deadline_raw)
@@ -1445,6 +1498,8 @@ def api_review_task(task_id):
             return jsonify({'status': 'error', 'message': 'Укажите корректную дату нового дедлайна'}), 400
 
         task.deadline = new_dt
+        if comment:
+            task.reviewer_comment = comment
         db.session.commit()
 
         log_action(current_user.id, current_user.username, 'CRM', f'Продлен срок задачи #{task.id} до {new_dt.strftime("%d.%m.%Y %H:%M")}')
@@ -1457,6 +1512,182 @@ def api_review_task(task_id):
 
     return jsonify({'status': 'error', 'message': 'Неизвестное действие (ожидается approve, reject или extend_deadline)'}), 400
 
+
+@app.route('/api/tasks/timeline', methods=['GET'])
+def api_get_timeline():
+    """
+    Роут для построения диаграммы Таймлайна (как видеодорожки при монтаже).
+    Принимает:
+      - ?month=2026-10 (или ?start_date=2026-10-01&end_date=2026-10-31)
+    Возвращает:
+      - Календарную сетку дней периода (days_grid)
+      - Список сотрудников (employees), где у каждого его задачи уже разложены 
+        по непересекающимся дорожкам (tracks: [ [задачи дорожки 0], [задачи дорожки 1] ]).
+    """
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
+
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user or current_user.role_name == 'viewer':
+        return jsonify({'status': 'error', 'message': 'Нет доступа к таймлайну задач'}), 403
+
+    # 1. Определяем временное окно таймлайна (по умолчанию — текущий месяц)
+    now = datetime.now()
+    month_param = request.args.get('month') # Например, '2026-10'
+    start_param = request.args.get('start_date')
+    end_param = request.args.get('end_date')
+
+    try:
+        if start_param and end_param:
+            period_start = datetime.strptime(start_param, '%Y-%m-%d').date()
+            period_end = datetime.strptime(end_param, '%Y-%m-%d').date()
+        elif month_param and re.match(r'^\d{4}-\d{2}$', month_param):
+            y, m = map(int, month_param.split('-'))
+            period_start = datetime(y, m, 1).date()
+            if m == 12:
+                period_end = (datetime(y + 1, 1, 1) - timedelta(days=1)).date()
+            else:
+                period_end = (datetime(y, m + 1, 1) - timedelta(days=1)).date()
+        else:
+            period_start = datetime(now.year, now.month, 1).date()
+            if now.month == 12:
+                period_end = (datetime(now.year + 1, 1, 1) - timedelta(days=1)).date()
+            else:
+                period_end = (datetime(now.year, now.month + 1, 1) - timedelta(days=1)).date()
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Неверный формат дат периода'}), 400
+
+    if period_end < period_start:
+        period_start, period_end = period_end, period_start
+
+    total_days = (period_end - period_start).days + 1
+
+    # 2. Формируем шапку календаря (список дней периода с пометкой выходных и сегодняшнего дня)
+    days_grid = []
+    for i in range(total_days):
+        curr_d = period_start + timedelta(days=i)
+        days_grid.append({
+            'date': curr_d.strftime('%Y-%m-%d'),
+            'day': curr_d.day,
+            'weekday': curr_d.weekday(), # 0 - Пн ... 5 - Сб, 6 - Вс
+            'is_weekend': curr_d.weekday() in (5, 6),
+            'is_today': (curr_d == now.date())
+        })
+
+    # 3. Выбираем сотрудников (руководитель видит всех, обычный работник — только себя или всех при желании)
+    only_me = request.args.get('only_me') == 'true' or not current_user.can_assign
+    if only_me:
+        users_list = [current_user]
+    else:
+        users_list = User.query.join(Role).filter(
+            Role.name != 'viewer'
+        ).order_by(User.full_name.asc().nulls_last(), User.username.asc()).all()
+
+    employees_timeline = []
+
+    for emp in users_list:
+        emp_tasks = Task.query.filter_by(assignee_id=emp.id).all()
+        visible_tasks = []
+
+        for t in emp_tasks:
+            t_start = (t.created_at or now).date()
+            # Конец полоски на таймлайне: дедлайн (а если его нет — дата сдачи или сегодня)
+            if t.deadline:
+                t_end = t.deadline.date()
+                # Если задача сдана позже дедлайна или просрочена сейчас — 
+                # можно растягивать до факта, но по ТЗ берем от постановки до срока сдачи:
+            elif t.completed_at:
+                t_end = t.completed_at.date()
+            else:
+                t_end = max(t_start, now.date())
+
+            if t_end < t_start:
+                t_end = t_start
+
+            # Пропускаем задачи, которые вообще не попадают в выбранный месяц/период
+            if t_end < period_start or t_start > period_end:
+                continue
+
+            # Обрезаем края полоски по границам видимого календаря (если задача началась в прошлом месяце)
+            vis_start = max(t_start, period_start)
+            vis_end = min(t_end, period_end)
+
+            start_idx = (vis_start - period_start).days       # Индекс колонки старта (от 0)
+            duration_days = (vis_end - vis_start).days + 1    # Ширина полоски в днях (минимум 1 день)
+
+            task_item = t.to_dict()
+            task_item.update({
+                'real_start_date': t_start.strftime('%Y-%m-%d'),
+                'real_end_date': t_end.strftime('%Y-%m-%d'),
+                'visible_start_date': vis_start.strftime('%Y-%m-%d'),
+                'visible_end_date': vis_end.strftime('%Y-%m-%d'),
+                'start_day_index': start_idx,         # 0-based индекс дня от начала периода
+                'grid_column_start': start_idx + 1,   # 1-based для CSS Grid: grid-column: start / span duration
+                'duration_days': duration_days,
+                'clipped_left': t_start < period_start,
+                'clipped_right': t_end > period_end,
+                '_sort_start': vis_start,
+                '_sort_end': vis_end
+            })
+            visible_tasks.append(task_item)
+
+        # 4. АЛГОРИТМ ВИДЕОДОРОЖЕК (Interval Partitioning)
+        # Сортируем задачи сотрудника по дню начала (а при совпадении — более длинные вперед)
+        visible_tasks.sort(key=lambda x: (x['_sort_start'], -x['duration_days']))
+
+        tracks = []          # Массив дорожек: [ [task1, task3], [task2] ]
+        track_last_end = []  # Хранит дату окончания последней задачи на каждой дорожке
+
+        for item in visible_tasks:
+            v_start = item.pop('_sort_start')
+            v_end = item.pop('_sort_end')
+
+            placed_track_idx = None
+            for idx, last_end_date in enumerate(track_last_end):
+                # Если предыдущая задача на этой дорожке закончилась строго ДО начала новой — место свободно!
+                if last_end_date < v_start:
+                    placed_track_idx = idx
+                    track_last_end[idx] = v_end
+                    tracks[idx].append(item)
+                    break
+
+            # Если на всех существующих дорожках дни заняты (наслоение) — создаем новую дорожку ниже!
+            if placed_track_idx is None:
+                placed_track_idx = len(tracks)
+                track_last_end.append(v_end)
+                tracks.append([item])
+
+            item['track_index'] = placed_track_idx
+
+        # Формируем инициалы для красивой аватарки (как на скриншоте: "ЕК", "ИЛ")
+        display_name = emp.full_name or emp.username
+        words = [w for w in display_name.split() if w]
+        if len(words) >= 2:
+            initials = (words[0][0] + words[1][0]).upper()
+        else:
+            initials = display_name[:2].upper()
+
+        employees_timeline.append({
+            'user_id': emp.id,
+            'username': emp.username,
+            'full_name': display_name,
+            'initials': initials,
+            'role': emp.role_name,
+            'tracks_count': max(1, len(tracks)), # Минимум 1 пустая дорожка, чтобы строка сотрудника была в таблице
+            'tracks': tracks,                    # Готовые непересекающиеся дорожки для рендера!
+            'tasks_flat': visible_tasks          # Плоский список с полем track_index (на случай если фронту так удобнее)
+        })
+
+    return jsonify({
+        'status': 'success',
+        'period': {
+            'start_date': period_start.strftime('%Y-%m-%d'),
+            'end_date': period_end.strftime('%Y-%m-%d'),
+            'total_days': total_days
+        },
+        'days_grid': days_grid,
+        'employees': employees_timeline
+    })
 
 @app.route('/api/tasks/<int:task_id>/delete', methods=['DELETE', 'POST'])
 def api_delete_task(task_id):
