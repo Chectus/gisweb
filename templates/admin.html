@@ -2,7 +2,8 @@
   Файл: admin.html
   Описание: Панель администратора веб-ГИС портала. 
   Обеспечивает функционал управления доступом (RBAC: admin, worker, viewer), настройку прав на слои,
-  аудит системных действий пользователей (просмотр логов) и модуль CRM (Управление задачами лаборатории).
+  аудит системных действий пользователей (просмотр логов), модуль CRM (Управление задачами лаборатории)
+  и интерактивный Таймлайн задач (Диаграмма Ганта с дорожками).
 -->
 <!DOCTYPE html>
 <html lang="ru">
@@ -85,6 +86,16 @@
                     <span id="crm-review-badge" class="badge bg-warning text-dark ms-2 rounded-pill d-none" title="Ожидают проверки">0</span>
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-medium px-4 py-2 rounded-pill d-flex align-items-center" 
+                        id="timeline-tab-btn" 
+                        data-bs-toggle="pill" 
+                        data-bs-target="#pane-timeline" 
+                        type="button" 
+                        role="tab">
+                    <i class="bi bi-calendar3-range-fill me-2"></i>Таймлайн (Гант)
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content" id="adminMainTabsContent">
@@ -135,9 +146,9 @@
                             <div class="col-md-5">
                                 <label class="form-label small fw-bold" style="color: var(--geo-main);">Роль</label>
                                 <select class="form-select" id="newRole" style="border-color: rgba(27, 87, 140, 0.2);">
-                                    <option value="viewer" selected>Пользователь</option>
-                                    <option value="worker">Работник</option>
-                                    <option value="admin">Админ</option>
+                                    <option value="viewer" selected>Пользователь (Инвестор)</option>
+                                    <option value="worker">Работник (Лаборант / Геолог)</option>
+                                    <option value="admin">Админ (Руководитель)</option>
                                 </select>
                             </div>
 
@@ -159,7 +170,7 @@
                                 <!-- Плашка для ролей admin и worker -->
                                 <div id="createAllLayersNotice" class="alert alert-info small py-2 px-3 mb-0 d-none d-flex align-items-center">
                                     <i class="bi bi-check2-all fs-5 me-2"></i>
-                                    <span>Для выбранной роли <strong>доступны все слои карты</strong>.</span>
+                                    <span>Для выбранной роли <strong>доступны все слои карты</strong> автоматически (передается <code>"*"</code>).</span>
                                 </div>
 
                                 <!-- Дерево чекбоксов для роли viewer -->
@@ -194,7 +205,6 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <!-- Серверный рендеринг списка пользователей -->
                                     {% for u in users %}
                                     <tr>
                                         <td class="ps-4">
@@ -212,7 +222,7 @@
                                                     {% elif u.role_name == 'worker' %}
                                                         <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Работник</span>
                                                     {% else %}
-                                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Пользователь</span>
+                                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Инвестор</span>
                                                     {% endif %}
                                                 </div>
                                             </div>
@@ -236,7 +246,6 @@
                                             {% endif %}
                                         </td>
                                         
-                                        <!-- Элементы управления учетной записью -->
                                         <td class="text-end pe-4">
                                             <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap" id="{% if loop.index == 1 %}step-admin-actions{% endif %}">
 
@@ -271,7 +280,6 @@
                             </table>
                         </div>
                         
-                        <!-- Заглушка для пустой базы пользователей -->
                         {% if not users %}
                         <div class="text-center py-5">
                             <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 80px; height: 80px; background-color: var(--geo-light);">
@@ -380,20 +388,20 @@
                         <div class="row g-2 mb-4 text-center">
                             <div class="col-6 col-md-3">
                                 <div class="p-2 border rounded-3 bg-white">
-                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">НОВЫЕ</small>
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">НОВЫЕ (PENDING)</small>
                                     <span class="fw-bold fs-5 text-secondary" id="crmCountPending">0</span>
                                 </div>
                             </div>
                             <div class="col-6 col-md-3">
                                 <div class="p-2 border rounded-3 bg-white">
-                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">В РАБОТЕ</small>
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">В РАБОТЕ / ДОРАБОТКЕ</small>
                                     <span class="fw-bold fs-5 text-primary" id="crmCountInProgress">0</span>
                                 </div>
                             </div>
                             <div class="col-6 col-md-3">
                                 <div class="p-2 border rounded-3 bg-white">
                                     <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;">ЖДУТ ПРОВЕРКИ</small>
-                                    <span class="fw-bold fs-5 text-warning" id="crmCountReview">0</span>
+                                    <span class="fw-bold fs-5" style="color: #7c3aed;" id="crmCountReview">0</span>
                                 </div>
                             </div>
                             <div class="col-6 col-md-3">
@@ -416,6 +424,69 @@
 
             </div>
 
+            <!-- ========================================================= -->
+            <!-- ВКЛАДКА 3: ТАЙМЛАЙН ЗАДАЧ (ДИАГРАММА ГАНТА С ДОРОЖКАМИ)   -->
+            <!-- ========================================================= -->
+            <div class="tab-pane fade" id="pane-timeline" role="tabpanel">
+                <div class="admin-card mb-5">
+                    <div class="admin-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div>
+                            <h5 class="mb-0 fw-bold" style="color: var(--geo-dark);">
+                                <i class="bi bi-calendar3-range-fill me-2" style="color: var(--geo-main);"></i>Таймлайн задач лаборатории
+                            </h5>
+                            <small class="text-muted" id="timelinePeriodSubtitle">Диаграмма загрузки сотрудников по дням месяца</small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="timelineRefreshBtn">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Обновить
+                        </button>
+                    </div>
+
+                    <div class="card-body p-4">
+                        <!-- Панель управления периодом Таймлайна (GET /api/tasks/timeline) -->
+                        <div class="row g-3 align-items-end mb-4 p-3 rounded-3 border bg-light bg-opacity-50">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary mb-1">Выбор месяца</label>
+                                <input type="month" class="form-control form-control-sm" id="timelineMonthInput">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary mb-1">Или начало периода</label>
+                                <input type="date" class="form-control form-control-sm" id="timelineStartInput">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary mb-1">Конец периода</label>
+                                <input type="date" class="form-control form-control-sm" id="timelineEndInput">
+                            </div>
+                            <div class="col-md-3 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-geo w-100" id="btnApplyTimeline">Показать</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnResetTimeline" title="Текущий месяц">
+                                    Сегодня
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Легенда цветовых статусов visual_status -->
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3 small text-muted">
+                            <span class="fw-bold text-secondary">Статусы:</span>
+                            <span class="d-inline-flex align-items-center gap-1"><i class="timeline-legend-dot status-pending"></i> Не принята</span>
+                            <span class="d-inline-flex align-items-center gap-1"><i class="timeline-legend-dot status-in_progress"></i> В работе</span>
+                            <span class="d-inline-flex align-items-center gap-1"><i class="timeline-legend-dot status-revision"></i> На доработке</span>
+                            <span class="d-inline-flex align-items-center gap-1"><i class="timeline-legend-dot status-review"></i> На проверке</span>
+                            <span class="d-inline-flex align-items-center gap-1"><i class="timeline-legend-dot status-completed_on_time"></i> Выполнена вовремя</span>
+                            <span class="d-inline-flex align-items-center gap-1"><i class="timeline-legend-dot status-completed_late"></i> Сдана с просрочкой</span>
+                            <span class="d-inline-flex align-items-center gap-1"><i class="timeline-legend-dot status-overdue"></i> Просрочена (не сдана)</span>
+                        </div>
+
+                        <!-- Контейнер отрисовки CSS Grid Таймлайна -->
+                        <div id="timelineContainer">
+                            <div class="text-center py-5 text-muted">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                Загрузка таймлайна...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -431,7 +502,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
                 <div class="modal-body bg-light" id="logsContainer">
-                    <!-- Контейнер для динамического рендеринга записей журнала -->
                     <div class="text-center text-muted mt-4 mb-4">
                         <i class="bi bi-hourglass-split fs-2 opacity-50"></i>
                         <p class="mt-2">Ожидание данных...</p>
@@ -455,7 +525,6 @@
                 
                 <div class="modal-body p-4 pt-3">
                     
-                    <!-- Контейнер для обратной связи от API -->
                     <div id="editUserAlert" class="alert d-none small py-2 fw-medium mb-3" role="alert"></div>
 
                     <form id="editUserForm">
@@ -480,9 +549,9 @@
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold text-secondary">Роль доступа</label>
                                 <select class="form-select bg-light" id="editUserRole">
-                                    <option value="viewer">Пользователь</option>
-                                    <option value="worker">Работник</option>
-                                    <option value="admin">Админ</option>
+                                    <option value="viewer">Пользователь (Инвестор)</option>
+                                    <option value="worker">Работник (Лаборант / Геолог)</option>
+                                    <option value="admin">Админ (Руководитель)</option>
                                 </select>
                             </div>
                         </div>
@@ -502,20 +571,18 @@
                         <!-- Контейнер настройки конфигурации слоев пользователя -->
                         <div class="mb-4">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label small fw-bold text-secondary mb-0">Доступ к слоям</label>
+                                <label class="form-label small fw-bold text-secondary mb-0">Доступ к дата-румам (Слоям)</label>
                                 <div class="form-check mb-0" id="editLayersSelectAllWrap">
                                     <input class="form-check-input" type="checkbox" id="selectAllEditLayers">
                                     <label class="form-check-label small text-muted" style="cursor:pointer;" for="selectAllEditLayers">Выбрать всё</label>
                                 </div>
                             </div>
 
-                            <!-- Плашка для ролей admin и worker -->
                             <div id="editAllLayersNotice" class="alert alert-info small py-2 px-3 mb-0 d-none d-flex align-items-center">
                                 <i class="bi bi-check2-all fs-5 me-2"></i>
-                                <span>Для выбранной роли <strong>доступны все слои карты</strong></span>
+                                <span>Для выбранной роли <strong>доступны все слои карты</strong> автоматически (передается <code>"*"</code>).</span>
                             </div>
 
-                            <!-- Дерево чекбоксов для роли viewer -->
                             <div id="editAdminLayersTree" class="border rounded p-3 bg-light shadow-sm" style="max-height: 250px; overflow-y: auto;">
                                 <div class="text-center text-muted"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Загрузка структуры...</div>
                             </div>
@@ -550,7 +617,7 @@
                         <input type="hidden" id="crmActionType">
 
                         <!-- Блок выставления оценки (1-10) для action="approve" -->
-                        <div id="crmApproveBlock" class="d-none">
+                        <div id="crmApproveBlock" class="mb-3 d-none">
                             <label class="form-label small fw-bold text-secondary">Оценка качества выполнения (от 1 до 10) <span class="text-danger">*</span></label>
                             <select class="form-select form-select-lg fw-bold text-center" id="crmApproveScore">
                                 <option value="10" selected>10 — Отлично (максимальный балл)</option>
@@ -564,14 +631,26 @@
                                 <option value="2">2 — Плохо</option>
                                 <option value="1">1 — Минимальный балл</option>
                             </select>
-                            <div class="form-text small mt-2">Задача перейдет в статус «Выполнена», а баллы пойдут в KPI сотрудника.</div>
+                            <div class="form-text small mt-1">Задача перейдет в статус «Выполнена», а баллы пойдут в KPI сотрудника.</div>
+                        </div>
+
+                        <!-- Блок комментария руководителя (обязателен при reject, опционален при approve) -->
+                        <div id="crmCommentBlock" class="mb-3 d-none">
+                            <label for="crmReviewerComment" class="form-label small fw-bold text-secondary" id="crmCommentLabel">
+                                Комментарий руководителя / Причина возврата на доработку
+                            </label>
+                            <textarea class="form-control" 
+                                      id="crmReviewerComment" 
+                                      rows="4" 
+                                      placeholder="Укажите замечания, что именно нужно исправить, или оставьте отзыв к оценке..."></textarea>
+                            <div class="form-text small mt-1" id="crmCommentHint"></div>
                         </div>
 
                         <!-- Блок выбора нового дедлайна для action="reject" или action="extend_deadline" -->
                         <div id="crmDeadlineBlock" class="d-none">
                             <label class="form-label small fw-bold text-secondary" id="crmDeadlineLabel">Новый дедлайн</label>
                             <input type="datetime-local" class="form-control" id="crmNewDeadline">
-                            <div class="form-text small mt-2" id="crmDeadlineHint"></div>
+                            <div class="form-text small mt-1" id="crmDeadlineHint"></div>
                         </div>
 
                         <div id="crmReviewError" class="alert alert-danger small py-2 mt-3 mb-0 d-none"></div>
@@ -586,11 +665,10 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../static/js/theme.js"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
     
-    <!-- Скрипт: Управление поведением интерфейса и модальное окно логов -->
+    <!-- Скрипт: Модальное окно системных логов -->
     <script>
-        // Асинхронная загрузка и рендеринг истории действий (логов)
         async function openLogsModal(username) {
             const modal = new bootstrap.Modal(document.getElementById('logsModal'));
             document.getElementById('logsModalUsername').innerText = username;
@@ -671,7 +749,6 @@
     <script>
     document.addEventListener("DOMContentLoaded", async () => {
         
-        // Функция переключения видимости дерева слоев в зависимости от выбранной роли
         function toggleLayersByRole(roleValue, treeId, noticeId, selectAllWrapId) {
             const treeEl = document.getElementById(treeId);
             const noticeEl = document.getElementById(noticeId);
@@ -704,7 +781,6 @@
             });
         }
 
-        // Управление видимостью поля пароля при создании пользователя
         const toggleNewPassword = document.getElementById('toggleNewPassword');
         const newPasswordInput = document.getElementById('newPassword');
         const toggleNewIcon = document.getElementById('toggleNewIcon');
@@ -718,7 +794,6 @@
             });
         }
 
-        // Асинхронная загрузка конфигурации слоев и рендеринг структуры дата-румов
         try {
             const response = await fetch('/api/layers_config');
             const config = await response.json();
@@ -788,7 +863,6 @@
                 editTreeContainer.insertAdjacentHTML('beforeend', catHtmlEdit);
             }
 
-            // Инициализация логики каскадного выбора чекбоксов
             function bindTreeLogic(containerId, masterBtnId, catClass, subClass, itemClass) {
                 const container = document.getElementById(containerId);
                 const masterBtn = document.getElementById(masterBtnId);
@@ -822,7 +896,7 @@
             document.getElementById('editAdminLayersTree').innerHTML = '<div class="text-danger">Ошибка загрузки конфигурации слоев</div>';
         }
 
-        // Обработка отправки формы создания профиля пользователя (POST /admin/api/create_user)
+        // Создание пользователя (POST /admin/api/create_user)
         document.getElementById('apiCreateUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btnCreateUser');
@@ -886,7 +960,7 @@
             }
         });
 
-        // Логика работы модального окна редактирования пользователя (POST /admin/api/edit_user/<id>)
+        // Редактирование пользователя (POST /admin/api/edit_user/<id>)
         const editAlertBox = document.getElementById('editUserAlert');
         const editButtons = document.querySelectorAll('.edit-user-btn');
 
@@ -983,14 +1057,17 @@
     });
     </script>
 
-    <!-- Скрипт: Модуль CRM в Админ-панели (Интерфейс Руководителя) -->
+    <!-- Скрипт: Модуль CRM (Доска руководителя + Таймлайн Ганта) -->
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         let allLabTasks = [];
+        let timelineTasksMap = {};
+
         const assigneeSelectCreate = document.getElementById('crmTaskAssignee');
         const assigneeSelectFilter = document.getElementById('filterAssignee');
         const crmTasksContainer = document.getElementById('crmTasksContainer');
         const crmReviewBadge = document.getElementById('crm-review-badge');
+        const timelineContainer = document.getElementById('timelineContainer');
 
         const reviewModalEl = document.getElementById('crmReviewModal');
         const reviewModal = reviewModalEl ? new bootstrap.Modal(reviewModalEl) : null;
@@ -1003,29 +1080,37 @@
             return div.innerHTML;
         }
 
-        function getStatusBadge(status, isOverdue) {
-            let badgeHtml = '';
-            switch (status) {
-                case 'pending':
-                    badgeHtml = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill">Не принята (Новая)</span>';
-                    break;
-                case 'in_progress':
-                    badgeHtml = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">Выполняется</span>';
-                    break;
-                case 'review':
-                    badgeHtml = '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill">На проверке</span>';
-                    break;
-                case 'completed':
-                    badgeHtml = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">Выполнена</span>';
-                    break;
-                default:
-                    badgeHtml = `<span class="badge bg-light text-dark rounded-pill">${escapeHtml(status)}</span>`;
-            }
+        // Вычисление visual_status для цветовой индикации
+        function resolveVisualStatus(task) {
+            if (task.visual_status) return task.visual_status;
+            if (task.is_overdue && task.status !== 'completed') return 'overdue';
+            if (task.is_revision && task.status === 'in_progress') return 'revision';
+            if (task.status === 'completed') return task.is_overdue ? 'completed_late' : 'completed_on_time';
+            return task.status || 'pending';
+        }
 
-            if (isOverdue) {
-                badgeHtml += ' <span class="badge bg-danger rounded-pill ms-1"><i class="bi bi-exclamation-octagon-fill me-1"></i>Просрочена</span>';
+        function getStatusBadges(task) {
+            const vStatus = resolveVisualStatus(task);
+            const labels = {
+                'pending': 'Не принята (Новая)',
+                'in_progress': 'В работе',
+                'revision': 'На доработке',
+                'review': 'На проверке',
+                'completed_on_time': 'Выполнена вовремя',
+                'completed_late': 'Выполнена с просрочкой',
+                'overdue': 'Просрочена'
+            };
+
+            const mainLabel = labels[vStatus] || task.status;
+            let html = `<span class="badge status-${escapeHtml(vStatus)} rounded-pill px-3 py-1">${escapeHtml(mainLabel)}</span>`;
+
+            if (task.is_revision && vStatus !== 'revision') {
+                html += ` <span class="badge status-revision rounded-pill px-2 py-1 ms-1"><i class="bi bi-arrow-counterclockwise me-1"></i>На доработке</span>`;
             }
-            return badgeHtml;
+            if (task.is_overdue && vStatus !== 'overdue' && vStatus !== 'completed_late') {
+                html += ` <span class="badge status-overdue rounded-pill px-2 py-1 ms-1"><i class="bi bi-exclamation-octagon-fill me-1"></i>Просрочена</span>`;
+            }
+            return html;
         }
 
         // 1. Получение списка исполнителей (GET /api/tasks/workers)
@@ -1124,7 +1209,7 @@
             }
 
             crmTasksContainer.innerHTML = tasks.map(task => {
-                const overdueBorder = task.is_overdue ? 'border-start border-danger border-4' : '';
+                const vStatus = resolveVisualStatus(task);
                 const assigneeName = task.assignee_full_name
                     ? `${task.assignee_full_name} (@${task.assignee_username})`
                     : (task.assignee_username || `ID ${task.assignee_id}`);
@@ -1136,6 +1221,19 @@
                        </span>`
                     : '';
 
+                // Блок замечания руководителя, если он есть
+                let reviewerCommentSection = '';
+                if (task.is_revision || (task.reviewer_comment && task.reviewer_comment.trim() !== '')) {
+                    reviewerCommentSection = `
+                        <div class="reviewer-comment-box mb-3">
+                            <div class="fw-bold small mb-1">
+                                <i class="bi bi-chat-left-quote-fill me-1"></i>Комментарий руководителя${task.is_revision ? ' (возвращено на доработку)' : ''}:
+                            </div>
+                            <div class="small" style="white-space: pre-wrap;">${escapeHtml(task.reviewer_comment || 'Возвращено на доработку')}</div>
+                        </div>`;
+                }
+
+                // Блок отчета сотрудника
                 let reportSection = '';
                 if (task.employee_report || task.has_attachment) {
                     const attachmentBtn = task.has_attachment
@@ -1154,7 +1252,7 @@
                         </div>`;
                 }
 
-                // Кнопки действий руководителя по шпаргалке статусов ТЗ
+                // Кнопки действий руководителя
                 let managerActions = '';
                 if (task.status === 'pending' || task.status === 'in_progress') {
                     managerActions = `
@@ -1169,7 +1267,7 @@
                         <button type="button" class="btn btn-sm btn-success rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="approve">
                             <i class="bi bi-check2-circle me-1"></i>Оценить (1–10) и закрыть
                         </button>
-                        <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="reject">
+                        <button type="button" class="btn btn-sm btn-warning text-dark fw-medium rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="reject">
                             <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть на доработку
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="extend_deadline">
@@ -1181,7 +1279,7 @@
                 } else if (task.status === 'completed') {
                     managerActions = `
                         <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="reject">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть в работу
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть на доработку
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-crm-delete" data-id="${task.id}">
                             <i class="bi bi-trash3 me-1"></i>Удалить
@@ -1190,13 +1288,13 @@
 
                 return `
                     <div class="col-12">
-                        <div class="card border shadow-sm rounded-4 ${overdueBorder}">
+                        <div class="card border shadow-sm rounded-4 card-status-${escapeHtml(vStatus)}">
                             <div class="card-body p-4">
                                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                                     <div>
                                         <div class="mb-2 d-flex flex-wrap align-items-center gap-2">
                                             <span class="text-muted small fw-bold">#${task.id}</span>
-                                            ${getStatusBadge(task.status, task.is_overdue)}
+                                            ${getStatusBadges(task)}
                                         </div>
                                         <h5 class="fw-bold mb-1" style="color: var(--geo-dark);">${escapeHtml(task.title)}</h5>
                                         <div class="d-flex flex-wrap gap-3 text-muted small">
@@ -1209,6 +1307,7 @@
 
                                 ${task.description ? `<p class="text-muted small mb-3" style="white-space: pre-wrap;">${escapeHtml(task.description)}</p>` : ''}
 
+                                ${reviewerCommentSection}
                                 ${reportSection}
 
                                 <div class="d-flex flex-wrap gap-3 text-muted small py-2 border-top border-bottom mb-3">
@@ -1271,6 +1370,7 @@
                             </div>`;
                         createTaskForm.reset();
                         await loadAllTasks();
+                        await loadTimeline();
                     } else {
                         alertBox.innerHTML = `
                             <div class="alert alert-danger small py-2 mb-3">
@@ -1289,7 +1389,68 @@
             });
         }
 
-        // 4. Обработка кликов по действиям над задачей (approve, reject, extend_deadline, delete)
+        // Открытие модального окна для действий руководителя (approve, reject, extend_deadline)
+        function openReviewModalForTask(task, actionType) {
+            document.getElementById('crmActionTaskId').value = task.id;
+            document.getElementById('crmActionType').value = actionType;
+            document.getElementById('crmReviewModalSubtitle').textContent = `#${task.id} — ${task.title}`;
+            document.getElementById('crmReviewError').classList.add('d-none');
+
+            const approveBlock = document.getElementById('crmApproveBlock');
+            const commentBlock = document.getElementById('crmCommentBlock');
+            const commentInput = document.getElementById('crmReviewerComment');
+            const commentLabel = document.getElementById('crmCommentLabel');
+            const commentHint = document.getElementById('crmCommentHint');
+
+            const deadlineBlock = document.getElementById('crmDeadlineBlock');
+            const deadlineInput = document.getElementById('crmNewDeadline');
+            const modalTitle = document.getElementById('crmReviewModalTitle');
+            const deadlineLabel = document.getElementById('crmDeadlineLabel');
+            const deadlineHint = document.getElementById('crmDeadlineHint');
+
+            commentInput.value = task.reviewer_comment || '';
+
+            if (actionType === 'approve') {
+                modalTitle.textContent = 'Принять работу и выставить балл';
+                approveBlock.classList.remove('d-none');
+                commentBlock.classList.remove('d-none');
+                deadlineBlock.classList.add('d-none');
+
+                commentLabel.innerHTML = 'Комментарий руководителя (отзыв к оценке, опционально)';
+                commentHint.textContent = 'Вы можете оставить комментарий к выполненной работе или оставить поле пустым.';
+                commentInput.required = false;
+                deadlineInput.required = false;
+            } else if (actionType === 'reject') {
+                modalTitle.textContent = 'Вернуть задачу на доработку';
+                approveBlock.classList.add('d-none');
+                commentBlock.classList.remove('d-none');
+                deadlineBlock.classList.remove('d-none');
+
+                commentLabel.innerHTML = 'Причина возврата на доработку <span class="text-danger">*</span>';
+                commentHint.textContent = 'Обязательное поле: опишите замечания, которые сотрудник должен исправить.';
+                commentInput.required = true;
+
+                deadlineLabel.textContent = 'Новый дедлайн (опционально)';
+                deadlineHint.textContent = 'Задача перейдет в статус «На доработке» (in_progress). При необходимости укажите новый срок.';
+                deadlineInput.value = task.deadline_iso || '';
+                deadlineInput.required = false;
+            } else if (actionType === 'extend_deadline') {
+                modalTitle.textContent = 'Изменить / продлить дедлайн';
+                approveBlock.classList.add('d-none');
+                commentBlock.classList.add('d-none');
+                deadlineBlock.classList.remove('d-none');
+
+                commentInput.required = false;
+                deadlineLabel.textContent = 'Укажите новый дедлайн';
+                deadlineHint.textContent = 'Срок выполнения задачи изменится без смены текущего статуса.';
+                deadlineInput.value = task.deadline_iso || '';
+                deadlineInput.required = true;
+            }
+
+            reviewModal.show();
+        }
+
+        // 4. Обработка кликов по действиям над задачей на доске CRM
         crmTasksContainer.addEventListener('click', async (e) => {
             const actionBtn = e.target.closest('.btn-crm-action');
             if (actionBtn) {
@@ -1297,43 +1458,7 @@
                 const actionType = actionBtn.dataset.action;
                 const task = allLabTasks.find(t => t.id === taskId);
                 if (!task) return;
-
-                document.getElementById('crmActionTaskId').value = task.id;
-                document.getElementById('crmActionType').value = actionType;
-                document.getElementById('crmReviewModalSubtitle').textContent = `#${task.id} — ${task.title}`;
-                document.getElementById('crmReviewError').classList.add('d-none');
-
-                const approveBlock = document.getElementById('crmApproveBlock');
-                const deadlineBlock = document.getElementById('crmDeadlineBlock');
-                const deadlineInput = document.getElementById('crmNewDeadline');
-                const modalTitle = document.getElementById('crmReviewModalTitle');
-                const deadlineLabel = document.getElementById('crmDeadlineLabel');
-                const deadlineHint = document.getElementById('crmDeadlineHint');
-
-                if (actionType === 'approve') {
-                    modalTitle.textContent = 'Принять работу и выставить балл';
-                    approveBlock.classList.remove('d-none');
-                    deadlineBlock.classList.add('d-none');
-                    deadlineInput.required = false;
-                } else if (actionType === 'reject') {
-                    modalTitle.textContent = 'Вернуть задачу на доработку';
-                    approveBlock.classList.add('d-none');
-                    deadlineBlock.classList.remove('d-none');
-                    deadlineLabel.textContent = 'Новый дедлайн (опционально)';
-                    deadlineHint.textContent = 'Задача вернется в статус «Выполняется». При необходимости укажите новый срок.';
-                    deadlineInput.value = task.deadline_iso || '';
-                    deadlineInput.required = false;
-                } else if (actionType === 'extend_deadline') {
-                    modalTitle.textContent = 'Изменить / продлить дедлайн';
-                    approveBlock.classList.add('d-none');
-                    deadlineBlock.classList.remove('d-none');
-                    deadlineLabel.textContent = 'Укажите новый дедлайн';
-                    deadlineHint.textContent = 'Срок выполнения задачи изменится без смены текущего статуса.';
-                    deadlineInput.value = task.deadline_iso || '';
-                    deadlineInput.required = true;
-                }
-
-                reviewModal.show();
+                openReviewModalForTask(task, actionType);
                 return;
             }
 
@@ -1350,6 +1475,7 @@
                     const data = await res.json();
                     if (data.status === 'success') {
                         await loadAllTasks();
+                        await loadTimeline();
                     } else {
                         alert(data.message || 'Ошибка удаления задачи');
                         deleteBtn.disabled = false;
@@ -1361,12 +1487,13 @@
             }
         });
 
-        // Отправка модальной формы проверки/дедлайна (POST /api/tasks/<id>/review)
+        // Отправка модальной формы проверки/возврата/дедлайна (POST /api/tasks/<id>/review)
         if (reviewForm) {
             reviewForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const taskId = document.getElementById('crmActionTaskId').value;
                 const actionType = document.getElementById('crmActionType').value;
+                const commentVal = document.getElementById('crmReviewerComment').value.trim();
                 const errorBox = document.getElementById('crmReviewError');
                 const submitBtn = document.getElementById('crmReviewSubmitBtn');
 
@@ -1374,7 +1501,16 @@
 
                 if (actionType === 'approve') {
                     payload.score = Number(document.getElementById('crmApproveScore').value);
+                    if (commentVal) {
+                        payload.reviewer_comment = commentVal;
+                    }
                 } else if (actionType === 'reject') {
+                    if (!commentVal) {
+                        errorBox.textContent = 'Пожалуйста, укажите причину возврата задачи на доработку.';
+                        errorBox.classList.remove('d-none');
+                        return;
+                    }
+                    payload.reviewer_comment = commentVal;
                     const newDl = document.getElementById('crmNewDeadline').value;
                     if (newDl) payload.new_deadline = newDl;
                 } else if (actionType === 'extend_deadline') {
@@ -1401,6 +1537,7 @@
                     if (res.ok && data.status === 'success') {
                         reviewModal.hide();
                         await loadAllTasks();
+                        await loadTimeline();
                     } else {
                         errorBox.textContent = data.message || 'Ошибка при выполнении операции.';
                         errorBox.classList.remove('d-none');
@@ -1414,6 +1551,154 @@
             });
         }
 
+        // ==========================================================
+        // ЛОГИКА ТАЙМЛАЙНА (ДИАГРАММА ГАНТА С ДОРОЖКАМИ)
+        // ==========================================================
+        async function loadTimeline() {
+            const monthVal = document.getElementById('timelineMonthInput').value;
+            const startVal = document.getElementById('timelineStartInput').value;
+            const endVal = document.getElementById('timelineEndInput').value;
+
+            const params = new URLSearchParams();
+            if (startVal && endVal) {
+                params.append('start_date', startVal);
+                params.append('end_date', endVal);
+            } else if (monthVal) {
+                params.append('month', monthVal);
+            }
+
+            const qs = params.toString() ? `?${params.toString()}` : '';
+
+            try {
+                const res = await fetch(`/api/tasks/timeline${qs}`);
+                const data = await res.json();
+
+                if (data.status !== 'success') {
+                    throw new Error(data.message || 'Не удалось получить данные таймлайна');
+                }
+
+                renderTimeline(data);
+            } catch (err) {
+                timelineContainer.innerHTML = `
+                    <div class="alert alert-danger mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Ошибка загрузки таймлайна: ${escapeHtml(err.message)}
+                    </div>`;
+            }
+        }
+
+        function renderTimeline(data) {
+            const period = data.period || { total_days: 31, start_date: '', end_date: '' };
+            const daysGrid = data.days_grid || [];
+            const employees = data.employees || [];
+            const totalDays = period.total_days || daysGrid.length || 31;
+
+            const subtitleEl = document.getElementById('timelinePeriodSubtitle');
+            if (subtitleEl && period.start_date && period.end_date) {
+                subtitleEl.textContent = `Период: ${period.start_date} — ${period.end_date} (${totalDays} дн.)`;
+            }
+
+            if (employees.length === 0) {
+                timelineContainer.innerHTML = `
+                    <div class="text-center py-5 text-muted border rounded-4">
+                        <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-50"></i>
+                        <h6 class="fw-bold mb-1">Нет данных для отображения на таймлайне</h6>
+                        <p class="small mb-0">В выбранном периоде нет сотрудников или назначенных задач.</p>
+                    </div>`;
+                return;
+            }
+
+            timelineTasksMap = {};
+            const weekdayShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+            // 1. Шапка дней месяца
+            const headerDaysHtml = daysGrid.map(d => {
+                const classes = ['timeline-day-cell'];
+                if (d.is_weekend) classes.push('is-weekend');
+                if (d.is_today) classes.push('is-today');
+                const wdLabel = (d.weekday !== undefined && weekdayShort[d.weekday]) ? weekdayShort[d.weekday] : '';
+
+                return `
+                    <div class="${classes.join(' ')}" title="${escapeHtml(d.date)}">
+                        <div>${d.day}</div>
+                        ${wdLabel ? `<div style="font-size: 0.62rem; opacity: 0.75;">${wdLabel}</div>` : ''}
+                    </div>`;
+            }).join('');
+
+            // 2. Строки сотрудников и их дорожки (tracks)
+            const employeesHtml = employees.map(emp => {
+                const tracks = Array.isArray(emp.tracks) && emp.tracks.length > 0 ? emp.tracks : [[]];
+                const empName = emp.full_name || emp.username;
+                const initials = emp.initials || empName.slice(0, 2).toUpperCase();
+
+                const tracksHtml = tracks.map(track => {
+                    const barsHtml = (track || []).map(task => {
+                        timelineTasksMap[task.id] = task;
+                        const vStatus = resolveVisualStatus(task);
+                        const startCol = task.grid_column_start || 1;
+                        const spanCols = task.duration_days || 1;
+                        const dateRange = (task.real_start_date || task.real_end_date)
+                            ? ` (${task.real_start_date || '...'} — ${task.real_end_date || '...'})`
+                            : '';
+                        const tooltip = `#${task.id} ${task.title}${dateRange}${task.reviewer_comment ? ' | Замечание: ' + task.reviewer_comment : ''}`;
+
+                        return `
+                            <div class="task-bar status-${escapeHtml(vStatus)}"
+                                 style="grid-column: ${startCol} / span ${spanCols};"
+                                 data-task-id="${task.id}"
+                                 title="${escapeHtml(tooltip)}">
+                                #${task.id} ${escapeHtml(task.title)}
+                            </div>`;
+                    }).join('');
+
+                    return `<div class="timeline-track-row">${barsHtml}</div>`;
+                }).join('');
+
+                return `
+                    <div class="timeline-emp-row">
+                        <div class="timeline-emp-cell">
+                            <div class="timeline-avatar">${escapeHtml(initials)}</div>
+                            <div class="text-truncate">
+                                <div class="fw-bold small text-truncate" title="${escapeHtml(empName)}">${escapeHtml(empName)}</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">@${escapeHtml(emp.username)}</div>
+                            </div>
+                        </div>
+                        <div class="timeline-tracks-container">
+                            ${tracksHtml}
+                        </div>
+                    </div>`;
+            }).join('');
+
+            timelineContainer.innerHTML = `
+                <div class="timeline-scroll-wrapper">
+                    <div class="timeline-table" style="--total-days: ${totalDays};">
+                        <div class="timeline-header-row">
+                            <div class="timeline-emp-cell">Сотрудник</div>
+                            <div class="timeline-days-grid">
+                                ${headerDaysHtml}
+                            </div>
+                        </div>
+                        ${employeesHtml}
+                    </div>
+                </div>`;
+        }
+
+        // Клик по полоске задачи на Таймлайне: переход к проверке или продлению дедлайна
+        timelineContainer.addEventListener('click', (e) => {
+            const bar = e.target.closest('.task-bar');
+            if (!bar) return;
+            const taskId = Number(bar.dataset.taskId);
+            const task = timelineTasksMap[taskId] || allLabTasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            if (task.status === 'review') {
+                openReviewModalForTask(task, 'approve');
+            } else if (task.status === 'completed') {
+                openReviewModalForTask(task, 'reject');
+            } else {
+                openReviewModalForTask(task, 'extend_deadline');
+            }
+        });
+
         // Обработчики фильтров доски руководителя
         document.getElementById('btnApplyFilters').addEventListener('click', loadAllTasks);
         document.getElementById('crmRefreshBtn').addEventListener('click', loadAllTasks);
@@ -1424,15 +1709,35 @@
             loadAllTasks();
         });
 
-        // Открытие вкладки CRM при передаче #crm в адресной строке
+        // Обработчики фильтров Таймлайна
+        document.getElementById('btnApplyTimeline').addEventListener('click', loadTimeline);
+        document.getElementById('timelineRefreshBtn').addEventListener('click', loadTimeline);
+        document.getElementById('btnResetTimeline').addEventListener('click', () => {
+            document.getElementById('timelineMonthInput').value = '';
+            document.getElementById('timelineStartInput').value = '';
+            document.getElementById('timelineEndInput').value = '';
+            loadTimeline();
+        });
+
+        // При выборе месяца очищаем произвольные даты и наоборот
+        document.getElementById('timelineMonthInput').addEventListener('change', () => {
+            document.getElementById('timelineStartInput').value = '';
+            document.getElementById('timelineEndInput').value = '';
+        });
+
+        // Автоматическое открытие вкладки по хэшу (#crm или #timeline)
         if (window.location.hash === '#crm') {
             const crmTabBtn = document.getElementById('crm-tab-btn');
             if (crmTabBtn) new bootstrap.Tab(crmTabBtn).show();
+        } else if (window.location.hash === '#timeline') {
+            const timelineTabBtn = document.getElementById('timeline-tab-btn');
+            if (timelineTabBtn) new bootstrap.Tab(timelineTabBtn).show();
         }
 
-        // Первичная инициализация данных CRM
+        // Первичная инициализация данных CRM и Таймлайна
         loadWorkers();
         loadAllTasks();
+        loadTimeline();
     });
     </script>
 
@@ -1478,18 +1783,18 @@
                     }
                 },
                 {
-                    element: '#step-admin-table', 
-                    popover: {
-                        title: 'Реестр учетных записей',
-                        description: 'Здесь отображаются все пользователи, их ФИО, роли и статус срока действия.',
-                        side: "top", align: 'start'
-                    }
-                },
-                {
                     element: '#crm-tab-btn',
                     popover: {
                         title: 'Модуль CRM (Задачи)',
-                        description: 'Переключайтесь во вкладку CRM, чтобы назначать задачи геологам и лаборантам, проверять отчеты и выставлять оценки KPI.',
+                        description: 'Назначайте задачи геологам и лаборантам, проверяйте отчеты, возвращайте на доработку с комментарием и выставляйте оценки KPI.',
+                        side: "bottom", align: 'start'
+                    }
+                },
+                {
+                    element: '#timeline-tab-btn',
+                    popover: {
+                        title: 'Таймлайн (Диаграмма Ганта)',
+                        description: 'Наглядная сетка загрузки сотрудников по дням месяца с автоматическим распределением пересекающихся задач по дорожкам.',
                         side: "bottom", align: 'start'
                     }
                 }

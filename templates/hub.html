@@ -15,6 +15,195 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- Дополнительные стили оформления хаба -->
+    <style>
+        .hero-section {
+            padding: 3.75rem 0 5rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            border-radius: 50rem;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #e2e8f0;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            backdrop-filter: blur(6px);
+        }
+
+        .hero-badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
+        }
+
+        .hero-Capabilities {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.65rem;
+            margin-top: 1.75rem;
+        }
+
+        .hero-cap-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #cbd5e1;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .hero-cap-pill i {
+            color: var(--geo-accent);
+        }
+
+        /* Улучшенные карточки модулей */
+        .service-card {
+            border-radius: 16px;
+            border: 1px solid rgba(27, 87, 140, 0.12);
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--geo-main);
+            opacity: 0.85;
+            transition: opacity 0.25s ease;
+        }
+
+        .service-card.card-admin::before {
+            background: #dc3545;
+        }
+
+        .service-card.card-worker::before {
+            background: #198754;
+        }
+
+        .service-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 18px 35px rgba(21, 50, 77, 0.14);
+        }
+
+        .card-icon-wrapper {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            font-size: 1.45rem;
+            margin-bottom: 0;
+        }
+
+        .module-tag {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--geo-text-muted);
+            background-color: var(--geo-light);
+            padding: 0.3rem 0.65rem;
+            border-radius: 6px;
+        }
+
+        .module-feature-list {
+            list-style: none;
+            padding: 0.85rem 1rem;
+            margin: 0 0 1.25rem 0;
+            background-color: var(--geo-bg);
+            border: 1px solid var(--geo-border);
+            border-radius: 10px;
+            font-size: 0.8rem;
+            color: var(--geo-text-muted);
+        }
+
+        .module-feature-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .module-feature-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .module-feature-list li i {
+            color: var(--geo-main);
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .btn-sub-action {
+            background-color: var(--geo-light);
+            color: var(--geo-dark);
+            border: 1px solid var(--geo-border);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.45rem 0.75rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+        }
+
+        .btn-sub-action:hover {
+            background-color: var(--geo-main);
+            color: #ffffff;
+            border-color: var(--geo-main);
+        }
+
+        /* Поддержка темной темы для новых элементов */
+        body.dark-theme .module-tag {
+            background-color: var(--geo-light);
+            color: var(--geo-text-muted);
+        }
+
+        body.dark-theme .module-feature-list {
+            background-color: rgba(15, 23, 42, 0.55);
+            border-color: var(--geo-border);
+            color: var(--geo-text-muted);
+        }
+
+        body.dark-theme .module-feature-list li i {
+            color: #38bdf8;
+        }
+
+        body.dark-theme .btn-sub-action {
+            background-color: var(--geo-light);
+            color: var(--geo-text);
+            border-color: var(--geo-border);
+        }
+
+        body.dark-theme .btn-sub-action:hover {
+            background-color: var(--geo-main);
+            color: #ffffff;
+        }
+    </style>
 </head>
 <body class="hub-page">
     
@@ -60,6 +249,8 @@
                             <span class="badge bg-danger ms-2 rounded-pill" style="font-size: 0.65rem;">Админ</span>
                         {% elif current_role == 'worker' %}
                             <span class="badge bg-success ms-2 rounded-pill" style="font-size: 0.65rem;">Работник</span>
+                        {% else %}
+                            <span class="badge bg-primary ms-2 rounded-pill" style="font-size: 0.65rem;">Инвестор</span>
                         {% endif %}
                     </a>
                     <a href="/logout" class="btn btn-outline-danger btn-sm px-3 fw-medium">
@@ -74,10 +265,22 @@
     <!-- Приветственный информационный блок -->
     <div class="hero-section">
         <div class="container text-center position-relative" style="z-index: 2;">
+            <div class="hero-badge mb-3">
+                <span class="hero-badge-dot"></span>
+                <span>Цифровая геоинформационная платформа • ЗабГУ & ИГЕМ РАН</span>
+            </div>
             <h1 class="display-5 fw-bold mb-3">Веб-ГИС «Недра Забайкальского края»</h1>
-            <p class="lead mx-auto" style="max-width: 650px; color: #cbd5e1;">
-                Единая среда пространственных данных о геологическом строении и минерально-сырьевых ресурсах региона. Включает результаты прогнозно-поискового моделирования на базе искусственного интеллекта.
+            <p class="lead mx-auto mb-0" style="max-width: 720px; color: #cbd5e1; font-size: 1.1rem;">
+                Единая среда пространственных данных о геологическом строении и минерально-сырьевых ресурсах региона с интеграцией результатов прогнозно-поискового моделирования на базе искусственного интеллекта.
             </p>
+
+            <!-- Краткие индикаторы ключевых подсистем -->
+            <div class="hero-Capabilities">
+                <span class="hero-cap-pill"><i class="bi bi-globe-americas"></i> Многослойная картография</span>
+                <span class="hero-cap-pill"><i class="bi bi-cpu-fill"></i> ИИ-прогнозы оруденения</span>
+                <span class="hero-cap-pill"><i class="bi bi-file-earmark-pdf-fill"></i> Выгрузка PDF-паспортов</span>
+                <span class="hero-cap-pill"><i class="bi bi-shield-check"></i> Защищенные дата-румы</span>
+            </div>
         </div>
     </div>
 
@@ -85,72 +288,138 @@
     <div class="container position-relative" style="z-index: 10;">
         <div class="row g-4 justify-content-center">
             
-            <!-- Модуль: Интерактивная карта -->
+            <!-- Модуль 1: Интерактивная карта -->
             <div class="col-md-4">
                 <div class="card service-card p-4">
-                    <div class="card-icon-wrapper">
-                        <i class="bi bi-layers-fill"></i>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="card-icon-wrapper">
+                            <i class="bi bi-layers-fill"></i>
+                        </div>
+                        <span class="module-tag">Модуль 01 • ГИС</span>
                     </div>
-                    <h5 class="card-title fw-bold text-dark mb-3">Интерактивная карта</h5>
-                    <p class="card-text text-muted mb-4 small flex-grow-1">
-                        Многослойная геоинформационная панель. Содержит физико-географическую основу, тематические геологические слои и ИИ-прогнозы перспективных площадей.
+                    <h5 class="card-title fw-bold text-dark mb-2">Интерактивная карта</h5>
+                    <p class="card-text text-muted mb-3 small flex-grow-1">
+                        Многослойная картографическая среда для пространственного анализа территории, работы с тематическими слоями и оценки перспективных площадей.
                     </p>
-                    <a href="/map" class="btn btn-geo w-100">
-                        Открыть карту <i class="bi bi-geo-alt-fill ms-1"></i>
+                    <ul class="module-feature-list">
+                        <li><i class="bi bi-check2-circle"></i> Тематические слои и карты ИИ-прогнозов</li>
+                        <li><i class="bi bi-check2-circle"></i> Атрибутивные реестры и генерация PDF</li>
+                        <li><i class="bi bi-check2-circle"></i> Наложение локальных SHP, KML и GeoJSON</li>
+                    </ul>
+                    <a href="/map" class="btn btn-geo w-100 rounded-3 d-flex align-items-center justify-content-center gap-2">
+                        <span>Открыть интерактивную карту</span>
+                        <i class="bi bi-arrow-right"></i>
                     </a>
                 </div>
             </div>
 
-            <!-- Модуль: Документация -->
+            <!-- Модуль 2: Документация -->
             <div class="col-md-4">
                 <div class="card service-card p-4">
-                    <div class="card-icon-wrapper">
-                        <i class="bi bi-journal-text"></i>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="card-icon-wrapper">
+                            <i class="bi bi-journal-text"></i>
+                        </div>
+                        <span class="module-tag">Модуль 02 • Регламенты</span>
                     </div>
-                    <h5 class="card-title fw-bold text-dark mb-3">База знаний и регламенты</h5>
-                    <p class="card-text text-muted mb-4 small flex-grow-1">
-                        Паспорт проекта, справочная информация о месторождениях и методические указания по работе со слоями и атрибутивными таблицами.
+                    <h5 class="card-title fw-bold text-dark mb-2">База знаний и регламенты</h5>
+                    <p class="card-text text-muted mb-3 small flex-grow-1">
+                        Официальная документация портала, научно-методическое описание прогнозных моделей и руководство пользователя по работе с геоданными.
                     </p>
-                    <a href="/docs" class="btn btn-geo w-100">
-                        Читать документацию <i class="bi bi-file-earmark-text ms-1"></i>
+                    <ul class="module-feature-list">
+                        <li><i class="bi bi-check2-circle"></i> Паспорт проекта и структура геоданных</li>
+                        <li><i class="bi bi-check2-circle"></i> Методика ИИ-прогнозирования и работы с ГИС</li>
+                        <li><i class="bi bi-check2-circle"></i> Регламент ролей (RBAC), дата-румов и CRM</li>
+                    </ul>
+                    <a href="/docs" class="btn btn-geo w-100 rounded-3 d-flex align-items-center justify-content-center gap-2">
+                        <span>Перейти к документации</span>
+                        <i class="bi bi-file-earmark-text"></i>
                     </a>
                 </div>
             </div>
 
-            <!-- Модуль: Панель администратора и CRM (Для роли 'admin') -->
+            <!-- Модуль 3: Панель управления и CRM (Для роли 'admin') -->
             {% if has_admin_access %}
             <div class="col-md-4">
-                <div class="card service-card p-4">
-                    <div class="card-icon-wrapper" style="background-color: #f8d7da; color: #dc3545; border-color: #f5c2c7;">
-                        <i class="bi bi-shield-lock-fill"></i>
+                <div class="card service-card card-admin p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="card-icon-wrapper" style="background-color: rgba(220, 53, 69, 0.1); color: #dc3545; border-color: rgba(220, 53, 69, 0.25);">
+                            <i class="bi bi-sliders"></i>
+                        </div>
+                        <span class="module-tag">Модуль 03 • Управление</span>
                     </div>
-                    <h5 class="card-title fw-bold text-dark mb-3">Управление и CRM</h5>
-                    <p class="card-text text-muted mb-4 small flex-grow-1">
-                        Администрирование учетных записей и ролей (RBAC), выдача прав на дата-румы, аудит действий и управление задачами сотрудников лаборатории.
+                    <h5 class="card-title fw-bold text-dark mb-2">Управление и CRM</h5>
+                    <p class="card-text text-muted mb-3 small flex-grow-1">
+                        Администрирование учетных записей и прав доступа к дата-румам, аудит безопасности и координация производственных задач лаборатории.
                     </p>
+                    <ul class="module-feature-list">
+                        <li><i class="bi bi-check2-circle"></i> Управление ролями (RBAC) и слоями карты</li>
+                        <li><i class="bi bi-check2-circle"></i> Постановка задач, проверка отчетов и KPI</li>
+                        <li><i class="bi bi-check2-circle"></i> Таймлайн загрузки (Гант) и журнал логов</li>
+                    </ul>
+                    <a href="/admin" class="btn btn-geo w-100 rounded-3 d-flex align-items-center justify-content-center gap-2 mb-2">
+                        <i class="bi bi-shield-lock"></i>
+                        <span>Панель администратора</span>
+                    </a>
                     <div class="d-flex gap-2">
-                        <a href="/admin" class="btn btn-geo flex-grow-1">
-                            Админка <i class="bi bi-incognito ms-1"></i>
+                        <a href="/admin#crm" class="btn-sub-action flex-grow-1" title="Перейти сразу к доске задач CRM">
+                            <i class="bi bi-kanban"></i> Доска CRM
                         </a>
-                        <a href="/admin#crm" class="btn btn-outline-secondary d-flex align-items-center justify-content-center px-3" title="Доска задач CRM">
-                            <i class="bi bi-kanban-fill"></i>
+                        <a href="/admin#timeline" class="btn-sub-action flex-grow-1" title="Открыть диаграмму Ганта">
+                            <i class="bi bi-calendar3-range"></i> Таймлайн
                         </a>
                     </div>
                 </div>
             </div>
+
             {% elif is_worker_role %}
-            <!-- Модуль: Мои задачи CRM (Для роли 'worker' — Лаборант / Геолог) -->
+            <!-- Модуль 3: Мои задачи CRM (Для роли 'worker' — Лаборант / Геолог) -->
+            <div class="col-md-4">
+                <div class="card service-card card-worker p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="card-icon-wrapper" style="background-color: rgba(25, 135, 84, 0.1); color: #198754; border-color: rgba(25, 135, 84, 0.25);">
+                            <i class="bi bi-kanban-fill"></i>
+                        </div>
+                        <span class="module-tag">Модуль 03 • CRM</span>
+                    </div>
+                    <h5 class="card-title fw-bold text-dark mb-2">Мои задачи и KPI</h5>
+                    <p class="card-text text-muted mb-3 small flex-grow-1">
+                        Рабочее пространство сотрудника лаборатории для выполнения поручений, отправки отчетных материалов и отслеживания личных показателей.
+                    </p>
+                    <ul class="module-feature-list">
+                        <li><i class="bi bi-check2-circle"></i> Дашборд эффективности и баллы за месяц</li>
+                        <li><i class="bi bi-check2-circle"></i> Прием задач и отправка отчетов с файлами</li>
+                        <li><i class="bi bi-check2-circle"></i> Контроль сроков и замечаний руководителя</li>
+                    </ul>
+                    <a href="/profile#tasks" class="btn btn-geo w-100 rounded-3 d-flex align-items-center justify-content-center gap-2">
+                        <span>Открыть мои задачи</span>
+                        <i class="bi bi-check2-square"></i>
+                    </a>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Модуль 3: Личный кабинет и безопасность (Для роли 'viewer' — Инвестор / Гость) -->
             <div class="col-md-4">
                 <div class="card service-card p-4">
-                    <div class="card-icon-wrapper" style="background-color: rgba(25, 135, 84, 0.1); color: #198754; border-color: rgba(25, 135, 84, 0.25);">
-                        <i class="bi bi-kanban-fill"></i>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="card-icon-wrapper">
+                            <i class="bi bi-person-lock"></i>
+                        </div>
+                        <span class="module-tag">Модуль 03 • Профиль</span>
                     </div>
-                    <h5 class="card-title fw-bold text-dark mb-3">Мои задачи (CRM)</h5>
-                    <p class="card-text text-muted mb-4 small flex-grow-1">
-                        Рабочий кабинет сотрудника лаборатории. Просмотр назначенных поручений, отправка отчетов с прикреплением файлов и личный дашборд KPI.
+                    <h5 class="card-title fw-bold text-dark mb-2">Профиль и безопасность</h5>
+                    <p class="card-text text-muted mb-3 small flex-grow-1">
+                        Управление параметрами вашей учетной записи, контроль срока действия лицензионного доступа и защита активных сеансов.
                     </p>
-                    <a href="/profile#tasks" class="btn btn-geo w-100">
-                        Перейти к задачам <i class="bi bi-check2-square ms-1"></i>
+                    <ul class="module-feature-list">
+                        <li><i class="bi bi-check2-circle"></i> Сведения о профиле и сроке действия доступа</li>
+                        <li><i class="bi bi-check2-circle"></i> Двухфакторная смена пароля через Email (2FA)</li>
+                        <li><i class="bi bi-check2-circle"></i> Принудительное завершение сторонних сессий</li>
+                    </ul>
+                    <a href="/profile" class="btn btn-geo w-100 rounded-3 d-flex align-items-center justify-content-center gap-2">
+                        <span>Настройки профиля</span>
+                        <i class="bi bi-gear"></i>
                     </a>
                 </div>
             </div>

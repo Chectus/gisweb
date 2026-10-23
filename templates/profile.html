@@ -2,7 +2,7 @@
   Файл: profile.html
   Описание: Личный кабинет пользователя. 
   Отображает информацию об учетной записи (ФИО, статус, роль, email), предоставляет функционал управления безопасностью 
-  и модуль CRM «Мои задачи» для сотрудников (worker / admin).
+  и модуль CRM «Мои задачи» для сотрудников (worker / admin) с поддержкой возврата на доработку и цветовой индикации visual_status.
 -->
 <!DOCTYPE html>
 <html lang="ru">
@@ -156,7 +156,6 @@
                                     Если вы заходили в систему с чужого компьютера и забыли выйти, вы можете принудительно завершить все сеансы (кроме текущего).
                                 </p>
 
-                                <!-- Вывод подтверждения успешного завершения сеансов -->
                                 {% if message %}
                                     <div class="alert alert-success small py-2 d-flex align-items-center" role="alert">
                                         <i class="bi bi-check-circle-fill me-2"></i>{{ message }}
@@ -180,7 +179,6 @@
                             <div class="card-body p-4 p-md-5">
                                 <h4 class="fw-bold mb-4" style="color: var(--geo-dark);">Смена пароля</h4>
                                 
-                                <!-- Блок вывода информационных сообщений и ошибок смены пароля -->
                                 {% if error_pwd %} 
                                     <div class="alert alert-danger small py-2 d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error_pwd }}</div> 
                                 {% endif %}
@@ -189,7 +187,6 @@
                                     <div class="alert alert-success small py-2 d-flex align-items-center"><i class="bi bi-check-circle-fill me-2"></i>{{ msg_pwd }}</div> 
                                 {% endif %}
 
-                                <!-- Маршрутизация состояния формы: Ожидание 2FA или первоначальный ввод -->
                                 {% if show_pwd_2fa %}
                                     
                                     <!-- Форма подтверждения смены пароля (ввод 2FA кода) -->
@@ -245,7 +242,6 @@
                                                     <i class="bi bi-eye text-muted"></i>
                                                 </button>
                                             </div>
-                                            <!-- Скрытый контейнер клиентской ошибки валидации -->
                                             <div id="pwdError" class="text-danger small mt-2 d-none"><i class="bi bi-x-circle me-1"></i> Пароли не совпадают!</div>
                                         </div>
                                         
@@ -289,7 +285,7 @@
                         <div class="card border-0 shadow-sm rounded-4 h-100">
                             <div class="card-body p-3 text-center">
                                 <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">НА ПРОВЕРКЕ</small>
-                                <h3 class="fw-bold mb-0 text-warning" id="stat-review">0</h3>
+                                <h3 class="fw-bold mb-0" style="color: #7c3aed;" id="stat-review">0</h3>
                             </div>
                         </div>
                     </div>
@@ -330,6 +326,7 @@
                             <button type="button" class="btn btn-sm btn-geo rounded-pill px-3 active" data-filter="all">Все задачи</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="pending">Новые</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="in_progress">Выполняются</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="revision">На доработке</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="review">На проверке</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" data-filter="completed">Выполненные</button>
                         </div>
@@ -370,6 +367,14 @@
                 <form id="submitTaskForm">
                     <div class="modal-body p-4">
                         <input type="hidden" id="submitTaskId">
+
+                        <!-- Блок показа замечаний руководителя прямо в модалке при повторной сдаче -->
+                        <div id="submitModalReviewerBox" class="reviewer-comment-box mb-3 d-none">
+                            <div class="fw-bold small mb-1">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>Замечание руководителя:
+                            </div>
+                            <div class="small" id="submitModalReviewerText" style="white-space: pre-wrap;"></div>
+                        </div>
                         
                         <div class="mb-3">
                             <label for="employeeReportInput" class="form-label small fw-bold text-muted">
@@ -380,7 +385,7 @@
                                       name="employee_report" 
                                       rows="5" 
                                       required 
-                                      placeholder="Опишите выполненные работы, подготовленные слои или результаты..."></textarea>
+                                      placeholder="Опишите выполненные работы, подготовленные слои или исправленные замечания..."></textarea>
                         </div>
 
                         <div class="mb-2">
@@ -407,36 +412,11 @@
     
     <!-- Подключение Bootstrap JS и скрипта темы -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../static/js/theme.js"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 
-    <!-- Инициализация клиентской логики страницы -->
+    <!-- Клиентская валидация совпадения новых паролей -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            
-            // Инициализация логики переключения цветовой темы
-            const themeToggleBtn = document.getElementById('theme-toggle');
-            const themeIcon = document.getElementById('theme-icon');
-            const body = document.body;
-
-            const savedTheme = localStorage.getItem('app-theme');
-            if (savedTheme === 'dark') {
-                body.classList.add('dark-theme');
-                themeIcon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
-            }
-
-            themeToggleBtn.addEventListener('click', () => {
-                body.classList.toggle('dark-theme');
-                
-                if (body.classList.contains('dark-theme')) {
-                    localStorage.setItem('app-theme', 'dark');
-                    themeIcon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
-                } else {
-                    localStorage.setItem('app-theme', 'light');
-                    themeIcon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
-                }
-            });
-
-            // Клиентская валидация совпадения новых паролей перед отправкой
             const pwdForm = document.getElementById('pwdForm');
             if (pwdForm) {
                 pwdForm.addEventListener('submit', function(e) {
@@ -497,30 +477,38 @@
                 return div.innerHTML;
             }
 
-            // Получение бейджа статуса согласно шпаргалке ТЗ
-            function getStatusBadge(status, isOverdue) {
-                let badgeHtml = '';
-                switch (status) {
-                    case 'pending':
-                        badgeHtml = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill">Не принята (Новая)</span>';
-                        break;
-                    case 'in_progress':
-                        badgeHtml = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">Выполняется</span>';
-                        break;
-                    case 'review':
-                        badgeHtml = '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill">На проверке</span>';
-                        break;
-                    case 'completed':
-                        badgeHtml = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">Выполнена</span>';
-                        break;
-                    default:
-                        badgeHtml = `<span class="badge bg-light text-dark rounded-pill">${escapeHtml(status)}</span>`;
-                }
+            // Определение расширенного статуса visual_status
+            function resolveVisualStatus(task) {
+                if (task.visual_status) return task.visual_status;
+                if (task.is_overdue && task.status !== 'completed') return 'overdue';
+                if (task.is_revision && task.status === 'in_progress') return 'revision';
+                if (task.status === 'completed') return task.is_overdue ? 'completed_late' : 'completed_on_time';
+                return task.status || 'pending';
+            }
 
-                if (isOverdue) {
-                    badgeHtml += ' <span class="badge bg-danger rounded-pill ms-1"><i class="bi bi-exclamation-octagon-fill me-1"></i>Просрочена</span>';
+            // Получение бейджа статуса с учетом visual_status, is_revision и is_overdue
+            function getStatusBadges(task) {
+                const vStatus = resolveVisualStatus(task);
+                const labels = {
+                    'pending': 'Не принята (Новая)',
+                    'in_progress': 'В работе',
+                    'revision': 'На доработке',
+                    'review': 'На проверке',
+                    'completed_on_time': 'Выполнена вовремя',
+                    'completed_late': 'Выполнена с просрочкой',
+                    'overdue': 'Просрочена'
+                };
+
+                const mainLabel = labels[vStatus] || task.status;
+                let html = `<span class="badge status-${escapeHtml(vStatus)} rounded-pill px-3 py-1">${escapeHtml(mainLabel)}</span>`;
+
+                if (task.is_revision && vStatus !== 'revision') {
+                    html += ` <span class="badge status-revision rounded-pill px-2 py-1 ms-1"><i class="bi bi-arrow-counterclockwise me-1"></i>На доработке</span>`;
                 }
-                return badgeHtml;
+                if (task.is_overdue && vStatus !== 'overdue' && vStatus !== 'completed_late') {
+                    html += ` <span class="badge status-overdue rounded-pill px-2 py-1 ms-1"><i class="bi bi-exclamation-octagon-fill me-1"></i>Просрочена</span>`;
+                }
+                return html;
             }
 
             // Загрузка задач и статистики сотрудника
@@ -566,9 +554,11 @@
 
             // Отрисовка списка карточек задач
             function renderMyTasks() {
-                const filtered = currentFilter === 'all'
-                    ? allMyTasks
-                    : allMyTasks.filter(t => t.status === currentFilter);
+                const filtered = allMyTasks.filter(t => {
+                    if (currentFilter === 'all') return true;
+                    if (currentFilter === 'revision') return t.is_revision === true || resolveVisualStatus(t) === 'revision';
+                    return t.status === currentFilter;
+                });
 
                 if (filtered.length === 0) {
                     tasksContainer.innerHTML = `
@@ -585,7 +575,7 @@
                 }
 
                 tasksContainer.innerHTML = filtered.map(task => {
-                    const overdueBorder = task.is_overdue ? 'border-start border-danger border-4' : '';
+                    const vStatus = resolveVisualStatus(task);
                     const authorName = task.author_full_name || task.author_username || 'Руководитель';
                     
                     // Блок оценки (для завершенных задач)
@@ -595,13 +585,22 @@
                            </span>`
                         : '';
 
-                    // Уведомление, если задача была возвращена на доработку (статус in_progress и уже есть прошлый отчет)
-                    const returnedAlert = (task.status === 'in_progress' && task.employee_report)
-                        ? `<div class="alert alert-warning small py-2 px-3 rounded-3 mb-3 d-flex align-items-center">
-                               <i class="bi bi-arrow-counterclockwise me-2 fs-5"></i>
-                               <div>Задача возвращена на доработку. Ваш прошлый отчет сохранен — вы можете отредактировать его при повторной сдаче.</div>
-                           </div>`
-                        : '';
+                    // Блок замечания руководителя (выводится, если task.is_revision === true или есть текст в task.reviewer_comment)
+                    let reviewerCommentHtml = '';
+                    if (task.is_revision || (task.reviewer_comment && task.reviewer_comment.trim() !== '')) {
+                        const commentText = task.reviewer_comment && task.reviewer_comment.trim() !== ''
+                            ? task.reviewer_comment
+                            : 'Задача возвращена на доработку. Проверьте корректность выполнения и отправьте обновленный отчет.';
+                        
+                        reviewerCommentHtml = `
+                            <div class="reviewer-comment-box mb-3">
+                                <div class="fw-bold small mb-1 d-flex align-items-center">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    <span>Замечание руководителя${task.is_revision ? ' (требуется доработка)' : ''}:</span>
+                                </div>
+                                <div class="small" style="white-space: pre-wrap;">${escapeHtml(commentText)}</div>
+                            </div>`;
+                    }
 
                     // Блок отчета сотрудника и прикрепленного файла (если есть)
                     let reportSection = '';
@@ -630,14 +629,16 @@
                                 <i class="bi bi-check2-circle me-1"></i>Принять в работу
                             </button>`;
                     } else if (task.status === 'in_progress') {
+                        const btnLabel = task.is_revision ? 'Исправить и сдать повторно' : 'Сдать отчет';
+                        const btnClass = task.is_revision ? 'btn-warning text-dark fw-bold' : 'btn-primary';
                         actionArea = `
-                            <button type="button" class="btn btn-primary rounded-pill px-4 btn-open-submit" data-id="${task.id}">
-                                <i class="bi bi-send me-1"></i>Сдать отчет
+                            <button type="button" class="btn ${btnClass} rounded-pill px-4 btn-open-submit" data-id="${task.id}">
+                                <i class="bi bi-send me-1"></i>${btnLabel}
                             </button>`;
                     } else if (task.status === 'review') {
                         actionArea = `
                             <span class="text-muted small fw-medium">
-                                <i class="bi bi-hourglass-split me-1 text-warning"></i>Ожидание проверки руководителем
+                                <i class="bi bi-hourglass-split me-1" style="color: #7c3aed;"></i>Ожидание проверки руководителем
                             </span>`;
                     } else if (task.status === 'completed') {
                         actionArea = `
@@ -648,13 +649,13 @@
 
                     return `
                         <div class="col-12">
-                            <div class="card border-0 shadow-sm rounded-4 ${overdueBorder}">
+                            <div class="card border-0 shadow-sm rounded-4 card-status-${escapeHtml(vStatus)}">
                                 <div class="card-body p-4">
                                     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                                         <div>
                                             <div class="mb-2 d-flex flex-wrap align-items-center gap-2">
                                                 <span class="text-muted small fw-bold">#${task.id}</span>
-                                                ${getStatusBadge(task.status, task.is_overdue)}
+                                                ${getStatusBadges(task)}
                                             </div>
                                             <h5 class="fw-bold mb-1" style="color: var(--geo-dark);">${escapeHtml(task.title)}</h5>
                                             <div class="text-muted small">
@@ -668,7 +669,7 @@
 
                                     ${task.description ? `<p class="text-muted mb-3" style="white-space: pre-wrap;">${escapeHtml(task.description)}</p>` : ''}
 
-                                    ${returnedAlert}
+                                    ${reviewerCommentHtml}
                                     ${reportSection}
 
                                     <!-- Даты жизненного цикла задачи -->
@@ -730,10 +731,19 @@
 
                     document.getElementById('submitTaskId').value = task.id;
                     document.getElementById('submitModalTaskTitle').textContent = `#${task.id} — ${task.title}`;
-                    // Подставляем прошлый отчет, если задача возвращалась на доработку
                     document.getElementById('employeeReportInput').value = task.employee_report || '';
                     document.getElementById('taskAttachmentInput').value = '';
                     document.getElementById('submitTaskError').classList.add('d-none');
+
+                    // Показываем замечание руководителя внутри модального окна, если оно есть
+                    const modalReviewerBox = document.getElementById('submitModalReviewerBox');
+                    const modalReviewerText = document.getElementById('submitModalReviewerText');
+                    if (task.is_revision || (task.reviewer_comment && task.reviewer_comment.trim() !== '')) {
+                        modalReviewerText.textContent = task.reviewer_comment || 'Требуется доработка по задаче.';
+                        modalReviewerBox.classList.remove('d-none');
+                    } else {
+                        modalReviewerBox.classList.add('d-none');
+                    }
 
                     submitModal.show();
                 }
