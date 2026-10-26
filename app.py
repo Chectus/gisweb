@@ -235,22 +235,6 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 # 1. СПРАВОЧНИК РОЛЕЙ
-class Role(db.Model):
-    __tablename__ = 'roles'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False) # 'admin', 'worker', 'viewer'
-    can_assign_tasks = db.Column(db.Boolean, default=False)      # Права начальника/зама
-    can_receive_tasks = db.Column(db.Boolean, default=False)     # Права лаборантов
-    
-    users = db.relationship('User', backref='role', lazy=True)
-
-# 2. ТАБЛИЦА ДОСТУПОВ К СЛОЯМ
-class UserLayer(db.Model):
-    __tablename__ = 'user_layers'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    layer_id = db.Column(db.Integer, nullable=False) # Просто число из layers_config.json
-
 # 3. ПОЛЬЗОВАТЕЛИ
 class User(db.Model):
     __tablename__ = 'users'
@@ -274,6 +258,7 @@ class User(db.Model):
     trusted_devices = db.relationship('TrustedDevice', backref='user', lazy=True, cascade="all, delete-orphan")
     tasks_assigned = db.relationship('Task', foreign_keys='Task.assignee_id', backref='assignee', lazy=True)
     tasks_authored = db.relationship('Task', foreign_keys='Task.author_id', backref='author', lazy=True)
+    task_participations = db.relationship('TaskAssignee', backref='user', cascade="all, delete-orphan", lazy=True)
 
     # --- МАГИЯ ОБРАТНОЙ СОВМЕСТИМОСТИ И ПРАВ CRM ---
     @property
@@ -308,60 +293,43 @@ class User(db.Model):
         return datetime.now() < self.expires_at
 
 
-# 4. ЗАДАЧИ (Модуль CRM)
-class Task(db.Model):
-    __tablename__ = 'tasks'
+# 4.1. ИНДИВИДУАЛЬНОЕ НАЗНАЧЕНИЕ В ЗАДАЧЕ (Поддержка нескольких исполнителей)
+class TaskAssignee(db.Model):
+    __tablename__ = 'task_assignees'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(255), nullable=False)
-    description = db.Column(db.Text)
-    
-    # Статус: 'pending', 'in_progress', 'review', 'completed'
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+
+    # Личный статус сотрудника по этой задаче: 'pending', 'in_progress', 'review', 'completed'
     status = db.Column(db.String(50), default='pending')
-    score = db.Column(db.Integer, nullable=True) # Оценка начальника от 1 до 10
-    
+    score = db.Column(db.Integer, nullable=True) # Личная оценка сотрудника (1-10)
+
+    # Личный отчет, файл и замечание начальника для этого конкретного сотрудника
     employee_report = db.Column(db.Text, nullable=True)
     attachment_path = db.Column(db.String(255), nullable=True)
-    
-    # НОВОЕ: Комментарий начальника (причина возврата на доработку или отзыв к оценке)
     reviewer_comment = db.Column(db.Text, nullable=True)
-    
-    # Строгий тайминг для формирования рабочих карт и таймлайна
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    deadline = db.Column(db.DateTime, nullable=True)
+
+    # Личный тайминг сотрудника
     accepted_at = db.Column(db.DateTime, nullable=True)
     submitted_at = db.Column(db.DateTime, nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
-    
-    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     @property
     def is_overdue(self):
-        """Проверка: просрочена ли задача сейчас или была ли сдана с опозданием"""
-        if not self.deadline:
+        deadline = self.task.deadline if self.task else None
+        if not deadline:
             return False
         if self.status == 'completed':
             check_time = self.submitted_at or self.completed_at or datetime.now()
-            return check_time > self.deadline
-        return datetime.now() > self.deadline
+            return check_time > deadline
+        return datetime.now() > deadline
 
     @property
     def is_revision(self):
-        """Признак того, что задача была возвращена начальником на переделку"""
         return self.status == 'in_progress' and bool(self.reviewer_comment)
 
     @property
     def visual_status(self):
-        """
-        Готовый цветовой статус для карточек и полосок на Таймлайне:
-        - 'completed_late'   : Сдана, но с просрочкой дедлайна
-        - 'completed_on_time': Сдана вовремя
-        - 'overdue'          : Горит дедлайн прямо сейчас (задача еще не закрыта)
-        - 'review'           : На проверке у руководителя
-        - 'revision'         : Возвращена на доработку (есть замечания начальника)
-        - 'in_progress'      : В работе (всё по плану)
-        - 'pending'          : Не принята сотрудником
-        """
         if self.status == 'completed':
             return 'completed_late' if self.is_overdue else 'completed_on_time'
         if self.is_overdue:
@@ -373,21 +341,14 @@ class Task(db.Model):
         return self.status # 'pending' или 'in_progress'
 
     def to_dict(self):
-        """Упаковка задачи со всеми датами, комментариями и цветами в JSON для фронтенда"""
         fmt = '%d.%m.%Y %H:%M'
-        iso_fmt = '%Y-%m-%dT%H:%M'
-        date_only_fmt = '%Y-%m-%d'
-        
-        # Определяем границы задачи для таймлайна (От постановки до дедлайна/завершения)
-        start_dt = self.created_at or datetime.now()
-        end_dt = self.deadline or self.completed_at or datetime.now()
-        if end_dt < start_dt:
-            end_dt = start_dt
-
+        u = self.user
+        display_name = (u.full_name or u.username) if u else 'Удален'
         return {
-            'id': self.id,
-            'title': self.title,
-            'description': self.description or '',
+            'user_id': self.user_id,
+            'username': u.username if u else 'Удален',
+            'full_name': display_name,
+            'role': u.role_name if u else 'worker',
             'status': self.status,
             'visual_status': self.visual_status,
             'is_overdue': self.is_overdue,
@@ -397,24 +358,228 @@ class Task(db.Model):
             'reviewer_comment': self.reviewer_comment or '',
             'has_attachment': bool(self.attachment_path),
             'attachment_name': os.path.basename(self.attachment_path) if self.attachment_path else None,
-            'attachment_url': url_for('download_task_attachment', task_id=self.id) if self.attachment_path else None,
-            
-            # Красивые даты для отображения в карточках
-            'created_at': self.created_at.strftime(fmt) if self.created_at else None,
-            'deadline': self.deadline.strftime(fmt) if self.deadline else None,
+            'attachment_url': url_for('download_task_attachment', task_id=self.task_id, user_id=self.user_id) if self.attachment_path else None,
             'accepted_at': self.accepted_at.strftime(fmt) if self.accepted_at else None,
             'submitted_at': self.submitted_at.strftime(fmt) if self.submitted_at else None,
-            'completed_at': self.completed_at.strftime(fmt) if self.completed_at else None,
+            'completed_at': self.completed_at.strftime(fmt) if self.completed_at else None
+        }
+
+
+# 4.2. ЗАДАЧИ (Модуль CRM)
+class Task(db.Model):
+    __tablename__ = 'tasks'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    
+    # Агрегированный статус задачи: 'pending', 'in_progress', 'review', 'completed'
+    status = db.Column(db.String(50), default='pending')
+    score = db.Column(db.Integer, nullable=True)
+    
+    employee_report = db.Column(db.Text, nullable=True)
+    attachment_path = db.Column(db.String(255), nullable=True)
+    reviewer_comment = db.Column(db.Text, nullable=True)
+    
+    # Строгий тайминг
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    deadline = db.Column(db.DateTime, nullable=True)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Оставляем assignee_id для обратной совместимости со старой схемой БД (хранит первого исполнителя)
+    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # Список всех назначенных исполнителей (1, 2, 5 и т.д.)
+    assignments = db.relationship('TaskAssignee', backref='task', cascade="all, delete-orphan", lazy='joined')
+
+    def sync_aggregate_state(self):
+        """
+        Пересчитывает общий статус задачи на основе статусов всех её исполнителей.
+        - Если все завершили -> 'completed'
+        - Если хотя бы один сдал на проверку -> 'review' (чтобы начальник сразу видел!)
+        - Если хотя бы один принял или завершил -> 'in_progress'
+        - Иначе -> 'pending'
+        """
+        if not self.assignments:
+            return
+        statuses = [a.status for a in self.assignments]
+        if all(s == 'completed' for s in statuses):
+            self.status = 'completed'
+            comp_dates = [a.completed_at for a in self.assignments if a.completed_at]
+            self.completed_at = max(comp_dates) if comp_dates else datetime.now()
+            scores = [a.score for a in self.assignments if a.score is not None]
+            if scores:
+                self.score = round(sum(scores) / len(scores))
+        elif any(s == 'review' for s in statuses):
+            self.status = 'review'
+            self.completed_at = None
+        elif any(s in ('in_progress', 'completed') for s in statuses):
+            self.status = 'in_progress'
+            self.completed_at = None
+        else:
+            self.status = 'pending'
+            self.completed_at = None
+
+        acc_dates = [a.accepted_at for a in self.assignments if a.accepted_at]
+        if acc_dates:
+            self.accepted_at = min(acc_dates)
+        sub_dates = [a.submitted_at for a in self.assignments if a.submitted_at]
+        if sub_dates:
+            self.submitted_at = max(sub_dates)
+
+    @property
+    def is_overdue(self):
+        if not self.deadline:
+            return False
+        if self.status == 'completed':
+            check_time = self.submitted_at or self.completed_at or datetime.now()
+            return check_time > self.deadline
+        return datetime.now() > self.deadline
+
+    @property
+    def is_revision(self):
+        if self.assignments:
+            return any(a.is_revision for a in self.assignments)
+        return self.status == 'in_progress' and bool(self.reviewer_comment)
+
+    @property
+    def visual_status(self):
+        if self.status == 'completed':
+            return 'completed_late' if self.is_overdue else 'completed_on_time'
+        if self.is_overdue:
+            return 'overdue'
+        if self.status == 'review':
+            return 'review'
+        if self.is_revision:
+            return 'revision'
+        return self.status
+
+    def to_dict(self, for_user_id=None):
+        """
+        Упаковка задачи в JSON.
+        Если передан for_user_id (для Личного кабинета и Таймлайна конкретного человека),
+        основные поля статуса/цвета/отчета заполняются данными ЭТОГО сотрудника.
+        А в массиве 'assignees' всегда отдается полная картина по всем участникам!
+        """
+        fmt = '%d.%m.%Y %H:%M'
+        iso_fmt = '%Y-%m-%dT%H:%M'
+        date_only_fmt = '%Y-%m-%d'
+        
+        start_dt = self.created_at or datetime.now()
+        end_dt = self.deadline or self.completed_at or datetime.now()
+        if end_dt < start_dt:
+            end_dt = start_dt
+
+        assignees_list = [a.to_dict() for a in sorted(self.assignments, key=lambda x: x.id)]
+        total_cnt = len(assignees_list)
+        completed_cnt = sum(1 for a in assignees_list if a['status'] == 'completed')
+        review_cnt = sum(1 for a in assignees_list if a['status'] == 'review')
+        in_progress_cnt = sum(1 for a in assignees_list if a['status'] == 'in_progress')
+        pending_cnt = sum(1 for a in assignees_list if a['status'] == 'pending')
+
+        progress_info = {
+            'total': total_cnt,
+            'completed': completed_cnt,
+            'review': review_cnt,
+            'in_progress': in_progress_cnt,
+            'pending': pending_cnt,
+            'submitted_or_done': completed_cnt + review_cnt,
+            'label': f"{completed_cnt + review_cnt}/{total_cnt}" if total_cnt > 0 else "0/1"
+        }
+
+        # Ищем запись конкретного пользователя, если запрос из /my или /timeline
+        personal_a = None
+        if for_user_id is not None and self.assignments:
+            personal_a = next((a for a in self.assignments if a.user_id == for_user_id), None)
+
+        if personal_a:
+            eff_status = personal_a.status
+            eff_visual = personal_a.visual_status
+            eff_overdue = personal_a.is_overdue
+            eff_revision = personal_a.is_revision
+            eff_score = personal_a.score
+            eff_report = personal_a.employee_report or ''
+            eff_comment = personal_a.reviewer_comment or self.reviewer_comment or ''
+            eff_has_att = bool(personal_a.attachment_path)
+            eff_att_name = os.path.basename(personal_a.attachment_path) if personal_a.attachment_path else None
+            eff_att_url = url_for('download_task_attachment', task_id=self.id, user_id=personal_a.user_id) if personal_a.attachment_path else None
+            eff_accepted = personal_a.accepted_at.strftime(fmt) if personal_a.accepted_at else None
+            eff_submitted = personal_a.submitted_at.strftime(fmt) if personal_a.submitted_at else None
+            eff_completed = personal_a.completed_at.strftime(fmt) if personal_a.completed_at else None
+        else:
+            eff_status = self.status
+            eff_visual = self.visual_status
+            eff_overdue = self.is_overdue
+            eff_revision = self.is_revision
+            eff_score = self.score
+            # Для общей карточки руководителя собираем сводный текст отчетов, если их несколько
+            reports_summary = [
+                f"[{a['full_name']}]: {a['employee_report']}" 
+                for a in assignees_list if a['employee_report']
+            ]
+            eff_report = "\n\n".join(reports_summary) if reports_summary else (self.employee_report or '')
             
-            # Сырые даты для HTML-инпутов и построения Таймлайна
+            comments_summary = [
+                f"[{a['full_name']}]: {a['reviewer_comment']}"
+                for a in assignees_list if a['reviewer_comment']
+            ]
+            eff_comment = "\n".join(comments_summary) if comments_summary else (self.reviewer_comment or '')
+            
+            first_with_att = next((a for a in assignees_list if a['has_attachment']), None)
+            eff_has_att = bool(first_with_att) or bool(self.attachment_path)
+            eff_att_name = first_with_att['attachment_name'] if first_with_att else (os.path.basename(self.attachment_path) if self.attachment_path else None)
+            eff_att_url = first_with_att['attachment_url'] if first_with_att else (url_for('download_task_attachment', task_id=self.id) if self.attachment_path else None)
+            eff_accepted = self.accepted_at.strftime(fmt) if self.accepted_at else None
+            eff_submitted = self.submitted_at.strftime(fmt) if self.submitted_at else None
+            eff_completed = self.completed_at.strftime(fmt) if self.completed_at else None
+
+        # Строка всех имен через запятую, чтобы даже старая верстка сразу показала всех исполнителей!
+        all_names_str = ", ".join(a['full_name'] for a in assignees_list) if assignees_list else (
+            (self.assignee.full_name or self.assignee.username) if self.assignee else 'Удален'
+        )
+        all_usernames_str = ", ".join(a['username'] for a in assignees_list) if assignees_list else (
+            self.assignee.username if self.assignee else 'Удален'
+        )
+
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description or '',
+            'status': eff_status,
+            'overall_status': self.status,
+            'visual_status': eff_visual,
+            'overall_visual_status': self.visual_status,
+            'is_overdue': eff_overdue,
+            'is_revision': eff_revision,
+            'score': eff_score,
+            'employee_report': eff_report,
+            'reviewer_comment': eff_comment,
+            'has_attachment': eff_has_att,
+            'attachment_name': eff_att_name,
+            'attachment_url': eff_att_url,
+            
+            # Даты
+            'created_at': self.created_at.strftime(fmt) if self.created_at else None,
+            'deadline': self.deadline.strftime(fmt) if self.deadline else None,
+            'accepted_at': eff_accepted,
+            'submitted_at': eff_submitted,
+            'completed_at': eff_completed,
             'deadline_iso': self.deadline.strftime(iso_fmt) if self.deadline else None,
             'timeline_start': start_dt.strftime(date_only_fmt),
             'timeline_end': end_dt.strftime(date_only_fmt),
             
-            # Информация об исполнителе и авторе
+            # Новые поля для групповой работы (несколько исполнителей)
+            'is_group_task': total_cnt > 1,
+            'assignees': assignees_list,
+            'assignee_ids': [a['user_id'] for a in assignees_list],
+            'progress': progress_info,
+            
+            # Обратная совместимость со старыми полями карточки
             'assignee_id': self.assignee_id,
-            'assignee_username': self.assignee.username if self.assignee else 'Удален',
-            'assignee_full_name': (self.assignee.full_name or self.assignee.username) if self.assignee else 'Удален',
+            'assignee_username': all_usernames_str,
+            'assignee_full_name': all_names_str,
             'author_id': self.author_id,
             'author_username': self.author.username if self.author else 'Система',
             'author_full_name': (self.author.full_name or self.author.username) if self.author else 'Система'
@@ -1103,6 +1268,46 @@ def api_edit_user(user_id):
 # --- МОДУЛЬ CRM: УПРАВЛЕНИЕ ЗАДАЧАМИ И ЭФФЕКТИВНОСТЬЮ ЛАБОРАТОРИИ ---
 # =====================================================================
 
+_schema_synced = False
+
+@app.before_request
+def ensure_multi_assignee_schema():
+    """
+    Автоматическая безопасная миграция при первом запросе:
+    1. Создает таблицу task_assignees в PostgreSQL, если её еще нет.
+    2. Переносит уже существующие одиночные задачи из tasks в task_assignees без потери данных.
+    """
+    global _schema_synced
+    if _schema_synced:
+        return
+    try:
+        db.create_all()
+        legacy_tasks = Task.query.all()
+        migrated = False
+        for t in legacy_tasks:
+            if not t.assignments and t.assignee_id:
+                ta = TaskAssignee(
+                    task_id=t.id,
+                    user_id=t.assignee_id,
+                    status=t.status or 'pending',
+                    score=t.score,
+                    employee_report=t.employee_report,
+                    attachment_path=t.attachment_path,
+                    reviewer_comment=t.reviewer_comment,
+                    accepted_at=t.accepted_at,
+                    submitted_at=t.submitted_at,
+                    completed_at=t.completed_at
+                )
+                db.session.add(ta)
+                migrated = True
+        if migrated:
+            db.session.commit()
+        _schema_synced = True
+    except Exception as e:
+        db.session.rollback()
+        print(f"[-] Предупреждение авто-синхронизации CRM: {e}")
+
+
 def parse_deadline(date_str):
     """Умный парсер дат: понимает и 'YYYY-MM-DDTHH:MM', и просто 'YYYY-MM-DD'"""
     if not date_str or not str(date_str).strip():
@@ -1111,7 +1316,6 @@ def parse_deadline(date_str):
     for fmt in ('%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M', '%Y-%m-%d', '%d.%m.%Y'):
         try:
             dt = datetime.strptime(date_str, fmt)
-            # Если передана только дата без времени, ставим конец рабочего дня (23:59)
             if fmt in ('%Y-%m-%d', '%d.%m.%Y'):
                 dt = dt.replace(hour=23, minute=59, second=59)
             return dt
@@ -1124,7 +1328,7 @@ def parse_deadline(date_str):
 def api_get_workers():
     """
     Отдает список всех сотрудников и админов (всех, кроме 'viewer'), 
-    которым можно назначить задачу (включая самого себя).
+    которым можно назначить задачу (по одному или группой).
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
@@ -1133,10 +1337,9 @@ def api_get_workers():
     if not current_user or not current_user.can_assign:
         return jsonify({'status': 'error', 'message': 'Доступ запрещен'}), 403
 
-    # Берем всех пользователей, чья роль НЕ 'viewer' (то есть 'admin' и 'worker')
     workers = User.query.join(Role).filter(
         Role.name != 'viewer'
-    ).order_by(User.username.asc()).all()
+    ).order_by(User.full_name.asc().nulls_last(), User.username.asc()).all()
 
     workers_list = [{
         'id': w.id,
@@ -1152,8 +1355,8 @@ def api_get_workers():
 @app.route('/api/tasks/my', methods=['GET'])
 def api_get_my_tasks():
     """
-    Личный кабинет сотрудника: отдает все задачи, назначенные текущему пользователю,
-    плюс его личную статистику (KPI/баллы). Инвесторам ('viewer') вход закрыт.
+    Личный кабинет сотрудника: отдает все задачи (и одиночные, и групповые),
+    где текущий пользователь является одним из исполнителей, плюс его личную статистику.
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
@@ -1162,27 +1365,30 @@ def api_get_my_tasks():
     if not current_user or current_user.role_name == 'viewer':
         return jsonify({'status': 'error', 'message': 'У вашей роли нет доступа к модулю задач'}), 403
 
-    tasks = Task.query.filter_by(assignee_id=current_user.id).order_by(Task.created_at.desc()).all()
-    tasks_data = [t.to_dict() for t in tasks]
+    my_assignments = TaskAssignee.query.filter_by(user_id=current_user.id).all()
+    task_ids = [a.task_id for a in my_assignments]
+    tasks = Task.query.filter(Task.id.in_(task_ids)).order_by(Task.created_at.desc()).all() if task_ids else []
+    
+    # Передаем for_user_id=current_user.id, чтобы статус карточки отражал личный прогресс сотрудника
+    tasks_data = [t.to_dict(for_user_id=current_user.id) for t in tasks]
 
-    # Считаем статистику для красивых плашек в личном кабинете
     now = datetime.now()
-    completed_tasks = [t for t in tasks if t.status == 'completed']
+    completed_assignments = [a for a in my_assignments if a.status == 'completed']
     completed_this_month = [
-        t for t in completed_tasks 
-        if t.completed_at and t.completed_at.year == now.year and t.completed_at.month == now.month
+        a for a in completed_assignments 
+        if a.completed_at and a.completed_at.year == now.year and a.completed_at.month == now.month
     ]
     
-    total_score_month = sum(t.score for t in completed_this_month if t.score)
-    scored_tasks = [t.score for t in completed_tasks if t.score is not None]
-    avg_score = round(sum(scored_tasks) / len(scored_tasks), 1) if scored_tasks else 0.0
+    total_score_month = sum(a.score for a in completed_this_month if a.score)
+    scored_list = [a.score for a in completed_assignments if a.score is not None]
+    avg_score = round(sum(scored_list) / len(scored_list), 1) if scored_list else 0.0
 
     stats = {
-        'pending_count': sum(1 for t in tasks if t.status == 'pending'),
-        'in_progress_count': sum(1 for t in tasks if t.status == 'in_progress'),
-        'review_count': sum(1 for t in tasks if t.status == 'review'),
-        'completed_count': len(completed_tasks),
-        'overdue_count': sum(1 for t in tasks if t.status != 'completed' and t.is_overdue),
+        'pending_count': sum(1 for a in my_assignments if a.status == 'pending'),
+        'in_progress_count': sum(1 for a in my_assignments if a.status == 'in_progress'),
+        'review_count': sum(1 for a in my_assignments if a.status == 'review'),
+        'completed_count': len(completed_assignments),
+        'overdue_count': sum(1 for a in my_assignments if a.status != 'completed' and a.is_overdue),
         'month_points': total_score_month,
         'average_score': avg_score
     }
@@ -1209,10 +1415,11 @@ def api_get_all_tasks():
 
     query = Task.query
 
-    # Фильтр по конкретному лаборанту
+    # Фильтр по конкретному сотруднику (ищет его среди всех участников задачи)
     assignee_id = request.args.get('assignee_id')
     if assignee_id and assignee_id.isdigit():
-        query = query.filter_by(assignee_id=int(assignee_id))
+        uid = int(assignee_id)
+        query = query.filter(Task.assignments.any(TaskAssignee.user_id == uid))
 
     # Фильтр по статусу ('pending', 'in_progress', 'review', 'completed')
     status_filter = request.args.get('status')
@@ -1221,7 +1428,6 @@ def api_get_all_tasks():
 
     tasks = query.order_by(Task.created_at.desc()).all()
 
-    # Опциональный фильтр по месяцу (формат 'YYYY-MM') для просмотра архива/рабочих карт
     month_filter = request.args.get('month')
     if month_filter and re.match(r'^\d{4}-\d{2}$', month_filter):
         year, month = map(int, month_filter.split('-'))
@@ -1240,8 +1446,10 @@ def api_get_all_tasks():
 @app.route('/api/tasks/create', methods=['POST'])
 def api_create_task():
     """
-    Насильное назначение задачи конкретному сотруднику руководителем.
-    Создает задачу в статусе 'pending' (Ожидает принятия сотрудником).
+    Назначение задачи одному ИЛИ нескольким исполнителям (админам/работникам).
+    Принимает:
+      - "assignee_ids": [1, 3, 5] (массив ID) 
+      - ИЛИ старый вариант "assignee_id": 1 (для обратной совместимости).
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
@@ -1256,20 +1464,42 @@ def api_create_task():
 
     title = data.get('title', '').strip()
     description = data.get('description', '').strip()
-    assignee_id = data.get('assignee_id')
     deadline_raw = data.get('deadline')
+
+    # Собираем список ID исполнителей (поддерживаем и массив assignee_ids, и одиночный assignee_id)
+    raw_ids = data.get('assignee_ids')
+    if not raw_ids:
+        single_id = data.get('assignee_id')
+        if isinstance(single_id, list):
+            raw_ids = single_id
+        elif single_id is not None and str(single_id).strip() != '':
+            raw_ids = [x.strip() for x in str(single_id).split(',') if x.strip()]
+        else:
+            raw_ids = []
+
+    # Очищаем дубликаты и приводим к int
+    clean_ids = []
+    for rid in raw_ids:
+        try:
+            uid = int(rid)
+            if uid not in clean_ids:
+                clean_ids.append(uid)
+        except (ValueError, TypeError):
+            continue
 
     if not title:
         return jsonify({'status': 'error', 'message': 'Укажите название задачи'}), 400
-    if not assignee_id:
-        return jsonify({'status': 'error', 'message': 'Необходимо обязательно выбрать исполнителя'}), 400
+    if not clean_ids:
+        return jsonify({'status': 'error', 'message': 'Необходимо выбрать хотя бы одного исполнителя'}), 400
 
-    assignee = db.session.get(User, int(assignee_id))
-    if not assignee:
-        return jsonify({'status': 'error', 'message': 'Выбранный сотрудник не найден'}), 404
-
-    if assignee.role_name == 'viewer':
-        return jsonify({'status': 'error', 'message': 'Нельзя назначить рабочую задачу гостю/инвестору!'}), 400
+    assignees = []
+    for uid in clean_ids:
+        u = db.session.get(User, uid)
+        if not u:
+            return jsonify({'status': 'error', 'message': f'Сотрудник с ID {uid} не найден'}), 404
+        if u.role_name == 'viewer':
+            return jsonify({'status': 'error', 'message': f'Нельзя назначить задачу инвестору ({u.username})!'}), 400
+        assignees.append(u)
 
     deadline_dt = parse_deadline(deadline_raw)
     if deadline_raw and not deadline_dt:
@@ -1281,23 +1511,33 @@ def api_create_task():
         status='pending',
         created_at=datetime.now(),
         deadline=deadline_dt,
-        assignee_id=assignee.id,
+        assignee_id=assignees[0].id, # Первый исполнитель для обратной совместимости
         author_id=current_user.id
     )
-
     db.session.add(new_task)
+    db.session.flush() # Получаем new_task.id до коммита
+
+    for u in assignees:
+        db.session.add(TaskAssignee(
+            task_id=new_task.id,
+            user_id=u.id,
+            status='pending'
+        ))
+
     db.session.commit()
 
+    names_log = ", ".join(u.username for u in assignees)
     log_action(
         current_user.id, 
         current_user.username, 
         'CRM', 
-        f'Назначена задача #{new_task.id} ("{title[:40]}") сотруднику {assignee.username}'
+        f'Назначена задача #{new_task.id} ("{title[:35]}") исполнителям: {names_log}'
     )
 
+    names_display = ", ".join(u.full_name or u.username for u in assignees)
     return jsonify({
         'status': 'success',
-        'message': f'Задача успешно назначена сотруднику {assignee.full_name or assignee.username}!',
+        'message': f'Задача назначена ({len(assignees)} чел.): {names_display}!',
         'task': new_task.to_dict()
     })
 
@@ -1305,8 +1545,8 @@ def api_create_task():
 @app.route('/api/tasks/<int:task_id>/accept', methods=['POST'])
 def api_accept_task(task_id):
     """
-    Кнопка «Принять задачу» для лаборанта.
-    Фиксирует точное время принятия (accepted_at) и переводит статус в 'in_progress'.
+    Кнопка «Принять задачу» для конкретного участника.
+    Переводит личный статус сотрудника в 'in_progress' и обновляет общий статус задачи.
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
@@ -1317,14 +1557,16 @@ def api_accept_task(task_id):
     if not task:
         return jsonify({'status': 'error', 'message': 'Задача не найдена'}), 404
 
-    if task.assignee_id != current_user.id:
+    assignment = TaskAssignee.query.filter_by(task_id=task.id, user_id=current_user.id).first()
+    if not assignment:
         return jsonify({'status': 'error', 'message': 'Вы не являетесь исполнителем этой задачи'}), 403
 
-    if task.status != 'pending':
-        return jsonify({'status': 'error', 'message': 'Задача уже принята в работу или завершена'}), 400
+    if assignment.status != 'pending':
+        return jsonify({'status': 'error', 'message': 'Вы уже приняли эту задачу в работу'}), 400
 
-    task.status = 'in_progress'
-    task.accepted_at = datetime.now()
+    assignment.status = 'in_progress'
+    assignment.accepted_at = datetime.now()
+    task.sync_aggregate_state()
     db.session.commit()
 
     log_action(current_user.id, current_user.username, 'CRM', f'Принята в работу задача #{task.id}')
@@ -1332,16 +1574,15 @@ def api_accept_task(task_id):
     return jsonify({
         'status': 'success',
         'message': 'Задача принята в работу!',
-        'task': task.to_dict()
+        'task': task.to_dict(for_user_id=current_user.id)
     })
 
 
 @app.route('/api/tasks/<int:task_id>/submit', methods=['POST'])
 def api_submit_task(task_id):
     """
-    Кнопка «Сдать на проверку» для лаборанта.
-    Принимает обязательный текстовый отчет и опциональный файл.
-    Поддерживает и multipart/form-data (с файлом), и обычный JSON.
+    Кнопка «Сдать на проверку» для конкретного участника задачи.
+    Сохраняет его личный отчет и личный файл в TaskAssignee, не затирая файлы коллег!
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
@@ -1352,13 +1593,13 @@ def api_submit_task(task_id):
     if not task:
         return jsonify({'status': 'error', 'message': 'Задача не найдена'}), 404
 
-    if task.assignee_id != current_user.id:
+    assignment = TaskAssignee.query.filter_by(task_id=task.id, user_id=current_user.id).first()
+    if not assignment:
         return jsonify({'status': 'error', 'message': 'Вы не являетесь исполнителем этой задачи'}), 403
 
-    if task.status != 'in_progress':
-        return jsonify({'status': 'error', 'message': 'Сдать можно только задачу, находящуюся в работе'}), 400
+    if assignment.status != 'in_progress':
+        return jsonify({'status': 'error', 'message': 'Сдать можно только задачу, находящуюся у вас в работе'}), 400
 
-    # Универсальное чтение: сначала проверяем JSON, иначе берем из формы (multipart/form-data)
     if request.is_json:
         data = request.get_json()
         report_text = data.get('employee_report', '').strip()
@@ -1370,48 +1611,51 @@ def api_submit_task(task_id):
     if not report_text:
         return jsonify({'status': 'error', 'message': 'Напишите краткий отчет о проделанной работе перед сдачей'}), 400
 
-    # Если прикрепили файл — сохраняем его на диск
     if uploaded_file and uploaded_file.filename:
         safe_name = secure_filename(uploaded_file.filename)
-        # Если имя файла было полностью на кириллице и secure_filename оставил только расширение
         if not safe_name or safe_name.startswith('.'):
             ext = os.path.splitext(uploaded_file.filename)[1]
             safe_name = f"report_file{ext}"
             
-        unique_filename = f"task_{task.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{safe_name}"
+        unique_filename = f"task_{task.id}_user_{current_user.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{safe_name}"
         full_save_path = os.path.join(TASKS_UPLOAD_FOLDER, unique_filename)
         
-        # Если у задачи уже был старый файл (при пересдаче) — аккуратно удаляем старый
-        if task.attachment_path and os.path.exists(task.attachment_path):
+        if assignment.attachment_path and os.path.exists(assignment.attachment_path):
             try:
-                os.remove(task.attachment_path)
+                os.remove(assignment.attachment_path)
             except OSError:
                 pass
                 
         uploaded_file.save(full_save_path)
-        task.attachment_path = full_save_path
+        assignment.attachment_path = full_save_path
+        task.attachment_path = full_save_path # Для обратной совместимости
 
+    assignment.employee_report = report_text
+    assignment.status = 'review'
+    assignment.submitted_at = datetime.now()
+    
     task.employee_report = report_text
-    task.status = 'review'
-    task.submitted_at = datetime.now()
+    task.sync_aggregate_state()
     db.session.commit()
 
-    log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} отправлена на проверку руководителю')
+    log_action(current_user.id, current_user.username, 'CRM', f'Отчет по задаче #{task.id} отправлен на проверку')
 
     return jsonify({
         'status': 'success',
-        'message': 'Отчет отправлен руководителю на проверку!',
-        'task': task.to_dict()
+        'message': 'Ваш отчет отправлен руководителю на проверку!',
+        'task': task.to_dict(for_user_id=current_user.id)
     })
 
 
 @app.route('/api/tasks/<int:task_id>/review', methods=['POST'])
 def api_review_task(task_id):
     """
-    Вердикт руководителя по задаче:
-    - action = 'approve': закрывает задачу ('completed'), ставит балл от 1 до 10, сохраняет опциональный комментарий.
-    - action = 'reject': возвращает задачу на доработку ('in_progress'), сохраняет обязательный комментарий (что переделать) и опционально новый дедлайн.
-    - action = 'extend_deadline': просто продлевает срок выполнения задачи в любой момент.
+    Вердикт руководителя по задаче (поддерживает как оценку конкретного участника, так и всей группы):
+    - Опциональный параметр "target_user_id": ID конкретного исполнителя. 
+      Если не передан — действие применяется ко всем участникам, сдавшим отчет ('review'), либо ко всем участникам задачи.
+    - action = 'approve': ставит оценку (1-10) и переводит в 'completed'.
+    - action = 'reject': возвращает в 'in_progress' с обязательным комментарием (reviewer_comment).
+    - action = 'extend_deadline': продлевает общий дедлайн задачи.
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
@@ -1428,8 +1672,22 @@ def api_review_task(task_id):
     if not data:
         return jsonify({'status': 'error', 'message': 'Пустой запрос'}), 400
 
-    action = data.get('action') # 'approve', 'reject' или 'extend_deadline'
+    action = data.get('action')
     comment = data.get('reviewer_comment', '').strip()
+    target_user_id = data.get('target_user_id') or data.get('assignee_id')
+
+    # Выбираем, кого именно проверяем
+    target_assignments = []
+    if target_user_id:
+        ta = TaskAssignee.query.filter_by(task_id=task.id, user_id=int(target_user_id)).first()
+        if not ta:
+            return jsonify({'status': 'error', 'message': 'Указанный сотрудник не назначен на эту задачу'}), 404
+        target_assignments = [ta]
+    else:
+        # Если конкретный сотрудник не указан: берем тех, кто на проверке ('review'), 
+        # а если таких нет — всех участников задачи
+        in_review = [a for a in task.assignments if a.status == 'review']
+        target_assignments = in_review if in_review else list(task.assignments)
 
     # ВАРИАНТ 1: Принять работу и выставить баллы (1-10)
     if action == 'approve':
@@ -1441,32 +1699,38 @@ def api_review_task(task_id):
         except (TypeError, ValueError):
             return jsonify({'status': 'error', 'message': 'Оценка должна быть целым числом от 1 до 10'}), 400
 
-        task.score = score_int
-        task.status = 'completed'
-        task.completed_at = datetime.now()
+        now = datetime.now()
+        for a in target_assignments:
+            a.score = score_int
+            a.status = 'completed'
+            a.completed_at = now
+            if comment:
+                a.reviewer_comment = comment
+            if not a.accepted_at:
+                a.accepted_at = now
+            if not a.submitted_at:
+                a.submitted_at = now
+
         if comment:
             task.reviewer_comment = comment
-            
-        if not task.accepted_at:
-            task.accepted_at = task.completed_at
-        if not task.submitted_at:
-            task.submitted_at = task.completed_at
-
+        task.sync_aggregate_state()
         db.session.commit()
-        log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} принята с оценкой {score_int}/10')
+
+        who_str = ", ".join(a.user.username for a in target_assignments if a.user)
+        log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} принята у [{who_str}] с оценкой {score_int}/10')
 
         return jsonify({
             'status': 'success',
-            'message': f'Задача закрыта! Выставлена оценка: {score_int} из 10.',
+            'message': f'Работа принята (оценка: {score_int}/10)!',
             'task': task.to_dict()
         })
 
-    # ВАРИАНТ 2: Вернуть задачу сотруднику на доработку (с комментарием и возможным продлением дедлайна)
+    # ВАРИАНТ 2: Вернуть задачу на доработку (конкретному человеку или всем сдавшим)
     elif action == 'reject':
         if not comment:
             return jsonify({
                 'status': 'error', 
-                'message': 'Пожалуйста, укажите в комментарии, что именно сотруднику нужно переделать!'
+                'message': 'Пожалуйста, укажите в комментарии, что именно нужно переделать!'
             }), 400
 
         new_deadline_raw = data.get('new_deadline')
@@ -1476,21 +1740,28 @@ def api_review_task(task_id):
                 return jsonify({'status': 'error', 'message': 'Неверный формат новой даты дедлайна'}), 400
             task.deadline = new_dt
 
+        for a in target_assignments:
+            a.reviewer_comment = comment
+            a.status = 'in_progress'
+            a.completed_at = None
+            a.score = None
+            if not a.accepted_at:
+                a.accepted_at = datetime.now()
+
         task.reviewer_comment = comment
-        task.status = 'in_progress'
-        task.completed_at = None
-        task.score = None
+        task.sync_aggregate_state()
         db.session.commit()
 
-        log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} возвращена на доработку: {comment[:60]}')
+        who_str = ", ".join(a.user.username for a in target_assignments if a.user)
+        log_action(current_user.id, current_user.username, 'CRM', f'Задача #{task.id} возвращена на доработку [{who_str}]: {comment[:50]}')
 
         return jsonify({
             'status': 'success',
-            'message': 'Задача возвращена сотруднику на доработку с вашим комментарием!',
+            'message': 'Задача возвращена на доработку с вашим комментарием!',
             'task': task.to_dict()
         })
 
-    # ВАРИАНТ 3: Просто продлить дедлайн задачи (и при желании обновить комментарий)
+    # ВАРИАНТ 3: Продлить дедлайн задачи
     elif action == 'extend_deadline':
         new_deadline_raw = data.get('new_deadline')
         new_dt = parse_deadline(new_deadline_raw)
@@ -1500,6 +1771,8 @@ def api_review_task(task_id):
         task.deadline = new_dt
         if comment:
             task.reviewer_comment = comment
+            for a in target_assignments:
+                a.reviewer_comment = comment
         db.session.commit()
 
         log_action(current_user.id, current_user.username, 'CRM', f'Продлен срок задачи #{task.id} до {new_dt.strftime("%d.%m.%Y %H:%M")}')
@@ -1516,13 +1789,9 @@ def api_review_task(task_id):
 @app.route('/api/tasks/timeline', methods=['GET'])
 def api_get_timeline():
     """
-    Роут для построения диаграммы Таймлайна (как видеодорожки при монтаже).
-    Принимает:
-      - ?month=2026-10 (или ?start_date=2026-10-01&end_date=2026-10-31)
-    Возвращает:
-      - Календарную сетку дней периода (days_grid)
-      - Список сотрудников (employees), где у каждого его задачи уже разложены 
-        по непересекающимся дорожкам (tracks: [ [задачи дорожки 0], [задачи дорожки 1] ]).
+    Диаграмма Таймлайна с поддержкой групповых задач:
+    Если задача назначена 3 сотрудникам, она появится на дорожке у каждого из этих 3 сотрудников,
+    причем цвет полоски (visual_status) у каждого будет отражать ЕГО ЛИЧНЫЙ статус по этой задаче!
     """
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
@@ -1531,9 +1800,8 @@ def api_get_timeline():
     if not current_user or current_user.role_name == 'viewer':
         return jsonify({'status': 'error', 'message': 'Нет доступа к таймлайну задач'}), 403
 
-    # 1. Определяем временное окно таймлайна (по умолчанию — текущий месяц)
     now = datetime.now()
-    month_param = request.args.get('month') # Например, '2026-10'
+    month_param = request.args.get('month')
     start_param = request.args.get('start_date')
     end_param = request.args.get('end_date')
 
@@ -1562,19 +1830,17 @@ def api_get_timeline():
 
     total_days = (period_end - period_start).days + 1
 
-    # 2. Формируем шапку календаря (список дней периода с пометкой выходных и сегодняшнего дня)
     days_grid = []
     for i in range(total_days):
         curr_d = period_start + timedelta(days=i)
         days_grid.append({
             'date': curr_d.strftime('%Y-%m-%d'),
             'day': curr_d.day,
-            'weekday': curr_d.weekday(), # 0 - Пн ... 5 - Сб, 6 - Вс
+            'weekday': curr_d.weekday(),
             'is_weekend': curr_d.weekday() in (5, 6),
             'is_today': (curr_d == now.date())
         })
 
-    # 3. Выбираем сотрудников (руководитель видит всех, обычный работник — только себя или всех при желании)
     only_me = request.args.get('only_me') == 'true' or not current_user.can_assign
     if only_me:
         users_list = [current_user]
@@ -1586,16 +1852,21 @@ def api_get_timeline():
     employees_timeline = []
 
     for emp in users_list:
-        emp_tasks = Task.query.filter_by(assignee_id=emp.id).all()
+        # Находим все задачи, где сотрудник является участником через TaskAssignee
+        emp_tasks = Task.query.filter(
+            Task.assignments.any(TaskAssignee.user_id == emp.id)
+        ).all()
         visible_tasks = []
 
         for t in emp_tasks:
+            # Берем личную запись сотрудника, чтобы знать его личную дату сдачи
+            personal_a = next((a for a in t.assignments if a.user_id == emp.id), None)
             t_start = (t.created_at or now).date()
-            # Конец полоски на таймлайне: дедлайн (а если его нет — дата сдачи или сегодня)
+            
             if t.deadline:
                 t_end = t.deadline.date()
-                # Если задача сдана позже дедлайна или просрочена сейчас — 
-                # можно растягивать до факта, но по ТЗ берем от постановки до срока сдачи:
+            elif personal_a and personal_a.completed_at:
+                t_end = personal_a.completed_at.date()
             elif t.completed_at:
                 t_end = t.completed_at.date()
             else:
@@ -1604,25 +1875,24 @@ def api_get_timeline():
             if t_end < t_start:
                 t_end = t_start
 
-            # Пропускаем задачи, которые вообще не попадают в выбранный месяц/период
             if t_end < period_start or t_start > period_end:
                 continue
 
-            # Обрезаем края полоски по границам видимого календаря (если задача началась в прошлом месяце)
             vis_start = max(t_start, period_start)
             vis_end = min(t_end, period_end)
 
-            start_idx = (vis_start - period_start).days       # Индекс колонки старта (от 0)
-            duration_days = (vis_end - vis_start).days + 1    # Ширина полоски в днях (минимум 1 день)
+            start_idx = (vis_start - period_start).days
+            duration_days = (vis_end - vis_start).days + 1
 
-            task_item = t.to_dict()
+            # Важно: передаем for_user_id=emp.id, чтобы полоска на таймлайне красилась в ЛИЧНЫЙ статус этого сотрудника!
+            task_item = t.to_dict(for_user_id=emp.id)
             task_item.update({
                 'real_start_date': t_start.strftime('%Y-%m-%d'),
                 'real_end_date': t_end.strftime('%Y-%m-%d'),
                 'visible_start_date': vis_start.strftime('%Y-%m-%d'),
                 'visible_end_date': vis_end.strftime('%Y-%m-%d'),
-                'start_day_index': start_idx,         # 0-based индекс дня от начала периода
-                'grid_column_start': start_idx + 1,   # 1-based для CSS Grid: grid-column: start / span duration
+                'start_day_index': start_idx,
+                'grid_column_start': start_idx + 1,
                 'duration_days': duration_days,
                 'clipped_left': t_start < period_start,
                 'clipped_right': t_end > period_end,
@@ -1631,12 +1901,11 @@ def api_get_timeline():
             })
             visible_tasks.append(task_item)
 
-        # 4. АЛГОРИТМ ВИДЕОДОРОЖЕК (Interval Partitioning)
-        # Сортируем задачи сотрудника по дню начала (а при совпадении — более длинные вперед)
+        # Алгоритм раскладки по непересекающимся видеодорожкам
         visible_tasks.sort(key=lambda x: (x['_sort_start'], -x['duration_days']))
 
-        tracks = []          # Массив дорожек: [ [task1, task3], [task2] ]
-        track_last_end = []  # Хранит дату окончания последней задачи на каждой дорожке
+        tracks = []
+        track_last_end = []
 
         for item in visible_tasks:
             v_start = item.pop('_sort_start')
@@ -1644,14 +1913,12 @@ def api_get_timeline():
 
             placed_track_idx = None
             for idx, last_end_date in enumerate(track_last_end):
-                # Если предыдущая задача на этой дорожке закончилась строго ДО начала новой — место свободно!
                 if last_end_date < v_start:
                     placed_track_idx = idx
                     track_last_end[idx] = v_end
                     tracks[idx].append(item)
                     break
 
-            # Если на всех существующих дорожках дни заняты (наслоение) — создаем новую дорожку ниже!
             if placed_track_idx is None:
                 placed_track_idx = len(tracks)
                 track_last_end.append(v_end)
@@ -1659,7 +1926,6 @@ def api_get_timeline():
 
             item['track_index'] = placed_track_idx
 
-        # Формируем инициалы для красивой аватарки (как на скриншоте: "ЕК", "ИЛ")
         display_name = emp.full_name or emp.username
         words = [w for w in display_name.split() if w]
         if len(words) >= 2:
@@ -1673,9 +1939,9 @@ def api_get_timeline():
             'full_name': display_name,
             'initials': initials,
             'role': emp.role_name,
-            'tracks_count': max(1, len(tracks)), # Минимум 1 пустая дорожка, чтобы строка сотрудника была в таблице
-            'tracks': tracks,                    # Готовые непересекающиеся дорожки для рендера!
-            'tasks_flat': visible_tasks          # Плоский список с полем track_index (на случай если фронту так удобнее)
+            'tracks_count': max(1, len(tracks)),
+            'tracks': tracks,
+            'tasks_flat': visible_tasks
         })
 
     return jsonify({
@@ -1689,9 +1955,10 @@ def api_get_timeline():
         'employees': employees_timeline
     })
 
+
 @app.route('/api/tasks/<int:task_id>/delete', methods=['DELETE', 'POST'])
 def api_delete_task(task_id):
-    """Удаление задачи руководителем (если создана по ошибке)"""
+    """Удаление задачи руководителем (вместе со всеми файлами участников)"""
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'Не авторизован'}), 401
 
@@ -1703,7 +1970,13 @@ def api_delete_task(task_id):
     if not task:
         return jsonify({'status': 'error', 'message': 'Задача не найдена'}), 404
 
-    # Удаляем прикрепленный файл с диска, если он был
+    for a in task.assignments:
+        if a.attachment_path and os.path.exists(a.attachment_path):
+            try:
+                os.remove(a.attachment_path)
+            except OSError:
+                pass
+
     if task.attachment_path and os.path.exists(task.attachment_path):
         try:
             os.remove(task.attachment_path)
@@ -1721,25 +1994,46 @@ def api_delete_task(task_id):
 
 @app.route('/api/tasks/<int:task_id>/attachment', methods=['GET'])
 def download_task_attachment(task_id):
-    """Защищенное скачивание прикрепленного к отчету файла"""
+    """
+    Защищенное скачивание файла отчета.
+    Поддерживает параметр ?user_id=<id>, чтобы начальник мог скачать файл конкретного участника групповой задачи.
+    """
     if 'user_id' not in session:
         return "Доступ запрещен", 403
 
     current_user = db.session.get(User, session['user_id'])
     task = db.session.get(Task, task_id)
+    if not task:
+        return "Задача не найдена", 404
 
-    if not task or not task.attachment_path or not os.path.exists(task.attachment_path):
-        return "Файл не найден", 404
-
-    # Скачать файл может только сам исполнитель задачи или руководство
-    if task.assignee_id != current_user.id and not current_user.can_assign:
+    is_participant = any(a.user_id == current_user.id for a in task.assignments)
+    if not is_participant and not current_user.can_assign:
         log_action(current_user.id, current_user.username, 'ВТОРЖЕНИЕ', f'Попытка скачать чужой отчет по задаче #{task.id}')
         return "У вас нет прав для скачивания этого файла", 403
 
+    target_uid = request.args.get('user_id', type=int)
+    file_path = None
+
+    if target_uid:
+        ta = next((a for a in task.assignments if a.user_id == target_uid), None)
+        if ta and ta.attachment_path:
+            file_path = ta.attachment_path
+    else:
+        # Если user_id не указан — ищем файл текущего юзера, либо первый доступный
+        my_ta = next((a for a in task.assignments if a.user_id == current_user.id and a.attachment_path), None)
+        if my_ta:
+            file_path = my_ta.attachment_path
+        else:
+            any_ta = next((a for a in task.assignments if a.attachment_path), None)
+            file_path = any_ta.attachment_path if any_ta else task.attachment_path
+
+    if not file_path or not os.path.exists(file_path):
+        return "Файл не найден", 404
+
     return send_file(
-        task.attachment_path,
+        file_path,
         as_attachment=True,
-        download_name=os.path.basename(task.attachment_path)
+        download_name=os.path.basename(file_path)
     )
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
