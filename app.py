@@ -235,6 +235,22 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 # 1. СПРАВОЧНИК РОЛЕЙ
+class Role(db.Model):
+    __tablename__ = 'roles'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False) # 'admin', 'worker', 'viewer'
+    can_assign_tasks = db.Column(db.Boolean, default=False)      # Права начальника/зама
+    can_receive_tasks = db.Column(db.Boolean, default=False)     # Права лаборантов
+    
+    users = db.relationship('User', backref='role', lazy=True)
+
+# 2. ТАБЛИЦА ДОСТУПОВ К СЛОЯМ
+class UserLayer(db.Model):
+    __tablename__ = 'user_layers'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    layer_id = db.Column(db.Integer, nullable=False) # Просто число из layers_config.json
+
 # 3. ПОЛЬЗОВАТЕЛИ
 class User(db.Model):
     __tablename__ = 'users'
