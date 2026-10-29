@@ -656,11 +656,25 @@
                                             <div class="mb-2 d-flex flex-wrap align-items-center gap-2">
                                                 <span class="text-muted small fw-bold">#${task.id}</span>
                                                 ${getStatusBadges(task)}
+                                                ${(task.is_group_task && task.progress) ? `
+                                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1">
+                                                        <i class="bi bi-people-fill me-1"></i>Готово: ${escapeHtml(task.progress.label)}
+                                                    </span>` : ''}
                                             </div>
                                             <h5 class="fw-bold mb-1" style="color: var(--geo-dark);">${escapeHtml(task.title)}</h5>
                                             <div class="text-muted small">
                                                 <i class="bi bi-person-badge me-1"></i>Поручил: <strong>${escapeHtml(authorName)}</strong>
                                             </div>
+                                            ${(task.is_group_task && Array.isArray(task.assignees)) ? `
+                                                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                                                    <span class="text-muted small"><i class="bi bi-people me-1"></i>Команда:</span>
+                                                    ${task.assignees.map(a => `
+                                                        <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill border bg-light small" style="font-size: 0.75rem;">
+                                                            <i class="timeline-legend-dot status-${escapeHtml(resolveVisualStatus(a))}" style="border-radius: 50%; width: 8px; height: 8px;"></i>
+                                                            <span>${escapeHtml(a.full_name || a.username)}</span>
+                                                        </span>
+                                                    `).join('')}
+                                                </div>` : ''}
                                         </div>
                                         <div>
                                             ${scoreBadge}

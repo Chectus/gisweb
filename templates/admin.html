@@ -313,19 +313,20 @@
                         <form id="crmCreateTaskForm" class="row g-3">
                             <div class="col-md-5">
                                 <label class="form-label small fw-bold" style="color: var(--geo-main);">Название задачи <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="crmTaskTitle" required placeholder="Например: Оцифровать рудные узлы листа N-50">
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Исполнитель (Работник) <span class="text-danger">*</span></label>
-                                <select class="form-select" id="crmTaskAssignee" required>
-                                    <option value="" disabled selected>Загрузка сотрудников...</option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold" style="color: var(--geo-main);">Дедлайн (опционально)</label>
+                                <input type="text" class="form-control" id="crmTaskTitle" required placeholder="Например: Сводный отчет по Забайкалью">
+                                
+                                <label class="form-label small fw-bold mt-3" style="color: var(--geo-main);">Дедлайн (опционально)</label>
                                 <input type="datetime-local" class="form-control" id="crmTaskDeadline">
+                            </div>
+
+                            <div class="col-md-7">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-bold mb-0" style="color: var(--geo-main);">Исполнители (1 или несколько) <span class="text-danger">*</span></label>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none small" id="btnToggleAllAssignees">Выбрать всех</button>
+                                </div>
+                                <div class="border rounded bg-white p-2 overflow-auto" style="height: 112px;" id="crmTaskAssigneesList">
+                                    <div class="text-muted small">Загрузка сотрудников...</div>
+                                </div>
                             </div>
 
                             <div class="col-12">
@@ -615,7 +616,7 @@
                     <div class="modal-body p-4">
                         <input type="hidden" id="crmActionTaskId">
                         <input type="hidden" id="crmActionType">
-
+                        <input type="hidden" id="crmActionUserId">
                         <!-- Блок выставления оценки (1-10) для action="approve" -->
                         <div id="crmApproveBlock" class="mb-3 d-none">
                             <label class="form-label small fw-bold text-secondary">Оценка качества выполнения (от 1 до 10) <span class="text-danger">*</span></label>
@@ -1113,6 +1114,18 @@
             return html;
         }
 
+        const assigneesListEl = document.getElementById('crmTaskAssigneesList');
+        const btnToggleAllAssignees = document.getElementById('btnToggleAllAssignees');
+
+        if (btnToggleAllAssignees) {
+            btnToggleAllAssignees.addEventListener('click', () => {
+                const cbs = document.querySelectorAll('.crm-assignee-cb');
+                const allChecked = Array.from(cbs).every(cb => cb.checked);
+                cbs.forEach(cb => cb.checked = !allChecked);
+                btnToggleAllAssignees.textContent = !allChecked ? 'Снять выбор' : 'Выбрать всех';
+            });
+        }
+
         // 1. Получение списка исполнителей (GET /api/tasks/workers)
         async function loadWorkers() {
             try {
@@ -1123,13 +1136,22 @@
                     const workers = data.workers;
 
                     if (workers.length === 0) {
-                        assigneeSelectCreate.innerHTML = '<option value="" disabled selected>Нет доступных работников (роль worker)</option>';
+                        assigneesListEl.innerHTML = '<div class="text-muted small">Нет доступных сотрудников</div>';
                     } else {
-                        assigneeSelectCreate.innerHTML = '<option value="" disabled selected>Выберите сотрудника...</option>' +
-                            workers.map(w => {
-                                const label = w.full_name ? `${w.full_name} (@${w.username})` : w.username;
-                                return `<option value="${w.id}">${escapeHtml(label)}</option>`;
-                            }).join('');
+                        assigneesListEl.innerHTML = workers.map(w => {
+                            const roleBadge = w.role === 'admin'
+                                ? '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill ms-1" style="font-size: 0.6rem;">Админ</span>'
+                                : '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill ms-1" style="font-size: 0.6rem;">Работник</span>';
+                            const label = w.full_name ? `${w.full_name} (@${w.username})` : w.username;
+
+                            return `
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input crm-assignee-cb" type="checkbox" value="${w.id}" id="worker_cb_${w.id}">
+                                    <label class="form-check-label small" for="worker_cb_${w.id}" style="cursor: pointer;">
+                                        ${escapeHtml(label)} ${roleBadge}
+                                    </label>
+                                </div>`;
+                        }).join('');
                     }
 
                     assigneeSelectFilter.innerHTML = '<option value="">Все сотрудники</option>' +
@@ -1140,10 +1162,9 @@
                 }
             } catch (err) {
                 console.error('Ошибка загрузки списка работников:', err);
-                assigneeSelectCreate.innerHTML = '<option value="" disabled selected>Ошибка загрузки списка</option>';
+                assigneesListEl.innerHTML = '<div class="text-danger small">Ошибка загрузки списка</div>';
             }
         }
-
         // 2. Получение всех задач лаборатории (GET /api/tasks/all)
         async function loadAllTasks() {
             const assigneeId = document.getElementById('filterAssignee').value;
@@ -1210,81 +1231,169 @@
 
             crmTasksContainer.innerHTML = tasks.map(task => {
                 const vStatus = resolveVisualStatus(task);
-                const assigneeName = task.assignee_full_name
-                    ? `${task.assignee_full_name} (@${task.assignee_username})`
-                    : (task.assignee_username || `ID ${task.assignee_id}`);
                 const authorName = task.author_full_name || task.author_username || 'Руководитель';
+                const assignees = Array.isArray(task.assignees) ? task.assignees : [];
+                const isGroup = task.is_group_task === true;
 
-                const scoreBadge = task.score !== null && task.score !== undefined
+                // 1. Бейдж прогресса групповой задачи рядом со статусом
+                const groupProgressBadge = (isGroup && task.progress)
+                    ? `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1">
+                           <i class="bi bi-people-fill me-1"></i>Готово: ${escapeHtml(task.progress.label)}
+                       </span>`
+                    : '';
+
+                // Оценка в правом верхнем углу (для одиночной задачи)
+                const singleScoreBadge = (!isGroup && task.score !== null && task.score !== undefined)
                     ? `<span class="badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold">
                            <i class="bi bi-star-fill me-1"></i>Оценка: ${task.score} / 10
                        </span>`
                     : '';
 
-                // Блок замечания руководителя, если он есть
-                let reviewerCommentSection = '';
-                if (task.is_revision || (task.reviewer_comment && task.reviewer_comment.trim() !== '')) {
-                    reviewerCommentSection = `
-                        <div class="reviewer-comment-box mb-3">
-                            <div class="fw-bold small mb-1">
-                                <i class="bi bi-chat-left-quote-fill me-1"></i>Комментарий руководителя${task.is_revision ? ' (возвращено на доработку)' : ''}:
-                            </div>
-                            <div class="small" style="white-space: pre-wrap;">${escapeHtml(task.reviewer_comment || 'Возвращено на доработку')}</div>
+                // 2. Чипсы участников с кружком личного visual_status
+                let assigneesChipsHtml = '';
+                if (assignees.length > 0) {
+                    const chips = assignees.map(a => {
+                        const aStatus = resolveVisualStatus(a);
+                        const aName = a.full_name || a.username;
+                        const aScore = (a.score !== null && a.score !== undefined)
+                            ? ` <span class="fw-bold text-warning ms-1"><i class="bi bi-star-fill"></i> ${a.score}/10</span>`
+                            : '';
+
+                        return `
+                            <span class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill border bg-light small">
+                                <i class="timeline-legend-dot status-${escapeHtml(aStatus)}" style="border-radius: 50%; width: 10px; height: 10px;"></i>
+                                <span class="fw-medium">${escapeHtml(aName)}</span>
+                                ${aScore}
+                            </span>`;
+                    }).join('');
+
+                    assigneesChipsHtml = `
+                        <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                            <span class="text-muted small"><i class="bi bi-people me-1"></i>Исполнители:</span>
+                            ${chips}
+                        </div>`;
+                } else {
+                    const singleName = task.assignee_full_name
+                        ? `${task.assignee_full_name} (@${task.assignee_username})`
+                        : (task.assignee_username || `ID ${task.assignee_id}`);
+                    assigneesChipsHtml = `
+                        <div class="text-muted small mt-1">
+                            <i class="bi bi-person-workspace me-1"></i>Исполнитель: <strong>${escapeHtml(singleName)}</strong>
                         </div>`;
                 }
 
-                // Блок отчета сотрудника
-                let reportSection = '';
-                if (task.employee_report || task.has_attachment) {
-                    const attachmentBtn = task.has_attachment
-                        ? `<div class="mt-2">
-                               <a href="${escapeHtml(task.attachment_url)}" class="btn btn-sm btn-outline-primary rounded-pill" target="_blank">
-                                   <i class="bi bi-paperclip me-1"></i>Скачать файл (${escapeHtml(task.attachment_name || 'Вложение')})
-                               </a>
-                           </div>`
-                        : '';
+                // 3. Блоки отчетов и замечаний по каждому участнику
+                let reportsBlockHtml = '';
+                if (assignees.length > 0) {
+                    const activeReports = assignees.filter(a => 
+                        a.employee_report || a.has_attachment || a.reviewer_comment || a.is_revision || a.status === 'review' || a.status === 'completed'
+                    );
 
-                    reportSection = `
-                        <div class="bg-light rounded-3 p-3 mb-3 border">
-                            <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">ОТЧЕТ ИСПОЛНИТЕЛЯ:</small>
-                            <div class="small" style="white-space: pre-wrap;">${escapeHtml(task.employee_report || 'Без текстового комментария')}</div>
-                            ${attachmentBtn}
-                        </div>`;
+                    if (activeReports.length > 0) {
+                        const itemsHtml = activeReports.map(a => {
+                            const aStatus = resolveVisualStatus(a);
+                            const aName = a.full_name ? `${a.full_name} (@${a.username})` : a.username;
+
+                            const fileBtn = a.has_attachment
+                                ? `<a href="${escapeHtml(a.attachment_url)}" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2 ms-2" style="font-size: 0.72rem;" target="_blank">
+                                       <i class="bi bi-paperclip me-1"></i>${escapeHtml(a.attachment_name || 'Скачать файл')}
+                                   </a>`
+                                : '';
+
+                            const commentHtml = (a.is_revision || (a.reviewer_comment && a.reviewer_comment.trim() !== ''))
+                                ? `<div class="reviewer-comment-box mt-2 py-1 px-2 small">
+                                       <strong>Замечание руководителя:</strong> <span style="white-space: pre-wrap;">${escapeHtml(a.reviewer_comment || 'Возвращено на доработку')}</span>
+                                   </div>`
+                                : '';
+
+                            // Индивидуальные кнопки для конкретного участника (передают target_user_id)
+                            let individualBtns = '';
+                            if (a.status === 'review') {
+                                individualBtns = `
+                                    <div class="d-flex flex-wrap gap-2 mt-2 justify-content-end">
+                                        <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-0 btn-crm-action" data-id="${task.id}" data-userid="${a.user_id}" data-action="approve">
+                                            <i class="bi bi-check2 me-1"></i>Принять у сотрудника
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-warning text-dark rounded-pill px-3 py-0 btn-crm-action" data-id="${task.id}" data-userid="${a.user_id}" data-action="reject">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть сотруднику
+                                        </button>
+                                    </div>`;
+                            } else if (a.status === 'completed') {
+                                individualBtns = `
+                                    <div class="d-flex flex-wrap gap-2 mt-2 justify-content-end">
+                                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3 py-0 btn-crm-action" data-id="${task.id}" data-userid="${a.user_id}" data-action="reject">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть на доработку
+                                        </button>
+                                    </div>`;
+                            }
+
+                            return `
+                                <div class="bg-light rounded-3 p-3 border card-status-${escapeHtml(aStatus)}">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
+                                        <span class="fw-bold small"><i class="bi bi-person-check me-1"></i>${escapeHtml(aName)}</span>
+                                        <div>${getStatusBadges(a)}</div>
+                                    </div>
+                                    ${(a.employee_report || a.has_attachment) ? `
+                                        <div class="small mt-1" style="white-space: pre-wrap;">${escapeHtml(a.employee_report || 'Файл без текстового комментария')}${fileBtn}</div>
+                                    ` : ''}
+                                    ${commentHtml}
+                                    ${individualBtns}
+                                </div>`;
+                        }).join('');
+
+                        reportsBlockHtml = `
+                            <div class="mb-3">
+                                <small class="text-muted fw-bold d-block mb-2" style="font-size: 0.72rem;">ОТЧЕТЫ ИСПОЛНИТЕЛЕЙ:</small>
+                                <div class="d-flex flex-column gap-2">${itemsHtml}</div>
+                            </div>`;
+                    }
+                } else {
+                    // Fallback для старого формата без массива assignees
+                    if (task.is_revision || (task.reviewer_comment && task.reviewer_comment.trim() !== '')) {
+                        reportsBlockHtml += `
+                            <div class="reviewer-comment-box mb-3">
+                                <div class="fw-bold small mb-1">Замечание руководителя:</div>
+                                <div class="small" style="white-space: pre-wrap;">${escapeHtml(task.reviewer_comment)}</div>
+                            </div>`;
+                    }
+                    if (task.employee_report || task.has_attachment) {
+                        reportsBlockHtml += `
+                            <div class="bg-light rounded-3 p-3 mb-3 border">
+                                <small class="text-muted fw-bold d-block mb-1" style="font-size: 0.72rem;">ОТЧЕТ ИСПОЛНИТЕЛЯ:</small>
+                                <div class="small" style="white-space: pre-wrap;">${escapeHtml(task.employee_report || '')}</div>
+                                ${task.has_attachment ? `<div class="mt-2"><a href="${escapeHtml(task.attachment_url)}" class="btn btn-sm btn-outline-primary rounded-pill" target="_blank"><i class="bi bi-paperclip me-1"></i>Скачать файл</a></div>` : ''}
+                            </div>`;
+                    }
                 }
 
-                // Кнопки действий руководителя
-                let managerActions = '';
-                if (task.status === 'pending' || task.status === 'in_progress') {
-                    managerActions = `
-                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="extend_deadline">
-                            <i class="bi bi-calendar-event me-1"></i>Продлить срок
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-crm-delete" data-id="${task.id}">
-                            <i class="bi bi-trash3 me-1"></i>Удалить
-                        </button>`;
-                } else if (task.status === 'review') {
-                    managerActions = `
+                // 4. Общие кнопки внизу карточки (без target_user_id — применяются ко всем в статусе review)
+                const hasAnyoneInReview = task.status === 'review' || assignees.some(a => a.status === 'review');
+                let bottomActionsHtml = '';
+
+                if (hasAnyoneInReview) {
+                    const approveLabel = isGroup ? 'Принять у всех сдавших' : 'Оценить (1–10) и закрыть';
+                    const rejectLabel = isGroup ? 'Вернуть всем сдавшим' : 'Вернуть на доработку';
+                    bottomActionsHtml += `
                         <button type="button" class="btn btn-sm btn-success rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="approve">
-                            <i class="bi bi-check2-circle me-1"></i>Оценить (1–10) и закрыть
+                            <i class="bi bi-check2-all me-1"></i>${approveLabel}
                         </button>
                         <button type="button" class="btn btn-sm btn-warning text-dark fw-medium rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="reject">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть на доработку
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="extend_deadline">
-                            <i class="bi bi-calendar-event me-1"></i>Продлить срок
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-crm-delete" data-id="${task.id}">
-                            <i class="bi bi-trash3 me-1"></i>Удалить
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>${rejectLabel}
                         </button>`;
-                } else if (task.status === 'completed') {
-                    managerActions = `
+                } else if (!isGroup && task.status === 'completed') {
+                    bottomActionsHtml += `
                         <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="reject">
                             <i class="bi bi-arrow-counterclockwise me-1"></i>Вернуть на доработку
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-crm-delete" data-id="${task.id}">
-                            <i class="bi bi-trash3 me-1"></i>Удалить
                         </button>`;
                 }
+
+                bottomActionsHtml += `
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 btn-crm-action" data-id="${task.id}" data-action="extend_deadline">
+                        <i class="bi bi-calendar-event me-1"></i>Продлить срок
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-crm-delete" data-id="${task.id}">
+                        <i class="bi bi-trash3 me-1"></i>Удалить
+                    </button>`;
 
                 return `
                     <div class="col-12">
@@ -1295,33 +1404,31 @@
                                         <div class="mb-2 d-flex flex-wrap align-items-center gap-2">
                                             <span class="text-muted small fw-bold">#${task.id}</span>
                                             ${getStatusBadges(task)}
+                                            ${groupProgressBadge}
                                         </div>
                                         <h5 class="fw-bold mb-1" style="color: var(--geo-dark);">${escapeHtml(task.title)}</h5>
-                                        <div class="d-flex flex-wrap gap-3 text-muted small">
-                                            <span><i class="bi bi-person-workspace me-1"></i>Исполнитель: <strong>${escapeHtml(assigneeName)}</strong></span>
-                                            <span><i class="bi bi-person-badge me-1"></i>Поручил: <strong>${escapeHtml(authorName)}</strong></span>
+                                        <div class="text-muted small">
+                                            <i class="bi bi-person-badge me-1"></i>Поручил: <strong>${escapeHtml(authorName)}</strong>
                                         </div>
+                                        ${assigneesChipsHtml}
                                     </div>
-                                    <div>${scoreBadge}</div>
+                                    <div>${singleScoreBadge}</div>
                                 </div>
 
                                 ${task.description ? `<p class="text-muted small mb-3" style="white-space: pre-wrap;">${escapeHtml(task.description)}</p>` : ''}
 
-                                ${reviewerCommentSection}
-                                ${reportSection}
+                                ${reportsBlockHtml}
 
                                 <div class="d-flex flex-wrap gap-3 text-muted small py-2 border-top border-bottom mb-3">
                                     <div><i class="bi bi-calendar-plus me-1"></i>Создана: <strong>${escapeHtml(task.created_at || '—')}</strong></div>
                                     <div class="${task.is_overdue ? 'text-danger fw-bold' : ''}">
                                         <i class="bi bi-alarm me-1"></i>Дедлайн: <strong>${escapeHtml(task.deadline || 'Без срока')}</strong>
                                     </div>
-                                    ${task.accepted_at ? `<div><i class="bi bi-play-circle me-1"></i>Принята: <strong>${escapeHtml(task.accepted_at)}</strong></div>` : ''}
-                                    ${task.submitted_at ? `<div><i class="bi bi-send-check me-1"></i>Сдана: <strong>${escapeHtml(task.submitted_at)}</strong></div>` : ''}
                                     ${task.completed_at ? `<div><i class="bi bi-check2-all me-1"></i>Завершена: <strong>${escapeHtml(task.completed_at)}</strong></div>` : ''}
                                 </div>
 
                                 <div class="d-flex flex-wrap justify-content-end gap-2">
-                                    ${managerActions}
+                                    ${bottomActionsHtml}
                                 </div>
                             </div>
                         </div>
@@ -1338,11 +1445,14 @@
                 const alertBox = document.getElementById('crmCreateAlert');
 
                 const title = document.getElementById('crmTaskTitle').value.trim();
-                const assigneeId = Number(document.getElementById('crmTaskAssignee').value);
                 const deadlineVal = document.getElementById('crmTaskDeadline').value;
                 const description = document.getElementById('crmTaskDescription').value.trim();
+                const assigneeIds = Array.from(document.querySelectorAll('.crm-assignee-cb:checked')).map(cb => Number(cb.value));
 
-                if (!title || !assigneeId) return;
+                if (!title || assigneeIds.length === 0) {
+                    alertBox.innerHTML = '<div class="alert alert-warning small py-2 mb-3">Выберите хотя бы одного исполнителя!</div>';
+                    return;
+                }
 
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Назначение...';
@@ -1351,7 +1461,7 @@
                 const payload = {
                     title: title,
                     description: description,
-                    assignee_id: assigneeId,
+                    assignee_ids: assigneeIds,
                     deadline: deadlineVal ? deadlineVal : null
                 };
 
@@ -1390,9 +1500,10 @@
         }
 
         // Открытие модального окна для действий руководителя (approve, reject, extend_deadline)
-        function openReviewModalForTask(task, actionType) {
+        function openReviewModalForTask(task, actionType, targetUserId = null) {
             document.getElementById('crmActionTaskId').value = task.id;
             document.getElementById('crmActionType').value = actionType;
+            document.getElementById('crmActionUserId').value = targetUserId || '';
             document.getElementById('crmReviewModalSubtitle').textContent = `#${task.id} — ${task.title}`;
             document.getElementById('crmReviewError').classList.add('d-none');
 
@@ -1456,9 +1567,10 @@
             if (actionBtn) {
                 const taskId = Number(actionBtn.dataset.id);
                 const actionType = actionBtn.dataset.action;
+                const targetUserId = actionBtn.dataset.userid ? Number(actionBtn.dataset.userid) : null;
                 const task = allLabTasks.find(t => t.id === taskId);
                 if (!task) return;
-                openReviewModalForTask(task, actionType);
+                openReviewModalForTask(task, actionType, targetUserId);
                 return;
             }
 
@@ -1498,6 +1610,10 @@
                 const submitBtn = document.getElementById('crmReviewSubmitBtn');
 
                 let payload = { action: actionType };
+                const targetUserId = document.getElementById('crmActionUserId').value;
+                if (targetUserId) {
+                    payload.target_user_id = Number(targetUserId);
+                }
 
                 if (actionType === 'approve') {
                     payload.score = Number(document.getElementById('crmApproveScore').value);
@@ -1632,21 +1748,47 @@
 
                 const tracksHtml = tracks.map(track => {
                     const barsHtml = (track || []).map(task => {
-                        timelineTasksMap[task.id] = task;
+                        timelineTasksMap[`${task.id}_${emp.user_id}`] = task;
                         const vStatus = resolveVisualStatus(task);
                         const startCol = task.grid_column_start || 1;
                         const spanCols = task.duration_days || 1;
+
                         const dateRange = (task.real_start_date || task.real_end_date)
                             ? ` (${task.real_start_date || '...'} — ${task.real_end_date || '...'})`
                             : '';
-                        const tooltip = `#${task.id} ${task.title}${dateRange}${task.reviewer_comment ? ' | Замечание: ' + task.reviewer_comment : ''}`;
+
+                        // Если задача групповая — добавляем прогресс внутри полоски и список соисполнителей в tooltip
+                        const groupBarSuffix = (task.is_group_task && task.progress)
+                            ? ` (👥 ${escapeHtml(task.progress.label)})`
+                            : '';
+
+                        let coAssigneesTooltip = '';
+                        if (task.is_group_task && Array.isArray(task.assignees) && task.assignees.length > 0) {
+                            const statusRu = {
+                                'pending': 'не принял',
+                                'in_progress': 'в работе',
+                                'revision': 'на доработке',
+                                'review': 'на проверке',
+                                'completed_on_time': 'выполнено',
+                                'completed_late': 'выполнено с просрочкой',
+                                'overdue': 'просрочено'
+                            };
+                            const listStr = task.assignees.map(a => {
+                                const st = statusRu[resolveVisualStatus(a)] || a.status;
+                                return `${a.full_name || a.username}: ${st}`;
+                            }).join(', ');
+                            coAssigneesTooltip = `\nУчастники (${task.progress ? task.progress.label : ''}): ${listStr}`;
+                        }
+
+                        const tooltip = `#${task.id} ${task.title}${dateRange}${coAssigneesTooltip}${task.reviewer_comment ? '\nЗамечание: ' + task.reviewer_comment : ''}`;
 
                         return `
                             <div class="task-bar status-${escapeHtml(vStatus)}"
                                  style="grid-column: ${startCol} / span ${spanCols};"
                                  data-task-id="${task.id}"
+                                 data-userid="${emp.user_id}"
                                  title="${escapeHtml(tooltip)}">
-                                #${task.id} ${escapeHtml(task.title)}
+                                #${task.id} ${escapeHtml(task.title)}${groupBarSuffix}
                             </div>`;
                     }).join('');
 
@@ -1687,15 +1829,16 @@
             const bar = e.target.closest('.task-bar');
             if (!bar) return;
             const taskId = Number(bar.dataset.taskId);
-            const task = timelineTasksMap[taskId] || allLabTasks.find(t => t.id === taskId);
+            const userId = bar.dataset.userid ? Number(bar.dataset.userid) : null;
+            const task = timelineTasksMap[`${taskId}_${userId}`] || allLabTasks.find(t => t.id === taskId);
             if (!task) return;
 
             if (task.status === 'review') {
-                openReviewModalForTask(task, 'approve');
+                openReviewModalForTask(task, 'approve', userId);
             } else if (task.status === 'completed') {
-                openReviewModalForTask(task, 'reject');
+                openReviewModalForTask(task, 'reject', userId);
             } else {
-                openReviewModalForTask(task, 'extend_deadline');
+                openReviewModalForTask(task, 'extend_deadline', null);
             }
         });
 
